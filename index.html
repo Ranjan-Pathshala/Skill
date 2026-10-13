@@ -3,10 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title> 🔥 RP Skill </title>
+<title> 🔥 RP Skill </title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <!-- Dynamic Client-Side PDF Watermarking Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <!-- Chart.js Library for Performance Analytics Chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
 :root {
       --primary: #2563eb;
@@ -53,7 +55,7 @@
 
     .watermark-text-container { position: relative; }
 
-    #announcement-banner {
+#announcement-banner {
       background: linear-gradient(90deg, #1e293b, #334155);
       color: #ffffff;
       padding: 10px 16px;
@@ -65,6 +67,37 @@
       margin-bottom: 15px;
       width: 100%;
       box-shadow: 0 2px 6px var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .banner-marquee-wrapper {
+      overflow: hidden;
+      width: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    /* Pause animation when hovering over the wrapper container */
+    .banner-marquee-wrapper:hover .banner-marquee-container {
+      animation-play-state: paused;
+    }
+
+    .banner-marquee-container {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      animation: marqueeRightToLeft 18s linear infinite;
+    }
+
+    @keyframes marqueeRightToLeft {
+      0% {
+        transform: translate(0, 0);
+      }
+      100% {
+        transform: translateX(-100%);
+      }
     }
 
     header { background-color: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px var(--shadow); }
@@ -218,6 +251,11 @@
       .grid-cards { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
       .video-grid-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
     }
+
+@keyframes visualPulse {
+  0% { background-color: rgba(239, 68, 68, 0.1); }
+  100% { background-color: rgba(239, 68, 68, 0.4); }
+}
   </style>
 </head>
 <body>
@@ -232,12 +270,16 @@
     <span style="font-weight: 600; font-size: 13px;">Processing...</span>
   </div>
 
-  <div id="announcement-banner">
-    <span id="banner-text-content"> Welcome to Ranjan Pathshala Skill </span>
-    <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="document.getElementById('announcement-banner').style.display='none'"></i>
+<div id="announcement-banner">
+    <div class="banner-marquee-wrapper">
+      <div class="banner-marquee-container">
+        <span id="banner-text-content"> Welcome to Ranjan Pathshala Skill </span>
+      </div>
+    </div>
+    <i class="fa-solid fa-xmark" style="cursor: pointer; margin-left: 12px; z-index: 5; flex-shrink: 0;" onclick="document.getElementById('announcement-banner').style.display='none'"></i>
   </div>
 
-  <header>
+<header>
     <div class="nav-container">
       <div class="brand" onclick="navigateTo('dashboard')">
         <img id="app-logo" src="https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_" alt="Logo">
@@ -257,7 +299,13 @@
       </ul>
 
       <!-- Right-aligned mobile/desktop user controls -->
-      <div class="header-user-controls" id="header-user-controls" style="display: none;">
+      <div class="header-user-controls" id="header-user-controls" style="display: none; align-items: center; gap: 10px;">
+        
+        <!-- Offline Connection Status Indicator -->
+        <div id="offline-status-indicator" style="display: none; align-items: center; gap: 6px; background: rgba(239, 68, 68, 0.15); color: var(--danger); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;">
+          <i class="fa-solid fa-triangle-exclamation"></i> Offline Mode
+        </div>
+
         <div class="user-profile-menu" id="user-menu-trigger" onclick="toggleProfileCard()">
           <i class="fa-solid fa-circle-user fa-lg" style="color: var(--primary);"></i>
           <div style="display: flex; flex-direction: column; text-align: right;">
@@ -378,7 +426,7 @@
       </div>
     </section>
 
-    <!-- DASHBOARD VIEW -->
+<!-- DASHBOARD VIEW -->
     <section id="view-dashboard" class="app-view" style="display: none;">
       <div class="dashboard-welcome">
         <div>
@@ -449,6 +497,16 @@
         </div>
       </div>
 
+      <!-- User Performance Analytics Chart Dashboard Card -->
+      <div class="card" style="margin-bottom: 24px;">
+        <h4 style="margin-bottom: 12px; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> User Performance Analytics (Accuracy & Speed Trends)
+        </h4>
+        <div style="width: 100%; height: 260px; position: relative;">
+          <canvas id="user-analytics-chart"></canvas>
+        </div>
+      </div>
+
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px;">
         <div class="card">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 12px;">
@@ -488,7 +546,6 @@
         </div>
       </div>
     </section>
-
     <!-- WORDS OUTLINE VIEW -->
     <section id="view-words" class="app-view" style="display: none;">
       <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -870,187 +927,200 @@
         </div>
       </div>
 
-      <!-- Admin Evaluation Rules Tab -->
-      <div id="admin-sub-evaluation" class="admin-tab-body" style="display: none;">
-        <div class="card" style="max-width: 800px;">
-          <h4>Exam & Evaluation Rules & Settings</h4>
-          <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Configure custom evaluation rules for Typing Test exams, Pitman, or Audio subtabs.</p>
-          
-          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
-            <div class="form-group" style="flex: 1; min-width: 220px; margin-bottom: 0;">
-              <label>Select Category <span class="required-star">*</span></label>
-              <select id="eval-category-select" class="form-control" onchange="handleEvalCategoryChange()">
-                <option value="typingtest">⌨️ Typing Test Exam Rule</option>
-                <option value="pitman">📖 Pitman Evaluation Rule</option>
-                <option value="audio">🔉 Audio Dictation Subtab Rule</option>
-                <option value="default">🌐 Global / Default Rule (Fallback Safety)</option>
-              </select>
-            </div>
-            <div class="form-group" id="group-eval-subtab" style="flex: 1; min-width: 220px; margin-bottom: 0; display: none;">
-              <label>Select Subtab <span class="required-star">*</span></label>
-              <select id="eval-subtab-select" class="form-control" onchange="loadSelectedEvaluationRulesIntoForm()"></select>
-            </div>
-          </div>
+<!-- Admin Evaluation Rules Tab -->
+<div id="admin-sub-evaluation" class="admin-tab-body" style="display: none;">
+  <div class="card" style="max-width: 800px;">
+    <h4>Exam & Evaluation Rules & Settings</h4>
+    <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Configure, edit, or delete custom evaluation rules for Typing Test exams, Pitman, or Audio subtabs.</p>
+    
+    <!-- 👉 Quick Selector to View, Edit or Delete Saved Rules -->
+    <div class="form-group" style="margin-bottom: 15px; background: var(--border); padding: 12px; border-radius: 8px;">
+      <label style="color: var(--primary); font-weight: 700;">📂 Manage Saved Rules (Select to Edit / Delete)</label>
+      <select id="saved-rules-quick-select" class="form-control" onchange="loadSpecificSavedRule(this.value)">
+        <option value="" disabled selected>-- Select a Saved Rule to Edit/View --</option>
+      </select>
+    </div>
 
-          <form id="admin-eval-rules-form" onsubmit="event.preventDefault(); saveEvaluationRulesSettings();" style="display: flex; flex-direction: column; gap: 12px;">
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>e. Backspace Mode</label>
-                <select id="eval-backspace-mode" class="form-control">
-                  <option value="on">Backspace ON (Allowed)</option>
-                  <option value="off">Backspace OFF (Blocked)</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>f. Total Marks</label>
-                <input type="number" id="eval-total-marks" class="form-control" value="100" min="10" max="500">
-              </div>
-            </div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
+      <div class="form-group" style="flex: 1; min-width: 220px; margin-bottom: 0;">
+        <label>Select Category <span class="required-star">*</span></label>
+        <select id="eval-category-select" class="form-control" onchange="handleEvalCategoryChange()">
+          <option value="typingtest">⌨️ Typing Test Exam Rule</option>
+          <option value="pitman">📖 Pitman Evaluation Rule</option>
+          <option value="audio">🔉 Audio Dictation Subtab Rule</option>
+        </select>
+      </div>
+      <div class="form-group" id="group-eval-subtab" style="flex: 1; min-width: 220px; margin-bottom: 0; display: none;">
+        <label>Select Subtab <span class="required-star">*</span></label>
+        <select id="eval-subtab-select" class="form-control" onchange="loadSelectedEvaluationRulesIntoForm()"></select>
+      </div>
+    </div>
 
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>g. Passing Marks</label>
-                <input type="number" id="eval-passing-marks" class="form-control" value="40" min="1" max="500">
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>h. Passing Accuracy (% Accuracy)</label>
-                <input type="number" id="eval-passing-accuracy" class="form-control" value="85" min="1" max="100" step="0.5">
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>w. Minimum Gross Stroke % (to Pass)</label>
-                <input type="number" id="eval-min-gross-stroke-pct" class="form-control" value="100" min="0" max="200" step="1">
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>x. Paragraph Change Neglected / Ignored</label>
-                <select id="eval-ignore-paragraph-change" class="form-control">
-                  <option value="yes">Yes (Neglect Paragraph Changes)</option>
-                  <option value="no">No (Strict Paragraph Checking)</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>Option: Repeat Passage Allowed</label>
-                <select id="eval-repeat-passage" class="form-control">
-                  <option value="yes">Yes (Allow Repeating Passage)</option>
-                  <option value="no">No (Disable Passage Repeating)</option>
-                </select>
-              </div>
-            </div>
-
-            <h5 style="margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Marks Deduction Parameters</h5>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>i. Marks Deduction for Leaving Punctuation</label>
-                <input type="number" id="eval-deduct-punctuation" class="form-control" value="0.5" min="0" max="10" step="0.1">
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>j. Marks Deduction for Leaving Word</label>
-                <input type="number" id="eval-deduct-word" class="form-control" value="1.0" min="0" max="10" step="0.1">
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>k. Marks Deduction for Wrong Typed</label>
-                <input type="number" id="eval-deduct-wrong" class="form-control" value="1.0" min="0" max="10" step="0.1">
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>l. Marks Deduction for Word Left</label>
-                <input type="number" id="eval-deduct-omission" class="form-control" value="1.0" min="0" max="10" step="0.1">
-              </div>
-            </div>
-
-            <h5 style="margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Security & Exam Controls</h5>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>m. Copy & Paste Working</label>
-                <select id="eval-copypaste-mode" class="form-control">
-                  <option value="yes">Copy & Paste Allowed</option>
-                  <option value="no">Copy & Paste Disabled</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>n. Function Keys Working (F1-F12)</label>
-                <select id="eval-func-keys-mode" class="form-control">
-                  <option value="yes">Function Keys Allowed</option>
-                  <option value="no">Function Keys Disabled</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>o. Word Counting Rule</label>
-                <select id="eval-word-count-rule" class="form-control">
-                  <option value="1word">One Word as One Word</option>
-                  <option value="5stroke">5 Strokes as One Word</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>u. Auto Scroll Mode</label>
-                <select id="eval-autoscroll-mode" class="form-control">
-                  <option value="on">Auto Scroll ON</option>
-                  <option value="off">Auto Scroll OFF</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>v. Highlight Word / Character</label>
-                <select id="eval-highlight-mode" class="form-control">
-                  <option value="on">Highlight Enabled</option>
-                  <option value="off">Highlight Disabled</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>t. Default Text Size (px)</label>
-                <input type="number" id="eval-default-text-size" class="form-control" value="15" min="10" max="30">
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>s. Layout Position (Material Source)</label>
-                <select id="eval-layout-position" class="form-control">
-                  <option value="top">Material Top, User Box Bottom</option>
-                  <option value="left">Material Left, User Box Right</option>
-                </select>
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>q. Total Initial Words / Strokes Required</label>
-                <input type="number" id="eval-initial-words" class="form-control" value="0" min="0" max="1000">
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>r. Minimum Time Period Required (Seconds)</label>
-                <input type="number" id="eval-min-time" class="form-control" value="0" min="0" max="3600">
-              </div>
-              <div class="form-group" style="flex: 1; min-width: 200px;">
-                <label>p. Penalty After Error % Ignored & Penalty Value</label>
-                <div style="display: flex; gap: 6px;">
-                  <input type="number" id="eval-ignore-error-pct" class="form-control" value="5" placeholder="Ignore %" min="0" max="100">
-                  <input type="number" id="eval-penalty-value" class="form-control" value="1" placeholder="Penalty" min="0" max="10" step="0.1">
-                </div>
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-              <button type="submit" class="btn btn-primary">Save Evaluation Rules</button>
-              <button type="button" class="btn btn-danger" onclick="deleteSelectedEvaluationRules()">Delete / Reset Rule</button>
-            </div>
-          </form>
+    <form id="admin-eval-rules-form" onsubmit="event.preventDefault(); saveEvaluationRulesSettings();" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>e. Backspace Mode</label>
+          <select id="eval-backspace-mode" class="form-control">
+            <option value="on">Backspace ON (Allowed)</option>
+            <option value="off">Backspace OFF (Blocked)</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>f. Total Marks</label>
+          <input type="number" id="eval-total-marks" class="form-control" value="100" min="10" max="500">
         </div>
       </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>g. Passing Marks</label>
+          <input type="number" id="eval-passing-marks" class="form-control" value="40" min="1" max="500">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>h. Passing Accuracy (% Accuracy)</label>
+          <input type="number" id="eval-passing-accuracy" class="form-control" value="85" min="1" max="100" step="0.5">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>w. Minimum Gross Stroke % (to Pass)</label>
+          <input type="number" id="eval-min-gross-stroke-pct" class="form-control" value="100" min="0" max="200" step="1">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>x. Paragraph Change Neglected / Ignored</label>
+          <select id="eval-ignore-paragraph-change" class="form-control">
+            <option value="yes">Yes (Neglect Paragraph Changes)</option>
+            <option value="no">No (Strict Paragraph Checking)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>Option: Repeat Passage Allowed</label>
+          <select id="eval-repeat-passage" class="form-control">
+            <option value="yes">Yes (Allow Repeating Passage)</option>
+            <option value="no">No (Disable Passage Repeating)</option>
+          </select>
+        </div>
+      </div>
+
+      <h5 style="margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Marks Deduction Parameters</h5>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>i. Marks Deduction for Leaving Punctuation</label>
+          <input type="number" id="eval-deduct-punctuation" class="form-control" value="0.5" min="0" max="10" step="0.1">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>j. Marks Deduction for Leaving Word</label>
+          <input type="number" id="eval-deduct-word" class="form-control" value="1.0" min="0" max="10" step="0.1">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>k. Marks Deduction for Wrong Typed</label>
+          <input type="number" id="eval-deduct-wrong" class="form-control" value="1.0" min="0" max="10" step="0.1">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>l. Marks Deduction for Word Left</label>
+          <input type="number" id="eval-deduct-omission" class="form-control" value="1.0" min="0" max="10" step="0.1">
+        </div>
+      </div>
+
+      <h5 style="margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Security & Exam Controls</h5>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>m. Copy & Paste Working</label>
+          <select id="eval-copypaste-mode" class="form-control">
+            <option value="yes">Copy & Paste Allowed</option>
+            <option value="no">Copy & Paste Disabled</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>n. Function Keys Working (F1-F12)</label>
+          <select id="eval-func-keys-mode" class="form-control">
+            <option value="yes">Function Keys Allowed</option>
+            <option value="no">Function Keys Disabled</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>o. Word Counting Rule</label>
+          <select id="eval-word-count-rule" class="form-control">
+            <option value="1word">One Word as One Word</option>
+            <option value="5stroke">5 Strokes as One Word</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>u. Auto Scroll Mode</label>
+          <select id="eval-autoscroll-mode" class="form-control">
+            <option value="on">Auto Scroll ON</option>
+            <option value="off">Auto Scroll OFF</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>v. Highlight Word / Character</label>
+          <select id="eval-highlight-mode" class="form-control">
+            <option value="on">Highlight Enabled</option>
+            <option value="off">Highlight Disabled</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>t. Default Text Size (px)</label>
+          <input type="number" id="eval-default-text-size" class="form-control" value="15" min="10" max="30">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>s. Layout Position (Material Source)</label>
+          <select id="eval-layout-position" class="form-control">
+            <option value="top">Material Top, User Box Bottom</option>
+            <option value="left">Material Left, User Box Right</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>q. Total Initial Words / Strokes Required</label>
+          <input type="number" id="eval-initial-words" class="form-control" value="0" min="0" max="1000">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>r. Minimum Time Period Required (Seconds)</label>
+          <input type="number" id="eval-min-time" class="form-control" value="0" min="0" max="3600">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>p. Penalty After Error % Ignored & Penalty Value</label>
+          <div style="display: flex; gap: 6px;">
+            <input type="number" id="eval-ignore-error-pct" class="form-control" value="5" placeholder="Ignore %" min="0" max="100">
+            <input type="number" id="eval-penalty-value" class="form-control" value="1" placeholder="Penalty" min="0" max="10" step="0.1">
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 10px;">
+        <button type="submit" class="btn btn-primary">Save Evaluation Rules</button>
+        <button type="button" class="btn btn-danger" onclick="deleteSelectedEvaluationRules()">Delete / Reset Rule</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 👉 ADDED: Existing Evaluation Rules Summary Table at the Bottom -->
+  <div style="margin-top: 20px; max-width: 800px;">
+    <h4>Existing Uploaded / Saved Evaluation Rules</h4>
+    <div id="admin-eval-rules-table-container" style="overflow-x: auto; margin-top: 10px;"></div>
+  </div>
+</div>
 
       <!-- Admin Banner Tab with Auto Start/Stop & Forced Disable[cite: 1] -->
       <div id="admin-sub-banner" class="admin-tab-body" style="display: none;">
@@ -1126,18 +1196,18 @@
 <!-- Embedded Image Viewer Modal with Full Screen, White Background, Clear Watermarks & Zoom Controls -->
 <div class="modal-backdrop" id="embedded-image-modal" style="background: rgba(0,0,0,0.92); z-index: 7000; display: none; align-items: center; justify-content: center; padding: 0;">
   <div class="modal-content watermark-text-container" style="background: #ffffff; width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: none; position: relative;">
-    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); z-index: 10; background: #ffffff;">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); z-index: 20; background: #ffffff;">
       <span id="embedded-image-title" style="font-weight: 800; font-size: 16px; color: var(--secondary);">Image Viewer</span>
       <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 20px; padding: 4px; color: var(--secondary);" onclick="closeEmbeddedImageModal()"></i>
     </div>
     <div class="modal-body" style="flex: 1; display: flex; align-items: center; justify-content: center; background: #ffffff; position: relative; overflow: hidden; padding: 0;">
-      <!-- Multiple Watermark Layer populated dynamically via renderGlobalWatermark() -->
-      <div class="global-watermark-layer" style="opacity: 0.16; z-index: 2; color: #0f172a;"></div>
       <div id="zoomable-image-wrapper" style="transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
         <img id="embedded-modal-img" src="" style="max-width: 95%; max-height: 95%; object-fit: contain; display: block;" onerror="this.src='https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_'">
       </div>
+      <!-- Multiple Watermark Layer positioned ON TOP of the image with pointer-events: none -->
+      <div class="global-watermark-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.16; z-index: 10; pointer-events: none; color: #0f172a;"></div>
     </div>
-    <div style="background: #ffffff; border-top: 1px solid var(--border); padding: 12px; display: flex; gap: 12px; justify-content: center; align-items: center; z-index: 10;">
+    <div style="background: #ffffff; border-top: 1px solid var(--border); padding: 12px; display: flex; gap: 12px; justify-content: center; align-items: center; z-index: 20;">
       <button class="btn btn-secondary btn-sm" onclick="adjustCustomImageZoom(0.2)"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In</button>
       <button class="btn btn-secondary btn-sm" onclick="adjustCustomImageZoom(-0.2)"><i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out</button>
       <button class="btn btn-secondary btn-sm" onclick="resetCustomImageZoom()"><i class="fa-solid fa-rotate"></i> Reset Zoom</button>
@@ -1315,13 +1385,33 @@ function getLocalDateString() {
     const SITE_NAME = 'RP Skill';
     const DEFAULT_LOGO_URL = 'https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_';
 
-    window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', () => {
       initApp();
       fetchPublicFooterStats();
       injectClearIconsToInputs();
       renderGlobalWatermark();
       populateEvalCategoryDropdown();
       loadSelectedEvaluationRulesIntoForm();
+
+      // Listen for online and offline network status changes
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+      updateOnlineStatus(); // Check initial status on load
+
+      // Listen for browser fullscreen or F11 exit events
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+          // Ensure body overflow and styles reset when exiting F11 mode
+          document.body.style.overflow = 'auto';
+          
+          // Optional: If an active test modal is open and F11 is exited, you can handle cleanup here
+          const activeTestModal = document.getElementById('active-test-modal');
+          if (activeTestModal && activeTestModal.style.display === 'flex') {
+            // Uncomment the line below if you want the test to automatically cancel when F11 is pressed
+            // cancelStenoTest();
+          }
+        }
+      });
 
       window.addEventListener('popstate', (event) => {
         if (event.state && event.state.tab) {
@@ -1331,6 +1421,19 @@ function getLocalDateString() {
         }
       });
     });
+
+    // Handler function to update offline indicator visibility
+    function updateOnlineStatus() {
+      const indicator = document.getElementById('offline-status-indicator');
+      if (!indicator) return;
+      
+      if (!navigator.onLine) {
+        indicator.style.display = 'flex';
+        showToast('⚠️ You are currently offline. Changes are saved locally.');
+      } else {
+        indicator.style.display = 'none';
+      }
+    }
 
     function renderGlobalWatermark() {
       const layers = document.querySelectorAll('.global-watermark-layer');
@@ -1347,7 +1450,16 @@ function getLocalDateString() {
       });
     }
 
-    async function initApp() {
+async function initApp() {
+      // Fetch evaluation rules from backend on app startup so all users have them
+      const ruleRes = await apiCall('getEvaluationRules', {});
+      if (ruleRes.success && ruleRes.rulesMap) {
+        for (var rKey in ruleRes.rulesMap) {
+          allEvaluationRules[rKey] = ruleRes.rulesMap[rKey];
+        }
+        localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+      }
+
       if (currentUser && currentUser.token) {
         setupAuthenticatedUI();
         navigateTo('dashboard', false);
@@ -1383,7 +1495,7 @@ function getLocalDateString() {
       }
     }
 
-    async function apiCall(action, payload = {}) {
+    async function apiCall(action, payload = {}, retries = 3, delay = 2000) {
       showLoader(true);
       try {
         const response = await fetch(APPS_SCRIPT_URL, {
@@ -1392,10 +1504,22 @@ function getLocalDateString() {
           body: JSON.stringify({ action: action, payload: payload })
         });
         const result = await response.json();
+        
+        // Auto-retry if the server is busy/timed out and retries remain
+        if (!result.success && result.message && (result.message.includes('Server busy') || result.message.includes('busy')) && retries > 0) {
+          showLoader(false);
+          await new Promise(resolve => setTimeout(resolve, delay + Math.random() * 1000));
+          return apiCall(action, payload, retries - 1, delay * 1.5);
+        }
+
         showLoader(false);
         return result;
       } catch (err) {
         showLoader(false);
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return apiCall(action, payload, retries - 1, delay * 1.5);
+        }
         showToast('Connection to server failed. Please check internet connection.');
         return { success: false, message: 'Server offline' };
       }
@@ -1446,7 +1570,7 @@ function getLocalDateString() {
       });
     }
 
-    function populateEvalCategoryDropdown() {
+function populateEvalCategoryDropdown() {
       const select = document.getElementById('eval-category-select');
       if (!select) return;
       
@@ -1455,10 +1579,65 @@ function getLocalDateString() {
         <option value="typingtest">⌨️ Typing Test Exam Rule</option>
         <option value="pitman">📖 Pitman Evaluation Rule</option>
         <option value="audio">🔉 Audio Dictation Subtab Rule</option>
-        <option value="default">🌐 Global / Default Rule (Fallback Safety)</option>
       `;
-      select.value = currentVal;
+      
+      if (currentVal && currentVal !== 'default') {
+        select.value = currentVal;
+      } else {
+        select.selectedIndex = 0;
+      }
       handleEvalCategoryChange();
+      populateSavedRulesQuickDropdown(); // Refresh saved rules list
+    }
+
+    // 👉 NEW: Populates the quick dropdown with all currently saved rules in localStorage
+    function populateSavedRulesQuickDropdown() {
+      const quickSelect = document.getElementById('saved-rules-quick-select');
+      if (!quickSelect) return;
+
+      quickSelect.innerHTML = '<option value="" disabled selected>-- Select a Saved Rule to Edit/View --</option>';
+      
+      const keys = Object.keys(allEvaluationRules || {});
+      if (keys.length === 0) {
+        quickSelect.innerHTML = '<option value="" disabled selected>No saved rules found</option>';
+        return;
+      }
+
+      keys.forEach(key => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.innerText = `Rule Key: [ ${key} ]`;
+        quickSelect.appendChild(opt);
+      });
+    }
+
+    // 👉 NEW: Loads a selected saved rule directly into the form for editing
+    function loadSpecificSavedRule(ruleKey) {
+      if (!ruleKey || !allEvaluationRules[ruleKey]) return;
+
+      if (ruleKey.includes('_')) {
+        const parts = ruleKey.split('_');
+        const cat = parts[0];
+        const catSelect = document.getElementById('eval-category-select');
+        if (catSelect) {
+          catSelect.value = cat;
+          handleEvalCategoryChange();
+          
+          setTimeout(() => {
+            const subtabSelect = document.getElementById('eval-subtab-select');
+            if (subtabSelect) subtabSelect.value = ruleKey;
+            loadSelectedEvaluationRulesIntoForm();
+          }, 50);
+        }
+      } else {
+        const catSelect = document.getElementById('eval-category-select');
+        if (catSelect) {
+          catSelect.value = ruleKey;
+          handleEvalCategoryChange();
+        }
+      }
+      loadSelectedEvaluationRulesIntoForm();
+      showToast(`Loaded rule for: ${ruleKey} ready for editing.`);
     }
 
     function handleEvalCategoryChange() {
@@ -1490,7 +1669,7 @@ function getLocalDateString() {
 
     function getSelectedEvalKey() {
       const catSelect = document.getElementById('eval-category-select');
-      if (!catSelect) return 'default';
+      if (!catSelect) return '';
       const cat = catSelect.value;
       if (cat === 'audio' || cat === 'typingtest' || cat === 'pdf' || cat === 'pitman') {
         const subtabSelect = document.getElementById('eval-subtab-select');
@@ -1500,6 +1679,7 @@ function getLocalDateString() {
     }
 
     function getEvaluationRulesForTab(subtabKey) {
+      if (!subtabKey) return null;
       if (allEvaluationRules[subtabKey]) {
         return allEvaluationRules[subtabKey];
       }
@@ -1507,12 +1687,18 @@ function getLocalDateString() {
       if (allEvaluationRules[baseCat]) {
         return allEvaluationRules[baseCat];
       }
-      return allEvaluationRules['default'] || defaultEvaluationRule;
+      
+      showToast('rule is not set contact administration');
+      return null;
     }
 
     function loadSelectedEvaluationRulesIntoForm() {
       const key = getSelectedEvalKey();
       const rules = getEvaluationRulesForTab(key);
+
+      if (!rules) {
+        return;
+      }
 
       document.getElementById('eval-backspace-mode').value = rules.backspaceMode || 'on';
       document.getElementById('eval-total-marks').value = rules.totalMarks || 100;
@@ -1572,6 +1758,7 @@ async function saveEvaluationRulesSettings() {
 
       allEvaluationRules[key] = ruleData;
       localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+      populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
 
       // Sync and save permanently to the Google Sheets backend
       const res = await apiCall('saveEvaluationRules', {
@@ -1580,7 +1767,7 @@ async function saveEvaluationRulesSettings() {
       });
 
       if (res.success) {
-        showToast('Exam & Evaluation rules saved and synced successfully.');
+        showToast('Exam & Evaluation rules saved, edited, and synced successfully.');
       } else {
         showToast('Rules saved locally, but backend sync failed: ' + res.message);
       }
@@ -1588,26 +1775,26 @@ async function saveEvaluationRulesSettings() {
 
     async function deleteSelectedEvaluationRules() {
       const key = getSelectedEvalKey();
-      if (key === 'default') {
-        showToast('Default rules cannot be deleted.');
+      if (!key) {
+        showToast('Please select a valid evaluation category/subtab.');
         return;
       }
 
-      if (confirm('Are you sure you want to delete/reset evaluation rules for this item?')) {
-        allEvaluationRules[key] = { ...defaultEvaluationRule };
+      if (confirm(`Are you sure you want to delete/reset evaluation rules for [ ${key} ]?`)) {
+        delete allEvaluationRules[key];
         localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+        populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
 
-        // Sync the reset to the backend sheet as well
         const res = await apiCall('saveEvaluationRules', {
           ruleKey: key,
-          ruleJson: JSON.stringify(allEvaluationRules[key])
+          ruleJson: ''
         });
 
         loadSelectedEvaluationRulesIntoForm();
         if (res.success) {
-          showToast('Evaluation rules reset and synced successfully.');
+          showToast('Evaluation rule deleted and synced successfully.');
         } else {
-          showToast('Reset locally, but backend sync failed.');
+          showToast('Deleted locally, but backend sync failed.');
         }
       }
     }
@@ -1653,7 +1840,6 @@ async function saveEvaluationRulesSettings() {
         loadSelectedEvaluationRulesIntoForm();
       }
     }
-
 
     function renderAuthView() {
       const navTabs = document.getElementById('main-nav-tabs');
@@ -1837,10 +2023,11 @@ async function saveEvaluationRulesSettings() {
           }
         }
 
-        renderAnnouncements();
+renderAnnouncements();
         renderHomework();
         renderVideoReferences();
         renderUserDashboardLeaderboards();
+        renderUserPerformanceChart(); // 👉 Add this line here
       }
     }
 
@@ -1875,8 +2062,17 @@ function renderUserDashboardLeaderboards() {
           return parseFloat(b.NetSpeed || 0) - parseFloat(a.NetSpeed || 0);
         });
         const top = typingTests[0];
+
+        // 🧹 Comprehensive cleaner to remove ISO timestamps, regular dates, and trailing hyphens/spaces
+        let cleanExamName = (top.ExamName || '')
+          .replace(/[-–—]?\s*\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:?\d{2})?/g, '')
+          .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '')
+          .replace(/\b\d{2}[-/]\d{2}[-/]\d{4}\b/g, '')
+          .replace(/[-–—]\s*$/, '')
+          .trim();
+
         if (typingRankElem) {
-          typingRankElem.innerHTML = `🥇 <strong>${top.UserName || 'User'}</strong> — ${top.ExamName} <br><span style="font-size:12px; color:var(--text-muted);">Accuracy: ${top.AccuracyPercentage}% | Speed: ${top.NetSpeed || 0} WPM</span>`;
+          typingRankElem.innerHTML = `🥇 <strong>${top.UserName || 'User'}</strong> — ${cleanExamName} <br><span style="font-size:12px; color:var(--text-muted);">Accuracy: ${top.AccuracyPercentage}% | Speed: ${top.NetSpeed || 0} WPM</span>`;
         }
       } else {
         if (typingRankElem) typingRankElem.innerText = 'No typing/book test records for today yet.';
@@ -1890,12 +2086,70 @@ function renderUserDashboardLeaderboards() {
           return parseFloat(b.NetSpeed || 0) - parseFloat(a.NetSpeed || 0);
         });
         const top = audioTests[0];
+
+        // 🧹 Comprehensive cleaner to remove ISO timestamps, regular dates, and trailing hyphens/spaces
+        let cleanExamName = (top.ExamName || '')
+          .replace(/[-–—]?\s*\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:?\d{2})?/g, '')
+          .replace(/\b\d{4}-\d{2}-\d{2}\b/g, '')
+          .replace(/\b\d{2}[-/]\d{2}[-/]\d{4}\b/g, '')
+          .replace(/[-–—]\s*$/, '')
+          .trim();
+
         if (audioRankElem) {
-          audioRankElem.innerHTML = `🥇 <strong>${top.UserName || 'User'}</strong> — ${top.ExamName} <br><span style="font-size:12px; color:var(--text-muted);">Accuracy: ${top.AccuracyPercentage}% | Speed: ${top.NetSpeed || 0} WPM</span>`;
+          audioRankElem.innerHTML = `🥇 <strong>${top.UserName || 'User'}</strong> — ${cleanExamName} <br><span style="font-size:12px; color:var(--text-muted);">Accuracy: ${top.AccuracyPercentage}% | Speed: ${top.NetSpeed || 0} WPM</span>`;
         }
       } else {
         if (audioRankElem) audioRankElem.innerText = 'No audio dictation records for today yet.';
       }
+    }
+
+    // 👉 User Performance Analytics Chart Rendering Logic
+    function renderUserPerformanceChart() {
+      const canvas = document.getElementById('user-analytics-chart');
+      if (!canvas) return;
+
+      const historyList = globalData.history || [];
+      const sortedHistory = [...historyList].sort((a, b) => new Date(a.Date || a.date) - new Date(b.Date || b.date));
+
+      const labels = sortedHistory.map(h => formatLocalDate(h.Date || h.date) || 'Test');
+      const accuracyData = sortedHistory.map(h => parseFloat(h.AccuracyPercentage || h.accuracyPercentage || 0));
+      const speedData = sortedHistory.map(h => parseFloat(h.NetSpeed || h.netSpeed || 0));
+
+      if (window.myPerformanceChart instanceof Chart) {
+        window.myPerformanceChart.destroy();
+      }
+
+      window.myPerformanceChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: labels.length > 0 ? labels : ['No Tests Yet'],
+          datasets: [
+            {
+              label: 'Accuracy (%)',
+              data: accuracyData.length > 0 ? accuracyData : [0],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Net Speed (WPM)',
+              data: speedData.length > 0 ? speedData : [0],
+              borderColor: '#2563eb',
+              backgroundColor: 'rgba(37, 99, 235, 0.1)',
+              fill: true,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
     }
 
     function formatTextWithUrlButtons(text) {
@@ -2085,7 +2339,7 @@ function renderHomework() {
       return DEFAULT_LOGO_URL;
     }
 
-function renderVideoReferences() {
+    function renderVideoReferences() {
       const grid = document.getElementById('video-grid');
       if (!grid) return;
       grid.innerHTML = '';
@@ -2116,6 +2370,7 @@ function renderVideoReferences() {
       }
       return `${SITE_NAME} - Guest`;
     }
+
     async function loadMaterials(type) {
       const res = await apiCall('getMaterials', { type: type });
       if (res.success) {
@@ -2365,15 +2620,33 @@ function onTypingMediumSelected() {
       initTypingTestWizard();
     }
 
-    function startConfiguredTypingExam() {
+function startConfiguredTypingExam() {
       if (!selectedTypingPassage) {
         showToast('Please select medium, exam, date, and passage first.');
         return;
       }
+
+      // 👉 Security validation check to enforce membership/admin access restrictions
+      const role = currentUser ? currentUser.role : 'user';
+      const accessLevel = (selectedTypingPassage.AccessLevel || 'public').toLowerCase();
+
+      if (accessLevel === 'admin' && role !== 'admin') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+      if (accessLevel === 'member' && role === 'user') {
+        showToast('Access Denied: Restricted to Members only.');
+        return;
+      }
+      if (accessLevel === 'admin' && role === 'member') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+
       startTypingExam(selectedTypingPassage);
     }
 
-    function startTypingExam(item) {
+function startTypingExam(item) {
       currentExamName = `Typing Test: ${item.Subtab} - ${item.Title}`;
       testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
       testBackspaces = 0;
@@ -2383,7 +2656,10 @@ function onTypingMediumSelected() {
       isTestPaused = false;
       isTypingTimerStarted = false;
 
+      // 👉 Check if rules are set, otherwise abort and show notification
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+      if (!rules) return;
+
       document.getElementById('test-modal-title').innerText = `${currentExamName} (${item.ExamDate || ''})`;
       
       const mainBody = document.getElementById('test-main-body-container');
@@ -2429,6 +2705,7 @@ function onTypingMediumSelected() {
       }
 
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+      if (!rules) return; // 👉 Guard check
       if (rules.highlightMode !== 'on') return;
 
       const userInput = document.getElementById('test-user-input');
@@ -2485,7 +2762,8 @@ function onTypingMediumSelected() {
       items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'card';
-        const thumbUrl = getUniversalUrl(item.ThumbnailUrl || item.ContentOrUrl, 'image') || DEFAULT_LOGO_URL;
+        const logoTarget = item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '' ? item.LogoUrl : (item.ThumbnailUrl || item.ContentOrUrl);
+        const thumbUrl = (logoTarget && logoTarget !== '-' && logoTarget.trim() !== '') ? getUniversalUrl(logoTarget, 'image') : DEFAULT_LOGO_URL;
         const adminTimeLimit = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
 
         card.innerHTML = `
@@ -2498,7 +2776,25 @@ function onTypingMediumSelected() {
       });
     }
 
-    function startPitmanTest(item) {
+
+function startPitmanTest(item) {
+      // 👉 Security validation check to enforce membership/admin access restrictions
+      const role = currentUser ? currentUser.role : 'user';
+      const accessLevel = (item.AccessLevel || 'public').toLowerCase();
+
+      if (accessLevel === 'admin' && role !== 'admin') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+      if (accessLevel === 'member' && role === 'user') {
+        showToast('Access Denied: Restricted to Members only.');
+        return;
+      }
+      if (accessLevel === 'admin' && role === 'member') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+
       currentExamName = `Pitman: ${item.Title}`;
       testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
       testBackspaces = 0;
@@ -2508,13 +2804,17 @@ function onTypingMediumSelected() {
       isTestPaused = false;
       isTypingTimerStarted = true;
 
+      // 👉 Check if evaluation rules are set; if not, exit and show error message
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+      if (!rules) return;
+
       document.getElementById('test-modal-title').innerText = currentExamName;
       
       const mainBody = document.getElementById('test-main-body-container');
       testPhotoZoom = 1;
 
-      const pitmanThumbUrl = getUniversalUrl(item.ThumbnailUrl || item.ContentOrUrl, 'image') || DEFAULT_LOGO_URL;
+      // 👉 Active test viewer specifically uses ThumbnailUrl for the exercise picture
+      const pitmanThumbUrl = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') ? getUniversalUrl(item.ThumbnailUrl, 'image') : DEFAULT_LOGO_URL;
 
       mainBody.innerHTML = `
         <div style="display: flex; gap: 20px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap;">
@@ -2565,20 +2865,51 @@ function onTypingMediumSelected() {
       const wrapper = document.getElementById('test-photo-zoom-wrapper');
       if (wrapper) wrapper.style.transform = `scale(1)`;
     }
+
 function startAudioDictationTest(item) {
-      currentExamName = `Audio Transcription: ${item.Title}`;
+      // 👉 Security validation check to prevent unauthorized access
+      const role = currentUser ? currentUser.role : 'user';
+      const accessLevel = (item.AccessLevel || 'public').toLowerCase();
+
+      if (accessLevel === 'admin' && role !== 'admin') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+      if (accessLevel === 'member' && role === 'user') {
+        showToast('Access Denied: Restricted to Members only.');
+        return;
+      }
+      if (accessLevel === 'admin' && role === 'member') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+
+      const displayTitle = item.Title || item.Name || item.Word || 'Audio Transcription';
+      currentExamName = `Audio Transcription: ${displayTitle}`;
       testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
       testBackspaces = 0;
-      testStartTime = Date.now();
-      currentReferenceText = item.ThumbnailUrl && item.ThumbnailUrl !== '-' && !item.ThumbnailUrl.startsWith('http') ? item.ThumbnailUrl : (item.ContentOrUrl || '');
+      testStartTime = 0;
+      
+      currentReferenceText = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && !item.ThumbnailUrl.startsWith('http')) ? item.ThumbnailUrl : (item.ContentOrUrl || '');
       activeTestSubtabKey = item.Subtab ? `audio_${item.Subtab}` : 'audio';
       isTestPaused = false;
-      isTypingTimerStarted = true;
+      isTypingTimerStarted = false;
 
+      // 👉 Check if evaluation rules are set; if not, exit and show error message
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+      if (!rules) return;
+
       const finalAudioUrl = getUniversalUrl(item.ContentOrUrl, 'audio');
 
       document.getElementById('test-modal-title').innerText = currentExamName;
+      
+      const initialTotalSeconds = testDurationMinutes * 60;
+      const initMins = Math.floor(initialTotalSeconds / 60);
+      const initSecs = initialTotalSeconds % 60;
+      const timerElem = document.getElementById('test-timer');
+      if (timerElem) {
+        timerElem.innerText = `${String(initMins).padStart(2, '0')}:${String(initSecs).padStart(2, '0')}`;
+      }
       
       const mainBody = document.getElementById('test-main-body-container');
       
@@ -2590,144 +2921,22 @@ function startAudioDictationTest(item) {
           <source src="${finalAudioUrl}" type="audio/ogg">
         </audio>
 
-        <div style="width: 100%; max-width: 900px; display: flex; align-items: center; justify-content: flex-start;">
+        <div style="width: 100%; max-width: 900px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
             <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
             <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
           </div>
+          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
         </div>
 
         <div style="width: 100%; max-width: 900px; flex: 1; display: flex; flex-direction: column;">
-          <textarea id="test-user-input" class="form-control" style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" placeholder="Listen to audio dictation and type here..." onkeydown="handleTestKeyDown(event)" onpaste="handleTestPaste(event)" oncopy="handleTestCopy(event)" oncut="handleTestCut(event)"></textarea>
+          <textarea id="test-user-input" class="form-control" style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" placeholder="Listen to audio dictation and type here..." oninput="handleAudioTypingInput()" onkeydown="handleTestKeyDown(event)" onpaste="handleTestPaste(event)" oncopy="handleTestCopy(event)" oncut="handleTestCut(event)"></textarea>
         </div>
       `;
 
       document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
       document.getElementById('active-test-modal').style.display = 'flex';
       toggleFullscreen();
-      startTestTimer(testDurationMinutes * 60);
-    }
-
-    let sharedAudioCtx = null;
-
-    function playMechanicalKeySound() {
-      const soundToggle = document.getElementById('exam-hall-sound-toggle');
-      if (!soundToggle || !soundToggle.checked) return;
-
-      try {
-        if (!sharedAudioCtx) {
-          sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (sharedAudioCtx.state === 'suspended') {
-          sharedAudioCtx.resume();
-        }
-        const osc = sharedAudioCtx.createOscillator();
-        const gainNode = sharedAudioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(120 + Math.random() * 80, sharedAudioCtx.currentTime);
-        gainNode.gain.setValueAtTime(0.08, sharedAudioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, sharedAudioCtx.currentTime + 0.05);
-        osc.connect(gainNode);
-        gainNode.connect(sharedAudioCtx.destination);
-        osc.start();
-        osc.stop(sharedAudioCtx.currentTime + 0.05);
-      } catch (e) {}
-    }
-
-    function handleTestKeyDown(e) {
-      if (isTestPaused) {
-        e.preventDefault();
-        showToast('Test is currently paused. Resume test to continue typing.');
-        return;
-      }
-
-      playMechanicalKeySound();
-
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (e.key === 'Backspace' || e.key === 'Delete') {
-        testBackspaces++;
-        if (rules.backspaceMode === 'off') {
-          e.preventDefault();
-          showToast('Backspace is disabled by Evaluation Rules for this tab.');
-        }
-      }
-      if (rules.funcKeysMode === 'no' && e.key.startsWith('F') && !isNaN(e.key.substring(1))) {
-        e.preventDefault();
-        showToast('Function keys are disabled by Evaluation Rules for this tab.');
-      }
-    }
-
-    function handleTestPaste(e) {
-      if (isTestPaused) { e.preventDefault(); return; }
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (rules.copyPasteMode === 'no') {
-        e.preventDefault();
-        showToast('Copy & Paste is disabled by Evaluation Rules for this tab.');
-      }
-    }
-
-    function handleTestCopy(e) {
-      if (isTestPaused) { e.preventDefault(); return; }
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (rules.copyPasteMode === 'no') {
-        e.preventDefault();
-        showToast('Copy & Paste is disabled by Evaluation Rules for this tab.');
-      }
-    }
-
-    function handleTestCut(e) {
-      if (isTestPaused) { e.preventDefault(); return; }
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (rules.copyPasteMode === 'no') {
-        e.preventDefault();
-        showToast('Copy & Paste is disabled by Evaluation Rules for this tab.');
-      }
-    }
-
-    function togglePauseStenoTest() {
-      isTestPaused = !isTestPaused;
-      const pauseBtn = document.getElementById('test-pause-btn');
-      const userInput = document.getElementById('test-user-input');
-      const bgAudio = document.getElementById('active-bg-audio');
-
-      if (isTestPaused) {
-        if (testTimerInterval) clearInterval(testTimerInterval);
-        if (pauseBtn) pauseBtn.innerHTML = '<i class="fa-solid fa-play"></i> Resume Test';
-        if (userInput) {
-          userInput.disabled = true;
-          userInput.style.opacity = '0.5';
-        }
-        if (bgAudio) bgAudio.pause();
-        showToast('Test paused. Click Resume Test when ready.');
-      } else {
-        if (pauseBtn) pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Test';
-        if (userInput) {
-          userInput.disabled = false;
-          userInput.style.opacity = '1';
-          userInput.focus();
-        }
-        if (bgAudio) bgAudio.play().catch(() => {});
-        startTestTimer(secondsRemainingGlobal);
-        showToast('Test resumed.');
-      }
-    }
-
-    function cancelStenoTest() {
-      if (confirm('Are you sure you want to cancel and exit this test? All progress will be lost.')) {
-        if (testTimerInterval) clearInterval(testTimerInterval);
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-        document.getElementById('active-test-modal').style.display = 'none';
-        showToast('Test cancelled.');
-      }
-    }
-
-    function activateAllSubtabs(type) {
-      const container = document.getElementById(`${type}-subtabs`);
-      if (!container) return;
-      container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
-      const firstBtn = container.querySelector('.subtab-btn');
-      if (firstBtn) firstBtn.classList.add('active');
-      currentSubtabFilter[type] = 'ALL';
     }
 
     function renderMaterialsList(type, filterSubtab) {
@@ -2789,12 +2998,16 @@ function startAudioDictationTest(item) {
 
         const defaultThumb = getUniversalUrl(item.ThumbnailUrl || item.ContentOrUrl || '', 'image') || DEFAULT_LOGO_URL;
         
-let actionButtonsHtml = '';
+        let actionButtonsHtml = '';
         if (type === 'audio') {
+          // 👉 Safely encoded item string to prevent quote characters from breaking the HTML attribute
+          const safeItemJson = encodeURIComponent(JSON.stringify(item));
           actionButtonsHtml = `
             <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; position:relative; z-index:1;">
               <button class="btn btn-primary btn-sm" style="width:100%;" onclick="openUniversalMediaViewer('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-play"></i> Play Dictation</button>
-              <button class="btn btn-secondary btn-sm" style="width:100%;" onclick='startAudioDictationTest(${JSON.stringify(item)})'><i class="fa-solid fa-headphones"></i> Start Audio Test</button>
+              <button class="btn btn-secondary btn-sm" style="width:100%;" onclick='startAudioDictationTest(JSON.parse(decodeURIComponent("${safeItemJson}")))'>
+                <i class="fa-solid fa-headphones"></i> Start Audio Test
+              </button>
             </div>
           `;
         } else {
@@ -2808,7 +3021,7 @@ let actionButtonsHtml = '';
 
         card.innerHTML = `
           <img src="${defaultThumb}" class="card-thumb" style="object-fit:contain; position:relative; z-index:1;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-          <strong style="position:relative; z-index:1;">${item.Title}</strong>
+          <strong style="position:relative; z-index:1;">${item.Title || item.Name || item.Word || ''}</strong>
           <span class="subtab-badge" style="position:relative; z-index:1;">📂 ${item.Subtab || item.Category || 'General'}</span>
           ${actionButtonsHtml}
         `;
@@ -2886,44 +3099,51 @@ let actionButtonsHtml = '';
         const card = document.createElement('div');
         card.className = 'card';
         card.style.position = 'relative';
-
-        const displayTitle = w.Title || w.Word || '';
+const displayTitle = w.Title || w.Word || '';
         const thumbUrl = getUniversalUrl(w.ThumbnailUrl || w.ContentOrUrl || '', 'image') || DEFAULT_LOGO_URL;
+        // 👉 Define the full content URL for the click modal
+        const fullContentUrl = getUniversalUrl(w.ContentOrUrl || w.ThumbnailUrl || '', 'image') || DEFAULT_LOGO_URL;
 
         // Clearly marked Sl. No. and Title
         card.innerHTML = `
           <div style="font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 2px; position: relative; z-index: 1;">Sl. No. ${index + 1}</div>
           <strong style="font-size: 15px; margin-bottom: 6px; display: block; position: relative; z-index: 1; color: var(--secondary);">${displayTitle}</strong>
           <span class="subtab-badge" style="position:relative; z-index:1;">📁 ${w.Category || 'General'}</span>
-          <img src="${thumbUrl}" class="card-thumb" style="object-fit:contain; margin-top:8px; position: relative; z-index: 1; cursor: pointer;" onerror="this.src='${DEFAULT_LOGO_URL}'" onclick="openEmbeddedImageModal('${thumbUrl}', 'Sl. No. ${index + 1} - ${displayTitle}')">
+          <!-- 👉 Updated onclick to pass fullContentUrl instead of thumbUrl -->
+          <img src="${thumbUrl}" class="card-thumb" style="object-fit:contain; margin-top:8px; position: relative; z-index: 1; cursor: pointer;" onerror="this.src='${DEFAULT_LOGO_URL}'" onclick="openEmbeddedImageModal('${fullContentUrl}', 'Sl. No. ${index + 1} - ${displayTitle}')">
         `;
         grid.appendChild(card);
       });
     }
 
-    function viewItem(type, url, title, accessLevel = 'public') {
-  const role = currentUser ? currentUser.role : 'user';
+function viewItem(type, url, title, accessLevel = 'public') {
+      const role = currentUser ? currentUser.role : 'user';
+      const normalizedAccess = (accessLevel || 'public').toLowerCase();
 
-  if (accessLevel === 'admin' && role !== 'admin') {
-    showToast('Access Denied: Restricted to Administrators.');
-    return;
-  }
-  if (accessLevel === 'member' && role === 'user') {
-    showToast('Access Denied: Restricted to Members.');
-    return;
-  }
+      if (normalizedAccess === 'admin' && role !== 'admin') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+      if (normalizedAccess === 'member' && role === 'user') {
+        showToast('Access Denied: Restricted to Members only.');
+        return;
+      }
+      if (normalizedAccess === 'admin' && role === 'member') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
 
-  apiCall('logActivity', { userId: currentUser.userId, userName: currentUser.name, activityType: 'VIEW_MATERIAL', details: title });
-  
-  const finalUrl = getUniversalUrl(url, type);
+      apiCall('logActivity', { userId: currentUser.userId, userName: currentUser.name, activityType: 'VIEW_MATERIAL', details: title });
+      
+      const finalUrl = getUniversalUrl(url, type);
 
-  // If it's a PDF, open it in the full-screen reader modal instead of a new tab
-  if (type.toLowerCase() === 'pdf') {
-    openPdfModal(finalUrl, title);
-  } else {
-    window.open(finalUrl, '_blank', 'noopener,noreferrer');
-  }
-}
+      // If it's a PDF, open it in the full-screen reader modal instead of a new tab
+      if (type.toLowerCase() === 'pdf') {
+        openPdfModal(finalUrl, title);
+      } else {
+        window.open(finalUrl, '_blank', 'noopener,noreferrer');
+      }
+    }
 
     async function downloadItem(url, title) {
       if (currentUser) {
@@ -3044,7 +3264,7 @@ let actionButtonsHtml = '';
       window.open(finalUrl, '_blank', 'noopener,noreferrer');
     }
 
-    function openZoomModal(imgUrl, title) {
+function openZoomModal(imgUrl, title) {
       const finalImgUrl = getUniversalUrl(imgUrl, 'image');
       window.open(finalImgUrl, '_blank', 'noopener,noreferrer');
     }
@@ -3052,9 +3272,14 @@ let actionButtonsHtml = '';
     function closeModal() {
       const modal = document.getElementById('reader-modal');
       if (modal) modal.style.display = 'none';
+      
+      // 👉 Exit fullscreen mode automatically when closing the reader modal
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
     }
 
-    function toggleFullscreen() {
+function toggleFullscreen() {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(() => {});
       } else {
@@ -3062,12 +3287,18 @@ let actionButtonsHtml = '';
       }
     }
 
+    let timerWarningTriggered = false;
+
     function startTestTimer(secondsRemaining) {
       if (testTimerInterval) clearInterval(testTimerInterval);
       secondsRemainingGlobal = secondsRemaining;
+      timerWarningTriggered = false; // Reset warning trigger on timer start
       
       testTimerInterval = setInterval(() => {
         if (isTestPaused) return;
+
+        // Check for warning sound & visual pulse when 60 seconds or less remain
+        checkTimerWarning(secondsRemainingGlobal);
 
         let mins = Math.floor(secondsRemainingGlobal / 60);
         let secs = secondsRemainingGlobal % 60;
@@ -3081,6 +3312,42 @@ let actionButtonsHtml = '';
         }
         secondsRemainingGlobal--;
       }, 1000);
+    }
+
+    function checkTimerWarning(secondsRemaining) {
+      const modalHeader = document.querySelector('#active-test-modal .modal-header');
+      
+      // Trigger warning when 60 seconds or less remain
+      if (secondsRemaining <= 60 && secondsRemaining > 0) {
+        if (modalHeader) {
+          modalHeader.style.animation = 'visualPulse 1s infinite alternate';
+        }
+        // Play beep sound exactly when it hits 60 seconds left
+        if (!timerWarningTriggered && secondsRemaining === 60) {
+          playWarningBeep();
+          showToast('⚠️ Warning: Only 1 minute remaining!');
+          timerWarningTriggered = true;
+        }
+      } else {
+        if (modalHeader) modalHeader.style.animation = 'none';
+      }
+    }
+
+    function playWarningBeep() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 800; // Frequency in Hz
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch (e) {
+        console.log('Audio Context blocked or not supported');
+      }
     }
 
 async function submitStenoTest() {
@@ -3204,6 +3471,12 @@ async function submitStenoTest() {
     userId: currentUser ? currentUser.userId : 'GUEST',
     userName: currentUser ? currentUser.name : 'Guest',
     examName: currentExamName,
+    passageTitle: selectedTypingPassage ? selectedTypingPassage.Title : (currentExamName || 'General Passage'),
+    timeDuration: `${testDurationMinutes} Mins`,
+    typingDate: getLocalDateString(),
+    timeTaken: `${timeUsedMinutes} mins`,
+    errorRelaxed: `${rules.ignoreErrorPct || 5}%`,
+    penaltyWord: `${rules.penaltyValue || 1.0}`,
     date: getLocalDateString(),
     submissionTime: submissionTimeFormatted,
     grossSpeed: grossSpeed,
@@ -3233,8 +3506,18 @@ async function submitStenoTest() {
     referenceText: referenceText
   };
 
+  // 🛡️ Safety Backup: Store payload in localStorage instantly before network request
+  localStorage.setItem('steno_pending_submission', JSON.stringify(payload));
+
   const res = await apiCall('saveTestHistory', payload);
-  showToast(res.message || 'Test evaluated strictly under admin rules and stored successfully!');
+  
+  if (res && res.success) {
+    localStorage.removeItem('steno_pending_submission'); // Clear backup on successful save
+    showToast(res.message || 'Test evaluated strictly under admin rules and stored successfully!');
+  } else {
+    showToast(res.message || 'Server is busy processing many tests. Your work is saved locally.');
+  }
+
   loadTestHistory();
 }
 
@@ -3265,10 +3548,19 @@ async function loadTestHistory() {
         return;
       }
 
+      // Reverted headers to original clean layout
       let html = `
         <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
           <tr style="background: var(--border);">
-            <th>Date / Time</th><th>Exam / Exercise</th><th>Gross Spd</th><th>Net Spd</th><th>Accuracy</th><th>Marks Obtained</th><th>Backspaces</th><th>Wrong Words</th><th>Words Left</th><th>Time Submitted</th><th>Status</th><th>Comparison Details</th>
+            <th>Date / Time</th>
+            <th>Exam / Exercise</th>
+            <th>Gross Spd</th>
+            <th>Net Spd</th>
+            <th>Accuracy</th>
+            <th>Marks Obtained</th>
+            <th>Time Submitted</th>
+            <th>Status</th>
+            <th>Action</th>
           </tr>
       `;
 
@@ -3280,9 +3572,6 @@ async function loadTestHistory() {
         const accuracy = h.AccuracyPercentage || h.accuracyPercentage || 0;
         const marks = h.MarksObtained || h.marksObtained || '-';
         const totalMarks = h.TotalMarks || h.totalMarks || 100;
-        const backspaces = h.TotalBackspace || h.totalBackspace || 0;
-        const wrong = h.WrongTyped || h.wrongTyped || 0;
-        const left = h.WordLeft || h.wordLeft || 0;
         const status = h.Status || h.status || 'FAILED';
         const examName = h.ExamName || h.examName || '-';
 
@@ -3294,9 +3583,6 @@ async function loadTestHistory() {
             <td>${displayNet} WPM</td>
             <td>${accuracy}%</td>
             <td>${marks} / ${totalMarks}</td>
-            <td>${backspaces}</td>
-            <td>${wrong}</td>
-            <td>${left}</td>
             <td>${submittedTimestamp}</td>
             <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
             <td><button class="btn btn-sm btn-primary" onclick='openTestComparison(${JSON.stringify(h)})'>View Material & Typed</button></td>
@@ -3308,17 +3594,23 @@ async function loadTestHistory() {
       container.innerHTML = html;
     }
 
-   function openTestComparison(historyItem) {
+
+function openTestComparison(historyItem) {
   const modal = document.getElementById('reader-modal');
   const body = document.getElementById('modal-viewport');
   const titleEl = document.getElementById('modal-title');
-  if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${historyItem.ExamName} (${historyItem.Date})`;
+  if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${historyItem.ExamName || historyItem.examName} (${historyItem.Date || historyItem.date})`;
 
-  const refText = historyItem.ReferenceText || '';
-  const userText = historyItem.UserTranscription || '';
+  const refText = historyItem.ReferenceText || historyItem.referenceText || '';
+  const userText = historyItem.UserTranscription || historyItem.userTranscription || '';
 
   const refWords = refText.split(/\s+/).filter(Boolean);
   const userWords = userText.split(/\s+/).filter(Boolean);
+
+  const totalWordsMaterial = refWords.length;
+  const totalStrokesMaterial = refText.length;
+  const totalWordsUser = userWords.length;
+  const totalStrokesUser = userText.length;
 
   const m = refWords.length;
   const n = userWords.length;
@@ -3344,10 +3636,8 @@ async function loadTestHistory() {
       if (isCapErr) {
         annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Capitalization Error">${userWords[j - 1]} <small>(Ref: ${refWords[i - 1]})</small></span>`);
       } else {
-        // Correctly typed word: normal black text, no green highlight
         annotatedUserHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${userWords[j - 1]}</span>`);
       }
-      // Reference passage: normal black text, no annotations
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refWords[i - 1]}</span>`);
       i--;
       j--;
@@ -3367,47 +3657,83 @@ async function loadTestHistory() {
   }
 
   if (body) {
-    const errorVal = historyItem.ErrorPercentage !== undefined ? `${historyItem.ErrorPercentage}%` : `${(100 - parseFloat(historyItem.AccuracyPercentage || 0)).toFixed(2)}%`;
-    const totalMarksVal = historyItem.TotalMarks || defaultEvaluationRule.totalMarks;
-    const marksObtainedVal = historyItem.MarksObtained || '-';
+    const accuracy = historyItem.AccuracyPercentage || historyItem.accuracyPercentage || 0;
+    const errorVal = historyItem.ErrorPercentage !== undefined ? `${historyItem.ErrorPercentage}%` : `${(100 - parseFloat(accuracy)).toFixed(2)}%`;
+    const totalMarksVal = historyItem.TotalMarks || historyItem.totalMarks || defaultEvaluationRule.totalMarks;
+    const marksObtainedVal = historyItem.MarksObtained || historyItem.marksObtained || '-';
+    
+    const totalBackspaces = historyItem.TotalBackspace || historyItem.totalBackspace || 0;
+    const wrongWordsCount = historyItem.WrongTyped || historyItem.wrongTyped || 0;
+    const wordsLeftCount = historyItem.WordLeft || historyItem.wordLeft || 0;
+    const extraWordsCount = historyItem.ExtraTyped || historyItem.extraTyped || 0;
+    const capitalErrorCount = historyItem.CapitalError || historyItem.capitalError || 0;
+    const punctuationErrorCount = historyItem.PunctuationLeft || historyItem.punctuationLeft || 0;
+
+    const examTitle = historyItem.ExamName || historyItem.examName || '-';
+    const passageTitle = historyItem.PassageTitle || historyItem.passageTitle || historyItem.Title || '-';
+    const timeDuration = historyItem.TimeDuration || historyItem.timeDuration || '5 Mins';
+    const typingDate = formatLocalDate(historyItem.Date || historyItem.date || historyItem.TypingDate);
+    const timeTaken = historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || '-';
+    const errorRelaxed = historyItem.ErrorRelaxed || historyItem.errorRelaxed || '5%';
+    const penaltyWord = historyItem.PenaltyWord || historyItem.penaltyWord || '1.0';
+    const status = historyItem.Status || historyItem.status || 'FAILED';
 
     body.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 20px; width: 100vw; height: calc(100vh - 50px); max-width: 1400px; margin: 0 auto; overflow-y: auto;">
         
         <div style="background: var(--surface); border: 1px solid var(--border); padding: 18px; border-radius: var(--radius); box-shadow: 0 4px 12px var(--shadow);">
           <h4 style="margin-bottom: 12px; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Evaluation Summary & Total Accuracy
+            <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Comprehensive Exam Details & Evaluation Summary
           </h4>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Total Accuracy:</strong> ${historyItem.AccuracyPercentage}%</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Error Value:</strong> ${errorVal}</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Total Marks Obtained:</strong> ${marksObtainedVal} / ${totalMarksVal}</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Gross Speed:</strong> ${historyItem.GrossSpeed} WPM</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Net Speed:</strong> ${historyItem.NetSpeed} WPM</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Status:</strong> <span class="role-badge" style="background: ${historyItem.Status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${historyItem.Status}</span></div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13px;">
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Exam Title:</strong> ${examTitle}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Passage Title:</strong> ${passageTitle}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Time Duration:</strong> ${timeDuration}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Typing Date:</strong> ${typingDate}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Time Taken:</strong> ${timeTaken}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Error Relaxed:</strong> ${errorRelaxed}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Penalty Word:</strong> ${penaltyWord}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Status:</strong> <span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Accuracy:</strong> ${accuracy}%</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Marks Obtained:</strong> ${marksObtainedVal} / ${totalMarksVal}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Gross Speed:</strong> ${historyItem.GrossSpeed || historyItem.grossSpeed || 0} WPM</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Net Speed:</strong> ${historyItem.NetSpeed || historyItem.netSpeed || 0} WPM</div>
           </div>
         </div>
 
+        <!-- Material vs User Typed Stats & Breakdown Cards -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+          <div class="card" style="border-left: 4px solid var(--info, #3b82f6); padding: 14px;">
+            <h5 style="color: var(--info, #3b82f6); margin-bottom: 6px;"><i class="fa-solid fa-file-lines"></i> Material Stats</h5>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Total Words: <strong>${totalWordsMaterial}</strong><br>Total Strokes: <strong>${totalStrokesMaterial}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--secondary); padding: 14px;">
+            <h5 style="color: var(--secondary); margin-bottom: 6px;"><i class="fa-solid fa-keyboard"></i> User Typed Stats</h5>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Words Typed: <strong>${totalWordsUser}</strong><br>Strokes Typed: <strong>${totalStrokesUser}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--primary); padding: 14px;">
+            <h5 style="color: var(--primary); margin-bottom: 6px;"><i class="fa-solid fa-rotate-left"></i> Backspaces Used: ${totalBackspaces}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Total backspace keypresses</p>
+          </div>
           <div class="card" style="border-left: 4px solid var(--danger); padding: 14px;">
-            <h5 style="color: var(--danger); margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Wrong Typed: ${historyItem.WrongTyped || 0}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.wrongTypedDeduction || ((historyItem.WrongTyped || 0) * 1.0).toFixed(2)}</strong></p>
+            <h5 style="color: var(--danger); margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Wrong Words: ${wrongWordsCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.wrongTypedDeduction || (wrongWordsCount * 1.0).toFixed(2)}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid var(--warning); padding: 14px;">
-            <h5 style="color: var(--warning); margin-bottom: 6px;"><i class="fa-solid fa-book-bookmark"></i> Words Left: ${historyItem.WordLeft || 0}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.wordLeftDeduction || ((historyItem.WordLeft || 0) * 1.0).toFixed(2)}</strong></p>
+            <h5 style="color: var(--warning); margin-bottom: 6px;"><i class="fa-solid fa-book-bookmark"></i> Words Left: ${wordsLeftCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.wordLeftDeduction || (wordsLeftCount * 1.0).toFixed(2)}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid #7c3aed; padding: 14px;">
-            <h5 style="color: #7c3aed; margin-bottom: 6px;"><i class="fa-solid fa-plus"></i> Extra Words: ${historyItem.ExtraTyped || 0}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.extraDeduction || ((historyItem.ExtraTyped || 0) * 0.5).toFixed(2)}</strong></p>
+            <h5 style="color: #7c3aed; margin-bottom: 6px;"><i class="fa-solid fa-plus"></i> Extra Words: ${extraWordsCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.extraDeduction || (extraWordsCount * 0.5).toFixed(2)}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid #b45309; padding: 14px;">
-            <h5 style="color: #b45309; margin-bottom: 6px;"><i class="fa-solid fa-font"></i> Capital Errors: ${historyItem.CapitalError || 0}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.capitalDeduction || ((historyItem.CapitalError || 0) * 0.25).toFixed(2)}</strong></p>
+            <h5 style="color: #b45309; margin-bottom: 6px;"><i class="fa-solid fa-font"></i> Capital Errors: ${capitalErrorCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.capitalDeduction || (capitalErrorCount * 0.25).toFixed(2)}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid var(--accent); padding: 14px;">
-            <h5 style="color: var(--accent); margin-bottom: 6px;"><i class="fa-solid fa-pencil"></i> Punctuation Errors: ${historyItem.PunctuationLeft || 0}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.punctuationDeduction || ((historyItem.PunctuationLeft || 0) * 0.5).toFixed(2)}</strong></p>
+            <h5 style="color: var(--accent); margin-bottom: 6px;"><i class="fa-solid fa-pencil"></i> Punctuation Errors: ${punctuationErrorCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.punctuationDeduction || (punctuationErrorCount * 0.5).toFixed(2)}</strong></p>
           </div>
         </div>
 
@@ -3818,9 +4144,9 @@ function adjustAdminUploadForm() {
 
       if (normalizedType === 'typingtest') {
         if (titleLabel) titleLabel.innerHTML = 'Master Passage / Title <span class="required-star">*</span>';
-        if (subtabLabel) subtabLabel.innerHTML = 'Exam Name (Subtab) <span class="required-star">*</span>';
         if (urlLabel) urlLabel.innerHTML = 'Master Passage Text <span class="required-star">*</span>';
-        document.getElementById('group-adm-subtab').style.display = 'block';
+        // 👉 Hide Exam Name (Subtab) field for Typing Test
+        document.getElementById('group-adm-subtab').style.display = 'none';
         document.getElementById('group-adm-thumb').style.display = 'none';
       } else if (normalizedType === 'audio') {
         if (titleLabel) titleLabel.innerHTML = 'Title <span class="required-star">*</span>';
@@ -3879,7 +4205,7 @@ function adjustAdminUploadForm() {
       });
     }
 
-    async function handleAdminMaterialUpload() {
+async function handleAdminMaterialUpload() {
       const type = document.getElementById('adm-upload-type').value;
       const title = document.getElementById('adm-upload-title').value.trim();
       const medium = document.getElementById('adm-upload-medium')?.value || 'English';
@@ -3894,10 +4220,10 @@ function adjustAdminUploadForm() {
         return;
       }
 
-      // Auto-assign subtab for English typing tests if left blank
+      // 👉 Auto-assign subtab for typing tests based on medium (English or Hindi) if left blank
       let subtabVal = document.getElementById('adm-upload-subtab').value || '-';
-      if (type.toLowerCase() === 'typingtest' && medium.toLowerCase() === 'english' && subtabVal === '-') {
-        subtabVal = 'General English Typing';
+      if (type.toLowerCase() === 'typingtest' && subtabVal === '-') {
+        subtabVal = medium.toLowerCase() === 'hindi' ? 'General Hindi Typing' : 'General English Typing';
       }
 
       // Capture audio passage or pitman logo if applicable
@@ -4391,7 +4717,7 @@ function openUniversalMediaViewer(rawUrl, title) {
 
     let customImageZoomLevel = 1;
 
-    function openEmbeddedImageModal(imgUrl, title) {
+function openEmbeddedImageModal(imgUrl, title) {
       const modal = document.getElementById('embedded-image-modal');
       const imgElem = document.getElementById('embedded-modal-img');
       const titleElem = document.getElementById('embedded-image-title');
@@ -4400,7 +4726,10 @@ function openUniversalMediaViewer(rawUrl, title) {
       if (imgElem) imgElem.src = getUniversalUrl(imgUrl, 'image');
       
       customImageZoomLevel = 1;
+      translateX = 0;
+      translateY = 0;
       applyImageZoom();
+      initImageDragAndPan(); // 👉 Initialize drag and pan listener when opening image modal
 
       if (modal) modal.style.display = 'flex';
       renderGlobalWatermark();
@@ -4413,12 +4742,14 @@ function openUniversalMediaViewer(rawUrl, title) {
 
     function adjustCustomImageZoom(amount) {
       customImageZoomLevel = Math.max(0.5, Math.min(4, customImageZoomLevel + amount));
-      applyImageZoom();
+      updateImageTransform();
     }
 
     function resetCustomImageZoom() {
       customImageZoomLevel = 1;
-      applyImageZoom();
+      translateX = 0;
+      translateY = 0;
+      updateImageTransform();
     }
 
     function applyImageZoom() {
@@ -4447,13 +4778,13 @@ async function openPdfModal(pdfUrl, title) {
 
   if (body) {
     body.innerHTML = `
-      <div class="watermark-text-container" style="position: relative; width: 100vw; height: calc(100vh - 50px); background: #ffffff !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+      <div class="watermark-text-container" style="position: relative; width: 100vw; height: calc(100vh - 50px); background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
         <div class="global-watermark-layer" style="opacity: 0.16; z-index: 10; pointer-events: none;"></div>
         <!-- Blocking banner covering the top-right pop-out/open-in-new-tab buttons inside Google Drive viewer -->
         <div style="position: absolute; top: 0; right: 0; width: 180px; height: 65px; z-index: 25; pointer-events: auto; background: #ffffff;"></div>
         <!-- Inner container forcing white background on sides/letterboxing -->
-        <div style="width: 100%; height: 100%; background: #ffffff !important; display: flex; align-items: center; justify-content: center; position: relative; z-index: 5;">
-          <iframe src="${resolvedUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width: 100%; height: 100%; border: none; background: #ffffff !important;" allowfullscreen></iframe>
+        <div style="width: 100%; height: 100%; background: #ffffff !important; color-scheme: light !important; display: flex; align-items: center; justify-content: center; position: relative; z-index: 5;">
+          <iframe src="${resolvedUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width: 100%; height: 100%; border: none; background: #ffffff !important; color-scheme: light !important;" allowfullscreen></iframe>
         </div>
       </div>
     `;
@@ -4463,6 +4794,7 @@ async function openPdfModal(pdfUrl, title) {
     modal.style.display = 'flex';
     modal.style.background = '#ffffff'; 
     modal.style.setProperty('background-color', '#ffffff', 'important');
+    modal.style.setProperty('color-scheme', 'light', 'important');
     
     const modalContentContainer = document.getElementById('modal-watermark-container');
     if (modalContentContainer) {
@@ -4478,9 +4810,223 @@ async function openPdfModal(pdfUrl, title) {
 }
 
 
+function cancelStenoTest() {
+      if (testTimerInterval) clearInterval(testTimerInterval);
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      const audioElem = document.getElementById('active-bg-audio');
+      if (audioElem) {
+        audioElem.pause();
+        audioElem.currentTime = 0;
+      }
+      document.getElementById('active-test-modal').style.display = 'none';
+      showToast('Test cancelled and exited.');
+      navigateTo('dashboard', false);
+    }
+
+    function togglePauseStenoTest() {
+      isTestPaused = !isTestPaused;
+      const pauseBtn = document.getElementById('test-pause-btn');
+      const audioElem = document.getElementById('active-bg-audio');
+
+      if (isTestPaused) {
+        if (pauseBtn) pauseBtn.innerHTML = '<i class="fa-solid fa-play"></i> Resume Test';
+        if (audioElem) audioElem.pause();
+        showToast('Test paused.');
+      } else {
+        if (pauseBtn) pauseBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Test';
+        if (audioElem) audioElem.play().catch(() => {});
+        showToast('Test resumed.');
+      }
+    }
+
+    function handleTestKeyDown(event) {
+      if (isTestPaused) {
+        event.preventDefault();
+        return;
+      }
+
+      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+
+      // 1. Backspace restriction rule
+      if (event.key === 'Backspace') {
+        if (rules.backspaceMode === 'off') {
+          event.preventDefault();
+          showToast('Backspace is disabled for this test/subtab under admin rules.');
+          return;
+        } else {
+          testBackspaces++;
+        }
+      }
+
+      // 2. Function keys restriction rule (F1-F12)
+      if (rules.funcKeysMode === 'no' && event.key.startsWith('F') && event.key.length > 1) {
+        event.preventDefault();
+        showToast('Function keys are disabled under exam rules.');
+      }
+    }
+
+    function handleTestPaste(event) {
+      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+      if (rules.copyPasteMode === 'no') {
+        event.preventDefault();
+        showToast('Copy & Paste is disabled for this exam.');
+      }
+    }
+
+    function handleTestCopy(event) {
+      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+      if (rules.copyPasteMode === 'no') {
+        event.preventDefault();
+        showToast('Copying text is disabled for this exam.');
+      }
+    }
+
+    function handleTestCut(event) {
+      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+      if (rules.copyPasteMode === 'no') {
+        event.preventDefault();
+        showToast('Cutting text is disabled for this exam.');
+      }
+    }
+
+    function handleAudioTypingInput() {
+      if (!isTypingTimerStarted) {
+        isTypingTimerStarted = true;
+        testStartTime = Date.now();
+        startTestTimer(testDurationMinutes * 60);
+      }
+    }
 
 
 
+
+let isDraggingImage = false;
+let startX = 0, startY = 0;
+let translateX = 0, translateY = 0;
+
+function initImageDragAndPan() {
+  const wrapper = document.getElementById('zoomable-image-wrapper');
+  if (!wrapper) return;
+
+  wrapper.onmousedown = (e) => {
+    if (customImageZoomLevel <= 1) return;
+    isDraggingImage = true;
+    startX = e.clientX - translateX;
+    startY = e.clientY - translateY;
+    e.preventDefault();
+  };
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDraggingImage) return;
+    translateX = e.clientX - startX;
+    translateY = e.clientY - startY;
+    updateImageTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDraggingImage = false;
+  });
+
+  wrapper.onttouchstart = (e) => {
+    if (customImageZoomLevel <= 1) return;
+    if (e.touches.length === 1) {
+      isDraggingImage = true;
+      startX = e.touches[0].clientX - translateX;
+      startY = e.touches[0].clientY - translateY;
+    }
+  };
+
+  window.addEventListener('touchmove', (e) => {
+    if (!isDraggingImage || e.touches.length !== 1) return;
+    translateX = e.touches[0].clientX - startX;
+    translateY = e.touches[0].clientY - startY;
+    updateImageTransform();
+  });
+
+  window.addEventListener('touchend', () => {
+    isDraggingImage = false;
+  });
+}
+
+function updateImageTransform() {
+  const wrapper = document.getElementById('zoomable-image-wrapper');
+  if (wrapper) {
+    wrapper.style.transform = `translate(${translateX}px, ${translateY}px) scale(${customImageZoomLevel})`;
+  }
+}
+
+function adjustCustomImageZoom(amount) {
+  customImageZoomLevel = Math.max(0.5, Math.min(4, customImageZoomLevel + amount));
+  updateImageTransform();
+}
+
+function resetCustomImageZoom() {
+  customImageZoomLevel = 1;
+  translateX = 0;
+  translateY = 0;
+  updateImageTransform();
+}
+
+function renderAdminEvaluationRulesTable() {
+  const container = document.getElementById('admin-eval-rules-table-container');
+  if (!container) return;
+
+  const keys = Object.keys(allEvaluationRules || {});
+  if (keys.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No evaluation rules saved yet.</div>`;
+    return;
+  }
+
+  let html = `<table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
+    <tr style="background:var(--border);">
+      <th>Rule Key / Subtab</th>
+      <th>Total Marks</th>
+      <th>Passing Marks</th>
+      <th>Passing Accuracy</th>
+      <th>Backspace</th>
+      <th>Actions</th>
+    </tr>`;
+
+  keys.forEach(key => {
+    const rule = allEvaluationRules[key];
+    html += `<tr>
+      <td><strong>${key}</strong></td>
+      <td>${rule.totalMarks || 100}</td>
+      <td>${rule.passingMarks || 40}</td>
+      <td>${rule.passingAccuracy || 85}%</td>
+      <td>${(rule.backspaceMode || 'on').toUpperCase()}</td>
+      <td>
+        <button class="btn btn-primary btn-sm" onclick="loadSpecificSavedRule('${key}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEvaluationRuleByKey('${key}')">Delete</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  container.innerHTML = html;
+}
+
+async function deleteEvaluationRuleByKey(key) {
+  if (!confirm(`Are you sure you want to delete evaluation rules for [ ${key} ]?`)) return;
+  delete allEvaluationRules[key];
+  localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+  populateSavedRulesQuickDropdown();
+  renderAdminEvaluationRulesTable();
+
+  const res = await apiCall('saveEvaluationRules', {
+    ruleKey: key,
+    ruleJson: ''
+  });
+
+  loadSelectedEvaluationRulesIntoForm();
+  if (res.success) {
+    showToast('Evaluation rule deleted and synced successfully.');
+  } else {
+    showToast('Deleted locally, but backend sync failed.');
+  }
+}
 
   </script>
 </body>
