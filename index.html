@@ -4284,57 +4284,17 @@ function renderAdminUsers() {
       if (res.success) loadAdminData();
     }
 
-let logsPage = 1;
-    const LOGS_PER_PAGE = 20;
-
     function renderAdminLogs() {
       const tbody = document.getElementById('admin-logs-tbody');
-      const pageIndicator = document.getElementById('logs-page-indicator');
       if (!tbody) return;
       tbody.innerHTML = '';
-      
       const logs = adminData.logs || [];
-      const totalPages = Math.ceil(logs.length / LOGS_PER_PAGE) || 1;
 
-      if (logsPage > totalPages) logsPage = totalPages;
-      if (logsPage < 1) logsPage = 1;
-
-      const startIndex = (logsPage - 1) * LOGS_PER_PAGE;
-      const paginatedLogs = logs.slice(startIndex, startIndex + LOGS_PER_PAGE);
-
-      if (pageIndicator) {
-        pageIndicator.innerText = `Page ${logsPage} of ${totalPages} (${logs.length} total logs)`;
-      }
-
-      if (paginatedLogs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No security or activity logs recorded.</td></tr>`;
-        return;
-      }
-
-      paginatedLogs.forEach(l => {
+      logs.slice(0, 20).forEach(l => {
         const tr = document.createElement('tr');
-        const formattedTime = l.Timestamp ? new Date(l.Timestamp).toLocaleString() : '-';
-        tr.innerHTML = `
-          <td>${l.LogID || '-'}</td>
-          <td>${l.UserName || 'Guest'}</td>
-          <td>${l.ActivityType || '-'}</td>
-          <td>${l.Details || '-'}</td>
-          <td>${formattedTime}</td>
-        `;
+        tr.innerHTML = `<td>${l.LogID}</td><td>${l.UserName}</td><td>${l.ActivityType}</td><td>${l.Details}</td><td>${new Date(l.Timestamp).toLocaleString()}</td>`;
         tbody.appendChild(tr);
       });
-    }
-
-    function paginateLogs(dir) {
-      const logs = adminData.logs || [];
-      const totalPages = Math.ceil(logs.length / LOGS_PER_PAGE) || 1;
-
-      if (dir === 1 && logsPage < totalPages) {
-        logsPage++;
-      } else if (dir === -1 && logsPage > 1) {
-        logsPage--;
-      }
-      renderAdminLogs();
     }
 
 function onFeedbackSearchFocus() {
