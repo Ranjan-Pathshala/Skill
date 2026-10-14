@@ -794,14 +794,17 @@
               <input type="text" id="adm-upload-logo" class="form-control" placeholder="Logo or secondary badge image URL">
             </div>
 
-            <div class="form-group" id="group-adm-thumb">
+<div class="form-group" id="group-adm-thumb">
               <label>Thumbnail / Pitman Book Photo URL</label>
               <input type="text" id="adm-upload-thumb" class="form-control" placeholder="Exercise Picture / Thumbnail URL">
             </div>
+            
+            <!-- Time Limit Field (Hidden by default, shown for Pitman Book and Audio) -->
             <div class="form-group" id="group-adm-time-limit" style="display: none;">
               <label>Time Limit (Minutes) <span class="required-star">*</span></label>
               <input type="number" id="adm-upload-time-limit" class="form-control" value="5" min="1" max="180">
             </div>
+
             <div class="form-group" id="group-adm-access">
               <label>Access Level <span class="required-star">*</span></label>
               <select id="adm-upload-access" class="form-control">
@@ -957,7 +960,13 @@
     </div>
 
     <form id="admin-eval-rules-form" onsubmit="event.preventDefault(); saveEvaluationRulesSettings();" style="display: flex; flex-direction: column; gap: 12px;">
+      
+      <!-- 👉 ADDED: Typing Test Time Limit Field -->
       <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>⏱️ Typing Test Time Limit (Minutes) <span class="required-star">*</span></label>
+          <input type="number" id="eval-time-limit" class="form-control" value="5" min="1" max="180">
+        </div>
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>e. Backspace Mode</label>
           <select id="eval-backspace-mode" class="form-control">
@@ -965,28 +974,31 @@
             <option value="off">Backspace OFF (Blocked)</option>
           </select>
         </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>f. Total Marks</label>
           <input type="number" id="eval-total-marks" class="form-control" value="100" min="10" max="500">
         </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>g. Passing Marks</label>
           <input type="number" id="eval-passing-marks" class="form-control" value="40" min="1" max="500">
         </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>h. Passing Accuracy (% Accuracy)</label>
-          <input type="number" id="eval-passing-accuracy" class="form-control" value="85" min="1" max="100" step="0.5">
-        </div>
       </div>
 
       <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>h. Passing Accuracy (% Accuracy)</label>
+          <input type="number" id="eval-passing-accuracy" class="form-control" value="85" min="1" max="100" step="0.5">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>w. Minimum Gross Stroke % (to Pass)</label>
           <input type="number" id="eval-min-gross-stroke-pct" class="form-control" value="100" min="0" max="200" step="1">
         </div>
+      </div>
+
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>x. Paragraph Change Neglected / Ignored</label>
           <select id="eval-ignore-paragraph-change" class="form-control">
@@ -994,9 +1006,6 @@
             <option value="no">No (Strict Paragraph Checking)</option>
           </select>
         </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>Option: Repeat Passage Allowed</label>
           <select id="eval-repeat-passage" class="form-control">
@@ -1030,7 +1039,7 @@
         </div>
       </div>
 
-      <!-- 👉 ADDED: Input fields for Extra Words & Paragraph Not Changed Deductions -->
+      <!-- Extra Words & Paragraph Not Changed Deductions -->
       <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>Marks Deduction for Extra Words Typed</label>
@@ -1126,6 +1135,7 @@
       </div>
     </form>
   </div>
+</div>
 
   <!-- Existing Evaluation Rules Summary Table at the Bottom -->
   <div style="margin-top: 20px; max-width: 800px;">
@@ -1304,6 +1314,7 @@
       &copy; 2026-27 Ranjan Pathshala Skill Platform. All Rights Reserved.
     </div>
   </footer>
+
 
   <script>
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl78VM_WN1YNH8uq2rq2AH1_Ys5O_aWC0tXwqXM9qF9ZCYVNUvT2MhXRffUPIckFMmCQ/exec'; 
@@ -1692,18 +1703,27 @@ function populateEvalCategoryDropdown() {
       return cat;
     }
 
-    function getEvaluationRulesForTab(subtabKey) {
-      if (!subtabKey) return null;
+function getEvaluationRulesForTab(subtabKey) {
+      if (!subtabKey) return allEvaluationRules['default'] || defaultEvaluationRule;
+      
+      // 1. Check for specific exam/subtab rule (e.g. typingtest_SSC Exam)
       if (allEvaluationRules[subtabKey]) {
         return allEvaluationRules[subtabKey];
       }
+      
+      // 2. Fall back to base category rule (e.g. typingtest, pitman, audio)
       const baseCat = subtabKey.split('_')[0];
       if (allEvaluationRules[baseCat]) {
         return allEvaluationRules[baseCat];
       }
       
-      showToast('rule is not set contact administration');
-      return null;
+      // 3. Fall back to global default rule
+      if (allEvaluationRules['default']) {
+        return allEvaluationRules['default'];
+      }
+      
+      // 4. Fallback to hardcoded default rule object if nothing else exists
+      return defaultEvaluationRule;
     }
 
 function loadSelectedEvaluationRulesIntoForm() {
@@ -1714,40 +1734,46 @@ function loadSelectedEvaluationRulesIntoForm() {
         return;
       }
 
-      document.getElementById('eval-backspace-mode').value = rules.backspaceMode || 'on';
-      document.getElementById('eval-total-marks').value = rules.totalMarks || 100;
-      document.getElementById('eval-passing-marks').value = rules.passingMarks || 40;
-      document.getElementById('eval-passing-accuracy').value = rules.passingAccuracy || 85;
-      document.getElementById('eval-min-gross-stroke-pct').value = rules.minGrossStrokePct !== undefined ? rules.minGrossStrokePct : 100;
-      document.getElementById('eval-ignore-paragraph-change').value = rules.ignoreParagraphChange || 'yes';
-      document.getElementById('eval-repeat-passage').value = rules.repeatPassage || 'yes';
-      document.getElementById('eval-default-text-size').value = rules.defaultTextSize || 15;
-      document.getElementById('eval-deduct-punctuation').value = rules.deductPunctuation || 0.5;
-      document.getElementById('eval-deduct-word').value = rules.deductWord || 1.0;
-      document.getElementById('eval-deduct-wrong').value = rules.deductWrong || 1.0;
-      document.getElementById('eval-deduct-omission').value = rules.deductOmission || 1.0;
-      document.getElementById('eval-deduct-extra-word').value = rules.deductExtraWord || 0.5;          // 👈 Added: Load Extra Words Deduction
-      document.getElementById('eval-deduct-para-not-changed').value = rules.deductParaNotChanged || 1.0; // 👈 Added: Load Paragraph Not Changed Deduction
-      document.getElementById('eval-copypaste-mode').value = rules.copyPasteMode || 'yes';
-      document.getElementById('eval-func-keys-mode').value = rules.funcKeysMode || 'yes';
-      document.getElementById('eval-word-count-rule').value = rules.wordCountRule || '1word';
-      document.getElementById('eval-autoscroll-mode').value = rules.autoScrollMode || 'on';
-      document.getElementById('eval-highlight-mode').value = rules.highlightMode || 'on';
-      document.getElementById('eval-layout-position').value = rules.layoutPosition || 'top';
-      document.getElementById('eval-initial-words').value = rules.initialWords || 0;
-      document.getElementById('eval-min-time').value = rules.minTimeSeconds || 0;
-      document.getElementById('eval-ignore-error-pct').value = rules.ignoreErrorPct || 5;
-      document.getElementById('eval-penalty-value').value = rules.penaltyValue || 1.0;
+      const setVal = (id, val) => {
+        const elem = document.getElementById(id);
+        if (elem) elem.value = val !== undefined ? val : '';
+      };
+
+      setVal('eval-time-limit', rules.timeLimit || 5);          // 👈 Included Typing Test Time Limit
+      setVal('eval-backspace-mode', rules.backspaceMode || 'on');
+      setVal('eval-total-marks', rules.totalMarks || 100);
+      setVal('eval-passing-marks', rules.passingMarks || 40);
+      setVal('eval-passing-accuracy', rules.passingAccuracy || 85);
+      setVal('eval-min-gross-stroke-pct', rules.minGrossStrokePct !== undefined ? rules.minGrossStrokePct : 100);
+      setVal('eval-ignore-paragraph-change', rules.ignoreParagraphChange || 'yes');
+      setVal('eval-repeat-passage', rules.repeatPassage || 'yes');
+      setVal('eval-default-text-size', rules.defaultTextSize || 15);
+      setVal('eval-deduct-punctuation', rules.deductPunctuation || 0.5);
+      setVal('eval-deduct-word', rules.deductWord || 1.0);
+      setVal('eval-deduct-wrong', rules.deductWrong || 1.0);
+      setVal('eval-deduct-omission', rules.deductOmission || 1.0);
+      setVal('eval-deduct-extra-word', rules.deductExtraWord || 0.5);         // Extra Words Deduction
+      setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged || 1.0); // Paragraph Not Changed Deduction
+      setVal('eval-copypaste-mode', rules.copyPasteMode || 'yes');
+      setVal('eval-func-keys-mode', rules.funcKeysMode || 'yes');
+      setVal('eval-word-count-rule', rules.wordCountRule || '1word');
+      setVal('eval-autoscroll-mode', rules.autoScrollMode || 'on');
+      setVal('eval-highlight-mode', rules.highlightMode || 'on');
+      setVal('eval-layout-position', rules.layoutPosition || 'top');
+      setVal('eval-initial-words', rules.initialWords || 0);
+      setVal('eval-min-time', rules.minTimeSeconds || 0);
+      setVal('eval-ignore-error-pct', rules.ignoreErrorPct || 5);
+      setVal('eval-penalty-value', rules.penaltyValue || 1.0);
     }
 
-async function saveEvaluationRulesSettings() {
+    async function saveEvaluationRulesSettings() {
       const key = getSelectedEvalKey();
       if (!key) {
         showToast('Please select a valid evaluation category/subtab.');
         return;
       }
-
       const ruleData = {
+        timeLimit: parseInt(document.getElementById('eval-time-limit').value) || 5, // 👈 Included Typing Test Time Limit
         backspaceMode: document.getElementById('eval-backspace-mode').value,
         totalMarks: parseFloat(document.getElementById('eval-total-marks').value) || 100,
         passingMarks: parseFloat(document.getElementById('eval-passing-marks').value) || 40,
@@ -2518,37 +2544,25 @@ function onTypingMediumSelected() {
         ((m.Medium || 'English').toLowerCase() === selectedTypingMedium.toLowerCase())
       );
 
-      // If English medium is selected, bypass Exam Name (Subtab) selection step (Step 2)
-      if (selectedTypingMedium.toLowerCase() === 'english') {
-        selectedTypingExam = 'ALL';
-        document.getElementById('typing-step-2').style.display = 'none';
-        
-        const dateInput = document.getElementById('typing-select-date');
-        const todayStr = getLocalDateString();
-        
-        if (currentUser && currentUser.role !== 'admin') {
-          dateInput.max = todayStr;
-        } else {
-          dateInput.removeAttribute('max');
-        }
-
-        document.getElementById('typing-step-3').style.display = 'block';
-        document.getElementById('typing-step-4').style.display = 'none';
-        document.getElementById('typing-step-5').style.display = 'none';
-        document.getElementById('typing-reset-wizard-btn').style.display = 'inline-flex';
-        return;
-      }
-
+      // 👉 Always show Exam Name (Subtab) selection step for all language mediums
       const examSelect = document.getElementById('typing-select-exam');
-      const uniqueExams = [...new Set(typingItems.map(m => m.Subtab))].filter(Boolean);
+      const targetSubtabs = (adminData.subtabs || []).filter(s => String(s.Type || '').toLowerCase() === 'typingtest');
 
-      examSelect.innerHTML = '<option value="" disabled selected>-- Select Exam Name --</option>';
-      uniqueExams.forEach(name => {
+      examSelect.innerHTML = '<option value="" disabled selected>-- Select Exam Name / Subtab --</option>';
+      
+      if (targetSubtabs.length === 0) {
         const opt = document.createElement('option');
-        opt.value = name;
-        opt.innerText = name;
+        opt.value = selectedTypingMedium + ' General Exam';
+        opt.innerText = selectedTypingMedium + ' General Exam';
         examSelect.appendChild(opt);
-      });
+      } else {
+        targetSubtabs.forEach(stb => {
+          const opt = document.createElement('option');
+          opt.value = stb.SubtabName;
+          opt.innerText = stb.SubtabName;
+          examSelect.appendChild(opt);
+        });
+      }
 
       document.getElementById('typing-step-2').style.display = 'block';
       document.getElementById('typing-step-3').style.display = 'none';
@@ -2594,7 +2608,6 @@ function onTypingMediumSelected() {
       const typingItems = materialsData.filter(m => 
         (m.Type || '').toLowerCase() === 'typingtest' && 
         ((m.Medium || 'English').toLowerCase() === (selectedTypingMedium || 'English').toLowerCase()) &&
-        (selectedTypingExam === 'ALL' || m.Subtab === selectedTypingExam) && 
         (m.ExamDate || '').startsWith(selectedTypingDate)
       );
 
@@ -2618,32 +2631,39 @@ function onTypingMediumSelected() {
       const typingItems = materialsData.filter(m => 
         (m.Type || '').toLowerCase() === 'typingtest' && 
         ((m.Medium || 'English').toLowerCase() === (selectedTypingMedium || 'English').toLowerCase()) &&
-        (selectedTypingExam === 'ALL' || m.Subtab === selectedTypingExam) && 
         (m.ExamDate || '').startsWith(selectedTypingDate)
       );
 
       selectedTypingPassage = typingItems[idx];
       if (!selectedTypingPassage) return;
 
-      const rules = getEvaluationRulesForTab(selectedTypingPassage.Subtab ? `typingtest_${selectedTypingPassage.Subtab}` : 'typingtest');
+      // 👉 Evaluation rules mapped strictly by the specific Exam Name (Subtab) chosen by user
+      const evaluationKey = selectedTypingExam ? `typingtest_${selectedTypingExam}` : 'typingtest';
+      const rules = getEvaluationRulesForTab(evaluationKey);
+      
       const text = selectedTypingPassage.ContentOrUrl || '';
       const totalWords = text.split(/\s+/).filter(Boolean).length;
-      const totalDuration = selectedTypingPassage.TimeLimit ? selectedTypingPassage.TimeLimit : 5;
+      
+      // 👉 Time limit is fetched strictly from the evaluation rules set by admin for this exam subtab
+      const totalDuration = rules.timeLimit ? rules.timeLimit : 5;
 
       const summaryDiv = document.getElementById('typing-rules-summary');
-      summaryDiv.innerHTML = `
-        <div><strong>Language Medium:</strong> ${selectedTypingPassage.Medium || 'English'}</div>
-        <div><strong>Exam Name (Subtab):</strong> ${selectedTypingPassage.Subtab}</div>
-        <div><strong>Master Passage (Title):</strong> ${selectedTypingPassage.Title}</div>
-        <div><strong>Exam Date:</strong> ${selectedTypingPassage.ExamDate || selectedTypingDate}</div>
-        <div><strong>Total Words:</strong> ${totalWords} | <strong>Strokes:</strong> ${text.length}</div>
-        <div><strong>Min Gross Strokes Required:</strong> ${Math.round((text.length * (rules.minGrossStrokePct || 100)) / 100)} (${rules.minGrossStrokePct || 100}%)</div>
-        <div><strong>Total Duration:</strong> ${totalDuration} Minutes</div>
-        <div><strong>Passing Accuracy:</strong> ${rules.passingAccuracy}% | <strong>Total Marks:</strong> ${rules.totalMarks}</div>
-        <div><strong>Backspace:</strong> ${rules.backspaceMode.toUpperCase()} | <strong>Copy/Paste:</strong> ${rules.copyPasteMode.toUpperCase()}</div>
-      `;
+      if (summaryDiv) {
+        summaryDiv.innerHTML = `
+          <div><strong>Language Medium:</strong> ${selectedTypingPassage.Medium || 'English'}</div>
+          <div><strong>Exam Name (Subtab):</strong> ${selectedTypingExam || 'General Typing'}</div>
+          <div><strong>Master Passage (Title):</strong> ${selectedTypingPassage.Title}</div>
+          <div><strong>Exam Date:</strong> ${selectedTypingPassage.ExamDate || selectedTypingDate}</div>
+          <div><strong>Total Words:</strong> ${totalWords} | <strong>Strokes:</strong> ${text.length}</div>
+          <div><strong>Min Gross Strokes Required:</strong> ${Math.round((text.length * (rules.minGrossStrokePct || 100)) / 100)} (${rules.minGrossStrokePct || 100}%)</div>
+          <div><strong>Total Duration:</strong> ${totalDuration} Minutes</div>
+          <div><strong>Passing Accuracy:</strong> ${rules.passingAccuracy}% | <strong>Total Marks:</strong> ${rules.totalMarks}</div>
+          <div><strong>Backspace:</strong> ${rules.backspaceMode.toUpperCase()} | <strong>Copy/Paste:</strong> ${rules.copyPasteMode.toUpperCase()}</div>
+        `;
+      }
 
-      document.getElementById('typing-step-5').style.display = 'block';
+      const step5 = document.getElementById('typing-step-5');
+      if (step5) step5.style.display = 'block';
     }
 
     function resetTypingWizard() {
@@ -2656,8 +2676,7 @@ function startConfiguredTypingExam() {
         return;
       }
 
-      // 👉 Security validation check to enforce membership/admin access restrictions
-      const role = currentUser ? currentUser.role : 'user'; // roles: 'admin', 'member', 'user'
+      const role = currentUser ? currentUser.role : 'user';
       const accessLevel = (selectedTypingPassage.AccessLevel || 'public').toLowerCase();
 
       if (accessLevel === 'admin' && role !== 'admin') {
@@ -2673,20 +2692,25 @@ function startConfiguredTypingExam() {
     }
 
     function startTypingExam(item) {
-      currentExamName = `Typing Test: ${item.Subtab} - ${item.Title}`;
-      testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
+      currentExamName = `Typing Test: ${selectedTypingExam || 'General'} - ${item.Title}`;
+      
+      // 👉 Fetch test duration strictly from evaluation rules of the chosen exam subtab
+      const evaluationKey = selectedTypingExam ? `typingtest_${selectedTypingExam}` : 'typingtest';
+      const rules = getEvaluationRulesForTab(evaluationKey);
+      
+      testDurationMinutes = rules.timeLimit ? parseInt(rules.timeLimit) : 5;
       testBackspaces = 0;
       testStartTime = 0;
       currentReferenceText = item.ContentOrUrl || '';
-      activeTestSubtabKey = item.Subtab ? `typingtest_${item.Subtab}` : 'typingtest';
+      
+      activeTestSubtabKey = evaluationKey;
       isTestPaused = false;
       isTypingTimerStarted = false;
 
-      // 👉 Check if rules are set, otherwise abort and show notification
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
       if (!rules) return;
 
-      document.getElementById('test-modal-title').innerText = `${currentExamName} (${item.ExamDate || ''})`;
+      const titleElem = document.getElementById('test-modal-title');
+      if (titleElem) titleElem.innerText = `${currentExamName} (${item.ExamDate || ''})`;
       
       const mainBody = document.getElementById('test-main-body-container');
       const layoutPos = rules.layoutPosition || 'top';
@@ -2696,30 +2720,36 @@ function startConfiguredTypingExam() {
         layoutFlexDir = 'flex-direction: row; flex-wrap: wrap;';
       }
 
-      mainBody.innerHTML = `
-        <div style="display: flex; ${layoutFlexDir} gap: 16px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch;">
-          <div style="flex: 1; min-width: 320px; background: var(--surface); padding: 18px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
-            <div style="font-weight: 700; font-size: 13px; color: var(--secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-              <i class="fa-solid fa-file-lines"></i> Master Passage: ${item.Title} (${item.ExamDate || ''})
-            </div>
-            <div id="test-material-passage-text" style="font-size: ${rules.defaultTextSize || 15}px; line-height: 1.6; white-space: pre-wrap; font-family: 'Segoe UI', monospace;">${currentReferenceText}</div>
-          </div>
-
-          <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 8px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
-                <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
-                <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
+      if (mainBody) {
+        mainBody.innerHTML = `
+          <div style="display: flex; ${layoutFlexDir} gap: 16px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch;">
+            <div style="flex: 1; min-width: 320px; background: var(--surface); padding: 18px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
+              <div style="font-weight: 700; font-size: 13px; color: var(--secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px;">
+                <i class="fa-solid fa-file-lines"></i> Master Passage: ${item.Title} (${item.ExamDate || ''})
               </div>
-              <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
+              <div id="test-material-passage-text" style="font-size: ${rules.defaultTextSize || 15}px; line-height: 1.6; white-space: pre-wrap; font-family: 'Segoe UI', monospace;">${currentReferenceText}</div>
             </div>
-            <textarea id="test-user-input" class="form-control" style="width: 100%; flex: 1; min-height: 280px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" placeholder="Start typing passage here (Timer starts on first keypress)..." oninput="handleTypingInputProgress()" onkeydown="handleTestKeyDown(event)" onpaste="handleTestPaste(event)" oncopy="handleTestCopy(event)" oncut="handleTestCut(event)"></textarea>
-          </div>
-        </div>
-      `;
 
-      document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
-      document.getElementById('active-test-modal').style.display = 'flex';
+            <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
+                  <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
+                  <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
+              </div>
+              <textarea id="test-user-input" class="form-control" style="width: 100%; flex: 1; min-height: 280px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" placeholder="Start typing passage here (Timer starts on first keypress)..." oninput="handleTypingInputProgress()" onkeydown="handleTestKeyDown(event)" onpaste="handleTestPaste(event)" oncopy="handleTestCopy(event)" oncut="handleTestCut(event)"></textarea>
+            </div>
+          </div>
+        `;
+      }
+
+      const userInputElem = document.getElementById('test-user-input');
+      if (userInputElem) userInputElem.style.fontSize = (rules.defaultTextSize || 15) + 'px';
+      
+      const testModal = document.getElementById('active-test-modal');
+      if (testModal) testModal.style.display = 'flex';
+      
       toggleFullscreen();
     }
 
@@ -2731,7 +2761,7 @@ function startConfiguredTypingExam() {
       }
 
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (!rules) return; // 👉 Guard check
+      if (!rules) return;
       if (rules.highlightMode !== 'on') return;
 
       const userInput = document.getElementById('test-user-input');
@@ -3005,7 +3035,7 @@ function startAudioDictationTestById(id) {
         const role = currentUser ? currentUser.role : 'user';
         const accessLevel = (item.AccessLevel || 'public').toLowerCase();
 
-        let canView = false;
+let canView = false;
         let canDownload = false;
 
         if (role === 'admin') {
@@ -3025,7 +3055,11 @@ function startAudioDictationTestById(id) {
           canDownload = (role === 'admin');
         }
 
-        if (!canView) return;
+        // 👉 STRICT RULE: Audio, Typing Test, and Pitman Book can NEVER be downloaded in any condition
+        const materialType = (item.Type || '').toLowerCase();
+        if (['audio', 'typingtest', 'pitman'].includes(materialType)) {
+          canDownload = false;
+        }
 
         const card = document.createElement('div');
         card.className = 'card';
@@ -3035,22 +3069,42 @@ function startAudioDictationTestById(id) {
         
         let actionButtonsHtml = '';
         if (type === 'audio') {
-          // 👉 Pass item.ID safely to avoid serializing massive transcriptions into the HTML attributes
-          actionButtonsHtml = `
-            <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; position:relative; z-index:1;">
-              <button class="btn btn-primary btn-sm" style="width:100%;" onclick="openUniversalMediaViewer('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-play"></i> Play Dictation</button>
-              <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="startAudioDictationTestById('${item.ID || item.id}')">
-                <i class="fa-solid fa-headphones"></i> Start Audio Test
-              </button>
-            </div>
-          `;
+          if (canView) {
+            // 👉 Pass item.ID safely to avoid serializing massive transcriptions into the HTML attributes
+            actionButtonsHtml = `
+              <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; position:relative; z-index:1;">
+                <button class="btn btn-primary btn-sm" style="width:100%;" onclick="openUniversalMediaViewer('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-play"></i> Play Dictation</button>
+                <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="startAudioDictationTestById('${item.ID || item.id}')">
+                  <i class="fa-solid fa-headphones"></i> Start Audio Test
+                </button>
+              </div>
+            `;
+          } else {
+            actionButtonsHtml = `
+              <div style="margin-top:8px; position:relative; z-index:1;">
+                <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+                  <i class="fa-solid fa-lock"></i> Locked Content
+                </button>
+              </div>
+            `;
+          }
         } else {
-          actionButtonsHtml = `
-            <div style="margin-top:8px; display:flex; gap:4px; position:relative; z-index:1;">
-              <button class="btn btn-primary btn-sm" style="flex:1;" onclick="viewItem('${type}', '${item.ContentOrUrl}', '${item.Title}', '${accessLevel}')">View</button>
-              ${canDownload ? `<button class="btn btn-secondary btn-sm" onclick="downloadItem('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-download"></i> Download</button>` : ''}
-            </div>
-          `;
+          if (canView) {
+            actionButtonsHtml = `
+              <div style="margin-top:8px; display:flex; gap:4px; position:relative; z-index:1;">
+                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="viewItem('${type}', '${item.ContentOrUrl}', '${item.Title}', '${accessLevel}')">View</button>
+                ${canDownload ? `<button class="btn btn-secondary btn-sm" onclick="downloadItem('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-download"></i> Download</button>` : ''}
+              </div>
+            `;
+          } else {
+            actionButtonsHtml = `
+              <div style="margin-top:8px; position:relative; z-index:1;">
+                <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+                  <i class="fa-solid fa-lock"></i> Locked Content
+                </button>
+              </div>
+            `;
+          }
         }
 
         card.innerHTML = `
@@ -3574,6 +3628,8 @@ async function submitStenoTest() {
   loadTestHistory();
 }
 
+let cachedTestHistory = []; // 👉 Global cache variable for history items
+
 async function loadTestHistory() {
   const container = document.getElementById('test-history-container');
   if (!container || !currentUser) return;
@@ -3601,6 +3657,9 @@ async function loadTestHistory() {
     return;
   }
 
+  // 👉 Cache the fetched history list globally
+  cachedTestHistory = historyList;
+
   let html = `
     <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
       <tr style="background: var(--border);">
@@ -3616,7 +3675,7 @@ async function loadTestHistory() {
       </tr>
   `;
 
-  historyList.forEach(h => {
+  historyList.forEach((h, index) => {
     const localDateDisplay = formatLocalDate(h.Date || h.date);
     const submittedTimestamp = h.submissionTime || h.submissionTimeFormatted || h.TimeUsed || '-';
     const displayGross = h.GrossSpeed || h.grossSpeed || 0;
@@ -3637,7 +3696,8 @@ async function loadTestHistory() {
         <td>${marks} / ${totalMarks}</td>
         <td>${submittedTimestamp}</td>
         <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
-        <td><button class="btn btn-sm btn-primary" onclick='openTestComparison(${JSON.stringify(h)})'>View Material & Typed</button></td>
+        <!-- 👉 Pass the array index safely instead of stringifying the object -->
+        <td><button class="btn btn-sm btn-primary" onclick="openTestComparison(${index})">View Material & Typed</button></td>
       </tr>
     `;
   });
@@ -3646,11 +3706,21 @@ async function loadTestHistory() {
   container.innerHTML = html;
 }
 
-function openTestComparison(historyItem) {
-  const modal = document.getElementById('reader-modal');
-  const body = document.getElementById('modal-viewport');
-  const titleEl = document.getElementById('modal-title');
-  if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${historyItem.ExamName || historyItem.examName} (${historyItem.Date || historyItem.date})`;
+function openTestComparison(indexOrItem) {
+  // 👉 Safely resolve the history item using the index or direct object
+  const historyItem = (typeof indexOrItem === 'object' && indexOrItem !== null) 
+    ? indexOrItem 
+    : cachedTestHistory[indexOrItem];
+
+  if (!historyItem) {
+    showToast('Error loading test comparison details.');
+    return;
+  }
+
+const modal = document.getElementById('reader-modal');
+const body = document.getElementById('modal-viewport');
+const titleEl = document.getElementById('modal-title');
+if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${historyItem.ExamName || historyItem.examName} (${historyItem.Date || historyItem.date})`;
 
   const refText = historyItem.ReferenceText || historyItem.referenceText || '';
   const userText = historyItem.UserTranscription || historyItem.userTranscription || '';
@@ -3681,25 +3751,62 @@ function openTestComparison(historyItem) {
   let annotatedUserHtml = [];
   let annotatedRefHtml = [];
 
+  // 👉 Counters to compute live stats directly from the comparison loop
+  let computedWrongWords = 0;
+  let computedWordsLeft = 0;
+  let computedExtraWords = 0;
+  let computedCapitalErrors = 0;
+  let computedPunctuationErrors = { extra: 0, left: 0, wrong: 0 };
+
+  // Helper function to extract punctuation marks from a word token
+  const getPunctuation = (str) => (str.match(/[.,\/$%\^&\*;:{}=\-_`~()\[\]?+"]/g) || []).join('');
+
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0 && refWords[i - 1].toLowerCase() === userWords[j - 1].toLowerCase()) {
-      const isCapErr = refWords[i - 1] !== userWords[j - 1];
+      const refW = refWords[i - 1];
+      const userW = userWords[j - 1];
+
+      const isCapErr = refW !== userW;
       if (isCapErr) {
-        annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Capitalization Error">${userWords[j - 1]} <small>(Ref: ${refWords[i - 1]})</small></span>`);
+        computedCapitalErrors++;
+        annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Capitalization Error">${userW} <small>(Ref: ${refW})</small></span>`);
       } else {
-        annotatedUserHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${userWords[j - 1]}</span>`);
+        annotatedUserHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${userW}</span>`);
       }
-      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refWords[i - 1]}</span>`);
+
+      // Check punctuation mismatch on matching words
+      const refPunct = getPunctuation(refW);
+      const userPunct = getPunctuation(userW);
+      if (refPunct !== userPunct) {
+        if (!refPunct && userPunct) computedPunctuationErrors.extra++;
+        else if (refPunct && !userPunct) computedPunctuationErrors.left++;
+        else computedPunctuationErrors.wrong++;
+      }
+
+      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refW}</span>`);
       i--;
       j--;
     } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      computedExtraWords++;
+      const userPunct = getPunctuation(userWords[j - 1]);
+      if (userPunct) computedPunctuationErrors.extra++;
+
       annotatedUserHtml.unshift(`<span style="background: rgba(139, 92, 246, 0.25); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Extra Typed Word"><s>${userWords[j - 1]}</s> <small>(Extra)</small></span>`);
       j--;
     } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+      computedWordsLeft++;
+      const refPunct = getPunctuation(refWords[i - 1]);
+      if (refPunct) computedPunctuationErrors.left++;
+
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refWords[i - 1]}</span>`);
       annotatedUserHtml.unshift(`<span style="color: var(--danger); font-weight: bold; margin: 0 2px;" title="Word Left / Omission">(Left) <s>${refWords[i - 1]}</s></span>`);
       i--;
     } else {
+      computedWrongWords++;
+      const refPunct = getPunctuation(refWords[i - 1]);
+      const userPunct = getPunctuation(userWords[j - 1]);
+      if (refPunct !== userPunct) computedPunctuationErrors.wrong++;
+
       annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Wrong Typed Word"><s>${userWords[j - 1]}</s> <strong style="color:var(--success);">[${refWords[i - 1]}]</strong></span>`);
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refWords[i - 1]}</span>`);
       i--;
@@ -3713,13 +3820,25 @@ function openTestComparison(historyItem) {
     const totalMarksVal = historyItem.TotalMarks || historyItem.totalMarks || defaultEvaluationRule.totalMarks;
     const marksObtainedVal = historyItem.MarksObtained || historyItem.marksObtained || '-';
     
-    const totalBackspaces = historyItem.TotalBackspace || historyItem.totalBackspace || 0;
-    const wrongWordsCount = historyItem.WrongTyped || historyItem.wrongTyped || 0;
-    const wordsLeftCount = historyItem.WordLeft || historyItem.wordLeft || 0;
-    const extraWordsCount = historyItem.ExtraTyped || historyItem.extraTyped || 0;
-    const paraNotChangedCount = historyItem.ParaNotChanged || historyItem.paraNotChanged || 0;
-    const capitalErrorCount = historyItem.CapitalError || historyItem.capitalError || 0;
-    const punctuationErrorCount = historyItem.PunctuationLeft || historyItem.punctuationLeft || 0;
+    // 👉 Fallback to database properties if present, otherwise use our computed loop metrics
+    const totalBackspaces = historyItem.TotalBackspace ?? historyItem.totalBackspace ?? 0;
+    const wrongWordsCount = historyItem.WrongTyped ?? historyItem.wrongTyped ?? computedWrongWords;
+    const wordsLeftCount = historyItem.WordLeft ?? historyItem.wordLeft ?? computedWordsLeft;
+    const extraWordsCount = historyItem.ExtraTyped ?? historyItem.extraTyped ?? computedExtraWords;
+    const paraNotChangedCount = historyItem.ParaNotChanged ?? historyItem.paraNotChanged ?? 0;
+    const capitalErrorCount = historyItem.CapitalError ?? historyItem.capitalError ?? computedCapitalErrors;
+    
+    // Detailed Punctuation Totals
+    const dbPunctCount = historyItem.PunctuationLeft ?? historyItem.punctuationLeft ?? historyItem.PunctuationError ?? historyItem.punctuationError ?? 0;
+    const totalPunctErrorCount = dbPunctCount > 0 ? dbPunctCount : (computedPunctuationErrors.extra + computedPunctuationErrors.left + computedPunctuationErrors.wrong);
+
+    // 👉 Extract or compute deductions reliably without masking zero values
+    const wrongDeduction = historyItem.wrongTypedDeduction ?? (wrongWordsCount * 1.0).toFixed(2);
+    const wordLeftDeduction = historyItem.wordLeftDeduction ?? (wordsLeftCount * 1.0).toFixed(2);
+    const extraDeduction = historyItem.extraDeduction ?? (extraWordsCount * 0.5).toFixed(2);
+    const paraDeduction = historyItem.paraDeduction ?? (paraNotChangedCount * 1.0).toFixed(2);
+    const capitalDeduction = historyItem.capitalDeduction ?? (capitalErrorCount * 0.25).toFixed(2);
+    const punctuationDeduction = historyItem.punctuationDeduction ?? (totalPunctErrorCount * 0.5).toFixed(2);
 
     const examTitle = historyItem.ExamName || historyItem.examName || '-';
     const passageTitle = historyItem.PassageTitle || historyItem.passageTitle || historyItem.Title || '-';
@@ -3769,27 +3888,30 @@ function openTestComparison(historyItem) {
           </div>
           <div class="card" style="border-left: 4px solid var(--danger); padding: 14px;">
             <h5 style="color: var(--danger); margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Wrong Words: ${wrongWordsCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.wrongTypedDeduction || (wrongWordsCount * 1.0).toFixed(2)}</strong></p>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${wrongDeduction}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid var(--warning); padding: 14px;">
             <h5 style="color: var(--warning); margin-bottom: 6px;"><i class="fa-solid fa-book-bookmark"></i> Words Left: ${wordsLeftCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.wordLeftDeduction || (wordsLeftCount * 1.0).toFixed(2)}</strong></p>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${wordLeftDeduction}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid #7c3aed; padding: 14px;">
             <h5 style="color: #7c3aed; margin-bottom: 6px;"><i class="fa-solid fa-plus"></i> Extra Words: ${extraWordsCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.extraDeduction || (extraWordsCount * 0.5).toFixed(2)}</strong></p>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${extraDeduction}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid #06b6d4; padding: 14px;">
             <h5 style="color: #06b6d4; margin-bottom: 6px;"><i class="fa-solid fa-paragraph"></i> Paragraph Changes: ${paraNotChangedCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Marks Deducted: <strong>-${historyItem.paraDeduction || (paraNotChangedCount * 1.0).toFixed(2)}</strong></p>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Marks Deducted: <strong>-${paraDeduction}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid #b45309; padding: 14px;">
             <h5 style="color: #b45309; margin-bottom: 6px;"><i class="fa-solid fa-font"></i> Capital Errors: ${capitalErrorCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.capitalDeduction || (capitalErrorCount * 0.25).toFixed(2)}</strong></p>
+            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${capitalDeduction}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid var(--accent); padding: 14px;">
-            <h5 style="color: var(--accent); margin-bottom: 6px;"><i class="fa-solid fa-pencil"></i> Punctuation Errors: ${punctuationErrorCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.punctuationDeduction || (punctuationErrorCount * 0.5).toFixed(2)}</strong></p>
+            <h5 style="color: var(--accent); margin-bottom: 6px;"><i class="fa-solid fa-pencil"></i> Punctuation Errors: ${totalPunctErrorCount}</h5>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
+              Extra: ${computedPunctuationErrors.extra} | Left: ${computedPunctuationErrors.left} | Wrong: ${computedPunctuationErrors.wrong}<br>
+              Marks Deducted: <strong>-${punctuationDeduction}</strong>
+            </p>
           </div>
         </div>
 
@@ -4193,6 +4315,14 @@ function adjustAdminUploadForm() {
 
       const groupAudioPassage = document.getElementById('group-adm-audio-passage');
       const groupLogo = document.getElementById('group-adm-logo');
+      const groupSubtab = document.getElementById('group-adm-subtab');
+      const groupThumb = document.getElementById('group-adm-thumb');
+      const groupTimeLimit = document.getElementById('group-adm-time-limit');
+      const groupCategory = document.getElementById('group-adm-category');
+      const groupTargetDate = document.getElementById('group-adm-target-date');
+      const groupMedium = document.getElementById('group-adm-medium');
+      const groupDifficulty = document.getElementById('group-adm-difficulty');
+      const groupExamDate = document.getElementById('group-adm-exam-date');
 
       // Toggle visibility for audio passage and pitman logo fields
       if (groupAudioPassage) groupAudioPassage.style.display = (normalizedType === 'audio') ? 'block' : 'none';
@@ -4201,36 +4331,49 @@ function adjustAdminUploadForm() {
       if (normalizedType === 'typingtest') {
         if (titleLabel) titleLabel.innerHTML = 'Master Passage / Title <span class="required-star">*</span>';
         if (urlLabel) urlLabel.innerHTML = 'Master Passage Text <span class="required-star">*</span>';
-        // 👉 Hide Exam Name (Subtab) field for Typing Test
-        document.getElementById('group-adm-subtab').style.display = 'none';
-        document.getElementById('group-adm-thumb').style.display = 'none';
+        
+        // 👉 Strictly hide Exam Name (Subtab), Thumbnail, and Time Limit for Typing Test as requested
+        if (groupSubtab) groupSubtab.style.display = 'none';
+        if (groupThumb) groupThumb.style.display = 'none';
+        if (groupTimeLimit) groupTimeLimit.style.display = 'none';
+        if (groupCategory) groupCategory.style.display = 'none';
+        if (groupTargetDate) groupTargetDate.style.display = 'none';
+
+        // Show only required fields for typing test: Title, medium, difficulty, access, material, date
+        if (groupMedium) groupMedium.style.display = 'block';
+        if (groupDifficulty) groupDifficulty.style.display = 'block';
+        if (groupExamDate) groupExamDate.style.display = 'block';
       } else if (normalizedType === 'audio') {
         if (titleLabel) titleLabel.innerHTML = 'Title <span class="required-star">*</span>';
         if (subtabLabel) subtabLabel.innerHTML = 'Subtab <span class="required-star">*</span>';
         if (urlLabel) urlLabel.innerHTML = 'Audio Link / URL <span class="required-star">*</span>';
-        document.getElementById('group-adm-subtab').style.display = 'block';
-        document.getElementById('group-adm-thumb').style.display = 'block';
+        if (groupSubtab) groupSubtab.style.display = 'block';
+        if (groupThumb) groupThumb.style.display = 'block';
+        if (groupTimeLimit) groupTimeLimit.style.display = 'block';
       } else if (normalizedType === 'pitman') {
         if (titleLabel) titleLabel.innerHTML = 'Title <span class="required-star">*</span>';
         if (subtabLabel) subtabLabel.innerHTML = 'Subtab <span class="required-star">*</span>';
         if (urlLabel) urlLabel.innerHTML = 'Master Passage / Transcription Text <span class="required-star">*</span>';
-        document.getElementById('group-adm-subtab').style.display = 'block';
-        document.getElementById('group-adm-thumb').style.display = 'block';
+        if (groupSubtab) groupSubtab.style.display = 'block';
+        if (groupThumb) groupThumb.style.display = 'block';
+        if (groupTimeLimit) groupTimeLimit.style.display = 'block';
       } else {
         if (titleLabel) titleLabel.innerHTML = 'Title <span class="required-star">*</span>';
         if (subtabLabel) subtabLabel.innerHTML = 'Subtab <span class="required-star">*</span>';
         if (urlLabel) urlLabel.innerHTML = 'Material Passage / Transcription Text / URL <span class="required-star">*</span>';
-        document.getElementById('group-adm-subtab').style.display = ['pdf', 'audio', 'pitman'].includes(normalizedType) ? 'block' : 'none';
-        document.getElementById('group-adm-thumb').style.display = ['pdf', 'audio', 'word', 'video', 'pitman'].includes(normalizedType) ? 'block' : 'none';
+        if (groupSubtab) groupSubtab.style.display = ['pdf', 'audio', 'pitman'].includes(normalizedType) ? 'block' : 'none';
+        if (groupThumb) groupThumb.style.display = ['pdf', 'audio', 'word', 'video', 'pitman'].includes(normalizedType) ? 'block' : 'none';
+        if (groupTimeLimit) groupTimeLimit.style.display = 'none';
       }
 
-      document.getElementById('group-adm-category').style.display = (normalizedType === 'word') ? 'block' : 'none';
-      document.getElementById('group-adm-time-limit').style.display = ['pitman', 'audio', 'typingtest'].includes(normalizedType) ? 'block' : 'none';
-      document.getElementById('group-adm-target-date').style.display = (normalizedType === 'homework') ? 'block' : 'none';
+      if (groupCategory) groupCategory.style.display = (normalizedType === 'word') ? 'block' : 'none';
+      if (groupTargetDate) groupTargetDate.style.display = (normalizedType === 'homework') ? 'block' : 'none';
       
-      document.getElementById('group-adm-medium').style.display = (normalizedType === 'typingtest') ? 'block' : 'none';
-      document.getElementById('group-adm-difficulty').style.display = (normalizedType === 'typingtest') ? 'block' : 'none';
-      document.getElementById('group-adm-exam-date').style.display = (normalizedType === 'typingtest') ? 'block' : 'none';
+      if (normalizedType !== 'typingtest') {
+        if (groupMedium) groupMedium.style.display = 'none';
+        if (groupDifficulty) groupDifficulty.style.display = 'none';
+        if (groupExamDate) groupExamDate.style.display = 'none';
+      }
 
       populateAdminSubtabsDropdown();
     }
@@ -4251,6 +4394,8 @@ function adjustAdminUploadForm() {
       if (!select || !typeElem) return;
       
       const currentType = typeElem.value;
+      if (currentType.toLowerCase() === 'typingtest') return; // Typing tests do not use subtabs during upload[cite: 1]
+
       select.innerHTML = '<option value="" disabled selected>-- Select Subtab / Exam Name --</option>';
 
       (adminData.subtabs || []).filter(stb => stb.Type && stb.Type.toLowerCase() === currentType.toLowerCase()).forEach(stb => {
@@ -4261,7 +4406,7 @@ function adjustAdminUploadForm() {
       });
     }
 
-async function handleAdminMaterialUpload() {
+    async function handleAdminMaterialUpload() {
       const type = document.getElementById('adm-upload-type').value;
       const title = document.getElementById('adm-upload-title').value.trim();
       const medium = document.getElementById('adm-upload-medium')?.value || 'English';
@@ -4276,28 +4421,31 @@ async function handleAdminMaterialUpload() {
         return;
       }
 
-      // 👉 Auto-assign subtab for typing tests based on medium (English or Hindi) if left blank
-      let subtabVal = document.getElementById('adm-upload-subtab').value || '-';
-      if (type.toLowerCase() === 'typingtest' && subtabVal === '-') {
-        subtabVal = medium.toLowerCase() === 'hindi' ? 'General Hindi Typing' : 'General English Typing';
+      let subtabVal = '-';
+      if (type.toLowerCase() === 'typingtest') {
+        subtabVal = 'ALL'; // Set to ALL so it displays across all exams matching the medium language[cite: 1]
+      } else {
+        subtabVal = document.getElementById('adm-upload-subtab').value || '-';
       }
 
-      // Capture audio passage or pitman logo if applicable
       const audioPassage = document.getElementById('adm-upload-audio-passage')?.value.trim() || '-';
       const logoUrl = document.getElementById('adm-upload-logo')?.value.trim() || '-';
+
+      const rawTimeLimit = document.getElementById('adm-upload-time-limit')?.value;
+      const timeLimitVal = (rawTimeLimit !== undefined && rawTimeLimit !== '' && !isNaN(rawTimeLimit)) ? rawTimeLimit : '5';
 
       const payload = {
         id: editingMaterialId || undefined,
         materialType: type,
         title: title,
         subtab: subtabVal,
-        category: document.getElementById('adm-upload-category').value || '-',
+        category: document.getElementById('adm-upload-category')?.value || '-',
         contentOrUrl: document.getElementById('adm-upload-url').value.trim() || '-',
-        thumbnailUrl: (type.toLowerCase() === 'audio') ? audioPassage : (document.getElementById('adm-upload-thumb').value.trim() || DEFAULT_LOGO_URL),
+        thumbnailUrl: (type.toLowerCase() === 'audio') ? audioPassage : (document.getElementById('adm-upload-thumb')?.value.trim() || DEFAULT_LOGO_URL),
         logoUrl: logoUrl,
         accessLevel: document.getElementById('adm-upload-access').value || 'user',
-        timeLimit: document.getElementById('adm-upload-time-limit').value || '5',
-        targetDate: document.getElementById('adm-upload-date').value || '-',
+        timeLimit: timeLimitVal,
+        targetDate: document.getElementById('adm-upload-date')?.value || '-',
         medium: medium,
         difficulty: document.getElementById('adm-upload-difficulty')?.value || 'Medium',
         examDate: document.getElementById('adm-upload-exam-date')?.value || getLocalDateString()
@@ -4328,10 +4476,12 @@ async function handleAdminMaterialUpload() {
       if (document.getElementById('adm-upload-audio-passage')) document.getElementById('adm-upload-audio-passage').value = (item.Type === 'audio') ? (item.ThumbnailUrl || '') : '';
       if (document.getElementById('adm-upload-logo')) document.getElementById('adm-upload-logo').value = item.LogoUrl || '';
 
-      document.getElementById('adm-upload-subtab').value = item.Subtab || '';
-      document.getElementById('adm-upload-category').value = item.Category || '';
+      if (document.getElementById('adm-upload-subtab') && item.Type !== 'typingtest') {
+        document.getElementById('adm-upload-subtab').value = item.Subtab || '';
+      }
+      if (document.getElementById('adm-upload-category')) document.getElementById('adm-upload-category').value = item.Category || '';
       document.getElementById('adm-upload-access').value = item.AccessLevel || 'user';
-      document.getElementById('adm-upload-time-limit').value = item.TimeLimit || '5';
+      if (document.getElementById('adm-upload-time-limit')) document.getElementById('adm-upload-time-limit').value = item.TimeLimit || '5';
       
       if (document.getElementById('adm-upload-medium')) document.getElementById('adm-upload-medium').value = item.Medium || 'English';
       if (document.getElementById('adm-upload-difficulty')) document.getElementById('adm-upload-difficulty').value = item.Difficulty || 'Medium';
@@ -4350,9 +4500,9 @@ async function handleAdminMaterialUpload() {
       if (document.getElementById('adm-upload-thumb')) document.getElementById('adm-upload-thumb').value = '';
       if (document.getElementById('adm-upload-audio-passage')) document.getElementById('adm-upload-audio-passage').value = '';
       if (document.getElementById('adm-upload-logo')) document.getElementById('adm-upload-logo').value = '';
-      document.getElementById('adm-upload-category').value = '';
+      if (document.getElementById('adm-upload-category')) document.getElementById('adm-upload-category').value = '';
       document.getElementById('adm-upload-access').value = 'user';
-      document.getElementById('adm-upload-time-limit').value = '5';
+      if (document.getElementById('adm-upload-time-limit')) document.getElementById('adm-upload-time-limit').value = '5';
       document.getElementById('adm-upload-submit-btn').innerText = 'Upload Item';
       adjustAdminUploadForm();
       showToast('Form reset successfully.');
@@ -4620,6 +4770,11 @@ function openReferenceVideoModal(rawUrl, title) {
       viewport.innerHTML = mediaHtml;
       modal.style.display = 'flex';
 
+      // 📺 Request Fullscreen Mode Automatically upon opening reference video
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+
       if (currentUser) {
         apiCall('logActivity', { userId: currentUser.userId, userName: currentUser.name, activityType: 'WATCH_VIDEO', details: title });
       }
@@ -4630,6 +4785,11 @@ function openReferenceVideoModal(rawUrl, title) {
       const viewport = document.getElementById('ref-video-modal-viewport');
       if (viewport) viewport.innerHTML = '';
       if (modal) modal.style.display = 'none';
+
+      // 📺 Exit fullscreen when closing the modal if active
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
     }
 
 
@@ -5082,6 +5242,58 @@ async function deleteEvaluationRuleByKey(key) {
   } else {
     showToast('Deleted locally, but backend sync failed.');
   }
+}
+
+
+function handleUploadMaterial(payload) {
+  var materialType = payload.materialType;
+  var normalizedType = materialType ? materialType.toLowerCase().replace(/[-_]/g, ' ').trim() : '';
+  
+  var sheetName = 'MATERIALS';
+  if (normalizedType === 'homework') sheetName = 'HOMEWORK';
+  else if (normalizedType === 'announcement') sheetName = 'ANNOUNCEMENTS';
+
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  var id = 'MAT-' + Date.now();
+
+  if (normalizedType === 'homework') {
+    sheet.appendRow([
+      id, 
+      payload.targetDate || '', 
+      sanitizeInput(payload.title || ''), 
+      sanitizeInput(payload.details || payload.contentOrUrl || ''), 
+      new Date().toISOString()
+    ]);
+  } else if (normalizedType === 'announcement') {
+    sheet.appendRow([
+      id, 
+      sanitizeInput(payload.title || ''), 
+      sanitizeInput(payload.contentOrUrl || payload.content || ''), 
+      new Date().toISOString()
+    ]);
+  } else {
+    // 👉 For typing tests, subtab is stored as 'ALL' or empty so it matches across all medium exams
+    var subtabVal = (normalizedType === 'typingtest') ? 'ALL' : sanitizeInput(payload.subtab || 'General');
+
+    sheet.appendRow([
+      id,
+      payload.materialType || '',
+      subtabVal,
+      sanitizeInput(payload.category || ''),
+      sanitizeInput(payload.title || ''),
+      sanitizeInput(formatDriveUrl(payload.contentOrUrl || '')),
+      sanitizeInput(formatDriveUrl(payload.thumbnailUrl || '')),
+      sanitizeInput(formatDriveUrl(payload.logoUrl || '')),
+      payload.accessLevel || 'public',
+      new Date().toISOString(),
+      payload.medium || 'English',
+      payload.difficulty || 'Medium',
+      payload.examDate || getScriptLocalDate(),
+      payload.timeLimit || 5
+    ]);
+  }
+
+  return { success: true, message: 'Material uploaded successfully.' };
 }
 
   </script>
