@@ -1030,6 +1030,18 @@
         </div>
       </div>
 
+      <!-- 👉 ADDED: Input fields for Extra Words & Paragraph Not Changed Deductions -->
+      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>Marks Deduction for Extra Words Typed</label>
+          <input type="number" id="eval-deduct-extra-word" class="form-control" value="0.5" min="0" max="10" step="0.1">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 200px;">
+          <label>Marks Deduction for Paragraph Not Changed</label>
+          <input type="number" id="eval-deduct-para-not-changed" class="form-control" value="1.0" min="0" max="10" step="0.1">
+        </div>
+      </div>
+
       <h5 style="margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Security & Exam Controls</h5>
 
       <div style="display: flex; gap: 15px; flex-wrap: wrap;">
@@ -1115,7 +1127,7 @@
     </form>
   </div>
 
-  <!-- 👉 ADDED: Existing Evaluation Rules Summary Table at the Bottom -->
+  <!-- Existing Evaluation Rules Summary Table at the Bottom -->
   <div style="margin-top: 20px; max-width: 800px;">
     <h4>Existing Uploaded / Saved Evaluation Rules</h4>
     <div id="admin-eval-rules-table-container" style="overflow-x: auto; margin-top: 10px;"></div>
@@ -1318,7 +1330,7 @@ function getLocalDateString() {
 
 
 
-    let currentUser = JSON.parse(localStorage.getItem('steno_user')) || null;
+let currentUser = JSON.parse(localStorage.getItem('steno_user')) || null;
     let activeTab = 'dashboard';
     let globalData = { announcements: [], homework: [], stats: {}, banner: [], materials: [], history: [] };
     let materialsData = [];
@@ -1336,6 +1348,8 @@ function getLocalDateString() {
       deductWord: 1.0,
       deductWrong: 1.0,
       deductOmission: 1.0,
+      deductExtraWord: 0.5,       // 👈 Added: Deduction for extra words typed
+      deductParaNotChanged: 1.0,  // 👈 Added: Deduction for paragraph not changed
       copyPasteMode: 'yes',
       funcKeysMode: 'yes',
       wordCountRule: '1word',
@@ -1412,14 +1426,14 @@ window.addEventListener('DOMContentLoaded', () => {
           }
         }
       });
+    });
 
-      window.addEventListener('popstate', (event) => {
-        if (event.state && event.state.tab) {
-          navigateTo(event.state.tab, false);
-        } else {
-          navigateTo('dashboard', false);
-        }
-      });
+    window.addEventListener('popstate', (event) => {
+      if (event.state && event.state.tab) {
+        navigateTo(event.state.tab, false);
+      } else {
+        navigateTo('dashboard', false);
+      }
     });
 
     // Handler function to update offline indicator visibility
@@ -1692,7 +1706,7 @@ function populateEvalCategoryDropdown() {
       return null;
     }
 
-    function loadSelectedEvaluationRulesIntoForm() {
+function loadSelectedEvaluationRulesIntoForm() {
       const key = getSelectedEvalKey();
       const rules = getEvaluationRulesForTab(key);
 
@@ -1712,6 +1726,8 @@ function populateEvalCategoryDropdown() {
       document.getElementById('eval-deduct-word').value = rules.deductWord || 1.0;
       document.getElementById('eval-deduct-wrong').value = rules.deductWrong || 1.0;
       document.getElementById('eval-deduct-omission').value = rules.deductOmission || 1.0;
+      document.getElementById('eval-deduct-extra-word').value = rules.deductExtraWord || 0.5;          // 👈 Added: Load Extra Words Deduction
+      document.getElementById('eval-deduct-para-not-changed').value = rules.deductParaNotChanged || 1.0; // 👈 Added: Load Paragraph Not Changed Deduction
       document.getElementById('eval-copypaste-mode').value = rules.copyPasteMode || 'yes';
       document.getElementById('eval-func-keys-mode').value = rules.funcKeysMode || 'yes';
       document.getElementById('eval-word-count-rule').value = rules.wordCountRule || '1word';
@@ -1744,6 +1760,8 @@ async function saveEvaluationRulesSettings() {
         deductWord: parseFloat(document.getElementById('eval-deduct-word').value) || 1.0,
         deductWrong: parseFloat(document.getElementById('eval-deduct-wrong').value) || 1.0,
         deductOmission: parseFloat(document.getElementById('eval-deduct-omission').value) || 1.0,
+        deductExtraWord: parseFloat(document.getElementById('eval-deduct-extra-word').value) || 0.5,         // 👈 Included Extra Words Deduction
+        deductParaNotChanged: parseFloat(document.getElementById('eval-deduct-para-not-changed').value) || 1.0, // 👈 Included Paragraph Not Changed Deduction
         copyPasteMode: document.getElementById('eval-copypaste-mode').value,
         funcKeysMode: document.getElementById('eval-func-keys-mode').value,
         wordCountRule: document.getElementById('eval-word-count-rule').value,
@@ -3386,6 +3404,16 @@ async function submitStenoTest() {
     showToast(`Warning: Minimum time period required is ${rules.minTimeSeconds} seconds.`);
   }
 
+  // 1. Check if paragraph changes were respected (if strict paragraph checking is enabled)
+  let paraNotChangedCount = 0;
+  if (rules.ignoreParagraphChange === 'no') {
+    const refParas = referenceText.split(/[\r\n]+/).filter(p => p.trim().length > 0);
+    const userParas = typedText.split(/[\r\n]+/).filter(p => p.trim().length > 0);
+    if (refParas.length !== userParas.length) {
+      paraNotChangedCount = Math.abs(refParas.length - userParas.length);
+    }
+  }
+
   const refTextEval = rules.ignoreParagraphChange === 'yes' ? referenceText.replace(/[\r\n]+/g, ' ') : referenceText;
   const userTextEval = rules.ignoreParagraphChange === 'yes' ? typedText.replace(/[\r\n]+/g, ' ') : typedText;
 
@@ -3460,15 +3488,22 @@ async function submitStenoTest() {
   const deductOmission = rules.deductOmission !== undefined ? rules.deductOmission : 1.0;
   const deductPunctuation = rules.deductPunctuation !== undefined ? rules.deductPunctuation : 0.5;
   const deductCapital = 0.25;
-  const deductExtra = 0.5;
+  const deductExtraWord = rules.deductExtraWord !== undefined ? rules.deductExtraWord : 0.5;
+  const deductParaNotChanged = rules.deductParaNotChanged !== undefined ? rules.deductParaNotChanged : 1.0;
 
   const wrongTypedDeduction = (wrongTypedCount * deductWrong).toFixed(2);
   const wordLeftDeduction = (wordLeftCount * deductOmission).toFixed(2);
   const punctuationDeduction = (punctuationLeftCount * deductPunctuation).toFixed(2);
   const capitalDeduction = (capitalErrorCount * deductCapital).toFixed(2);
-  const extraDeduction = (extraTypedCount * deductExtra).toFixed(2);
+  const extraDeduction = (extraTypedCount * deductExtraWord).toFixed(2);
+  const paraDeduction = (paraNotChangedCount * deductParaNotChanged).toFixed(2);
 
-  let errorDeductions = parseFloat(wrongTypedDeduction) + parseFloat(wordLeftDeduction) + parseFloat(punctuationDeduction) + parseFloat(capitalDeduction) + parseFloat(extraDeduction);
+  let errorDeductions = parseFloat(wrongTypedDeduction) + 
+                        parseFloat(wordLeftDeduction) + 
+                        parseFloat(punctuationDeduction) + 
+                        parseFloat(capitalDeduction) + 
+                        parseFloat(extraDeduction) + 
+                        parseFloat(paraDeduction);
   
   const ignorePct = rules.ignoreErrorPct || 5;
   if (parseFloat(errorPercentage) > ignorePct) {
@@ -3514,6 +3549,8 @@ async function submitStenoTest() {
     capitalDeduction: capitalDeduction,
     extraTyped: extraTypedCount,
     extraDeduction: extraDeduction,
+    paraNotChanged: paraNotChangedCount,
+    paraDeduction: paraDeduction,
     punctuationLeft: punctuationLeftCount,
     punctuationDeduction: punctuationDeduction,
     status: isPassed ? 'PASSED' : 'FAILED',
@@ -3538,78 +3575,76 @@ async function submitStenoTest() {
 }
 
 async function loadTestHistory() {
-      const container = document.getElementById('test-history-container');
-      if (!container || !currentUser) return;
+  const container = document.getElementById('test-history-container');
+  if (!container || !currentUser) return;
 
-      const res = await apiCall('getTestHistory', { userId: currentUser.userId });
-      if (!res.success || !res.historyList || res.historyList.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-muted);">No test or practice history recorded yet.</p>';
-        return;
-      }
+  const res = await apiCall('getTestHistory', { userId: currentUser.userId });
+  if (!res.success || !res.historyList || res.historyList.length === 0) {
+    container.innerHTML = '<p style="color: var(--text-muted);">No test or practice history recorded yet.</p>';
+    return;
+  }
 
-      const filterType = document.getElementById('history-type-filter')?.value || 'ALL';
-      const useTimeToggle = document.getElementById('toggle-time-used')?.checked || false;
+  const filterType = document.getElementById('history-type-filter')?.value || 'ALL';
+  const useTimeToggle = document.getElementById('toggle-time-used')?.checked || false;
 
-      let historyList = res.historyList;
-      if (filterType === 'typing') {
-        historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('typing'));
-      } else if (filterType === 'pitman') {
-        historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('pitman'));
-      } else if (filterType === 'audio') {
-        historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('audio'));
-      }
+  let historyList = res.historyList;
+  if (filterType === 'typing') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('typing'));
+  } else if (filterType === 'pitman') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('pitman'));
+  } else if (filterType === 'audio') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('audio'));
+  }
 
-      if (historyList.length === 0) {
-        container.innerHTML = `<p style="color: var(--text-muted);">No history found for filter: ${filterType}.</p>`;
-        return;
-      }
+  if (historyList.length === 0) {
+    container.innerHTML = `<p style="color: var(--text-muted);">No history found for filter: ${filterType}.</p>`;
+    return;
+  }
 
-      // Reverted headers to original clean layout
-      let html = `
-        <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
-          <tr style="background: var(--border);">
-            <th>Date / Time</th>
-            <th>Exam / Exercise</th>
-            <th>Gross Spd</th>
-            <th>Net Spd</th>
-            <th>Accuracy</th>
-            <th>Marks Obtained</th>
-            <th>Time Submitted</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-      `;
+  let html = `
+    <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
+      <tr style="background: var(--border);">
+        <th>Date / Time</th>
+        <th>Exam / Exercise</th>
+        <th>Gross Spd</th>
+        <th>Net Spd</th>
+        <th>Accuracy</th>
+        <th>Marks Obtained</th>
+        <th>Time Submitted</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+  `;
 
-      historyList.forEach(h => {
-        const localDateDisplay = formatLocalDate(h.Date || h.date);
-        const submittedTimestamp = h.submissionTime || h.submissionTimeFormatted || h.TimeUsed || '-';
-        const displayGross = h.GrossSpeed || h.grossSpeed || 0;
-        const displayNet = h.NetSpeed || h.netSpeed || 0;
-        const accuracy = h.AccuracyPercentage || h.accuracyPercentage || 0;
-        const marks = h.MarksObtained || h.marksObtained || '-';
-        const totalMarks = h.TotalMarks || h.totalMarks || 100;
-        const status = h.Status || h.status || 'FAILED';
-        const examName = h.ExamName || h.examName || '-';
+  historyList.forEach(h => {
+    const localDateDisplay = formatLocalDate(h.Date || h.date);
+    const submittedTimestamp = h.submissionTime || h.submissionTimeFormatted || h.TimeUsed || '-';
+    const displayGross = h.GrossSpeed || h.grossSpeed || 0;
+    const displayNet = h.NetSpeed || h.netSpeed || 0;
+    const accuracy = h.AccuracyPercentage || h.accuracyPercentage || 0;
+    const marks = h.MarksObtained || h.marksObtained || '-';
+    const totalMarks = h.TotalMarks || h.totalMarks || 100;
+    const status = h.Status || h.status || 'FAILED';
+    const examName = h.ExamName || h.examName || '-';
 
-        html += `
-          <tr>
-            <td>${localDateDisplay}</td>
-            <td>${examName}</td>
-            <td>${displayGross} WPM</td>
-            <td>${displayNet} WPM</td>
-            <td>${accuracy}%</td>
-            <td>${marks} / ${totalMarks}</td>
-            <td>${submittedTimestamp}</td>
-            <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
-            <td><button class="btn btn-sm btn-primary" onclick='openTestComparison(${JSON.stringify(h)})'>View Material & Typed</button></td>
-          </tr>
-        `;
-      });
+    html += `
+      <tr>
+        <td>${localDateDisplay}</td>
+        <td>${examName}</td>
+        <td>${displayGross} WPM</td>
+        <td>${displayNet} WPM</td>
+        <td>${accuracy}%</td>
+        <td>${marks} / ${totalMarks}</td>
+        <td>${submittedTimestamp}</td>
+        <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
+        <td><button class="btn btn-sm btn-primary" onclick='openTestComparison(${JSON.stringify(h)})'>View Material & Typed</button></td>
+      </tr>
+    `;
+  });
 
-      html += `</table>`;
-      container.innerHTML = html;
-    }
-
+  html += `</table>`;
+  container.innerHTML = html;
+}
 
 function openTestComparison(historyItem) {
   const modal = document.getElementById('reader-modal');
@@ -3682,6 +3717,7 @@ function openTestComparison(historyItem) {
     const wrongWordsCount = historyItem.WrongTyped || historyItem.wrongTyped || 0;
     const wordsLeftCount = historyItem.WordLeft || historyItem.wordLeft || 0;
     const extraWordsCount = historyItem.ExtraTyped || historyItem.extraTyped || 0;
+    const paraNotChangedCount = historyItem.ParaNotChanged || historyItem.paraNotChanged || 0;
     const capitalErrorCount = historyItem.CapitalError || historyItem.capitalError || 0;
     const punctuationErrorCount = historyItem.PunctuationLeft || historyItem.punctuationLeft || 0;
 
@@ -3742,6 +3778,10 @@ function openTestComparison(historyItem) {
           <div class="card" style="border-left: 4px solid #7c3aed; padding: 14px;">
             <h5 style="color: #7c3aed; margin-bottom: 6px;"><i class="fa-solid fa-plus"></i> Extra Words: ${extraWordsCount}</h5>
             <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${historyItem.extraDeduction || (extraWordsCount * 0.5).toFixed(2)}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid #06b6d4; padding: 14px;">
+            <h5 style="color: #06b6d4; margin-bottom: 6px;"><i class="fa-solid fa-paragraph"></i> Paragraph Changes: ${paraNotChangedCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Marks Deducted: <strong>-${historyItem.paraDeduction || (paraNotChangedCount * 1.0).toFixed(2)}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid #b45309; padding: 14px;">
             <h5 style="color: #b45309; margin-bottom: 6px;"><i class="fa-solid fa-font"></i> Capital Errors: ${capitalErrorCount}</h5>
