@@ -174,8 +174,8 @@
     .alpha-btn { width: 28px; height: 28px; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
     .alpha-btn.active, .alpha-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 
-    .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 2px 8px var(--shadow); }
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: visible; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 2px 8px var(--shadow); }
     .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px var(--shadow); }
     .card-thumb { width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; background: var(--border); }
 
@@ -593,88 +593,89 @@
       <div id="pitman-grid" class="grid-cards"></div>
     </section>
 
-    <!-- TYPING TEST VIEW (Wizard Workflow) -->
-    <section id="view-typingtest" class="app-view" style="display: none;">
-      <div class="card" style="max-width: 750px; margin: 0 auto;">
-        <h4 id="typing-wizard-title" style="margin-bottom: 15px; color: var(--secondary);">⌨️ Typing Test Exam Center</h4>
-        
-        <!-- Step 1: Select Language Medium -->
-        <div id="typing-step-1" class="typing-wizard-step">
-          <div class="form-group">
-            <label>1. Select Language Medium <span class="required-star">*</span></label>
-            <select id="typing-select-medium" class="form-control" onchange="onTypingMediumSelected()">
-              <option value="" disabled selected>-- Select Language --</option>
-              <option value="English">English</option>
-              <option value="Hindi">Hindi</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Step 2: Select Exam Name (Filtered by Language) -->
-        <div id="typing-step-2" class="typing-wizard-step" style="display: none; margin-top: 15px;">
-          <div class="form-group">
-            <label>2. Select Exam Name <span class="required-star">*</span></label>
-            <select id="typing-select-exam" class="form-control" onchange="onTypingExamSelected()">
-              <option value="" disabled selected>-- Select Exam Name --</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Step 3: Select Date -->
-        <div id="typing-step-3" class="typing-wizard-step" style="display: none; margin-top: 15px;">
-          <div class="form-group">
-            <label>3. Select Exam Date <span class="required-star">*</span> <small style="color:var(--text-muted);">(Back dates allowed, future dates restricted for users)</small></label>
-            <input type="date" id="typing-select-date" class="form-control" onchange="onTypingDateSelected()">
-          </div>
-        </div>
-
-        <!-- Step 4: Select Passage (Exam Material / Title) -->
-        <div id="typing-step-4" class="typing-wizard-step" style="display: none; margin-top: 15px;">
-          <div class="form-group">
-            <label>4. Select Exam Material <span class="required-star">*</span></label>
-            <select id="typing-select-passage" class="form-control" onchange="onTypingPassageSelected()">
-              <option value="" disabled selected>-- Select Exam Material --</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Step 5: Rules & Details Summary -->
-        <div id="typing-step-5" class="typing-wizard-step" style="display: none; margin-top: 15px;">
-          <div style="background: var(--border); padding: 14px; border-radius: 8px; margin-bottom: 15px;">
-            <h5 style="margin-bottom: 8px; color: var(--secondary);">📋 Exam Details & Evaluation Rules</h5>
-            <div id="typing-rules-summary" style="font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 4px;"></div>
-          </div>
-          <button class="btn btn-primary" style="width: 100%;" onclick="startConfiguredTypingExam()">Next / Start Exam</button>
-        </div>
-
-        <div style="margin-top: 15px; display: flex; justify-content: flex-start;">
-          <button id="typing-reset-wizard-btn" class="btn btn-secondary btn-sm" style="display: none;" onclick="resetTypingWizard()">Reset Selection</button>
-        </div>
+<!-- TYPING TEST VIEW (Wizard Workflow) -->
+<section id="view-typingtest" class="app-view" style="display: none;">
+  <!-- Added overflow-y and max-height to prevent clipping -->
+  <div class="card" style="max-width: 750px; margin: 0 auto; overflow-y: auto; max-height: 85vh;">
+    <h4 id="typing-wizard-title" style="margin-bottom: 15px; color: var(--secondary);">⌨️ Typing Test Exam Center</h4>
+    
+    <!-- Step 1: Select Language Medium -->
+    <div id="typing-step-1" class="typing-wizard-step">
+      <div class="form-group">
+        <label for="typing-select-medium">1. Select Language Medium <span class="required-star">*</span></label>
+        <select id="typing-select-medium" class="form-control" onchange="onTypingMediumSelected()">
+          <option value="" disabled selected>-- Select Language --</option>
+          <option value="English">English</option>
+          <option value="Hindi">Hindi</option>
+        </select>
       </div>
-    </section>
+    </div>
 
-    <!-- TEST / EXAM VIEW (History with Filters - Default ALL)[cite: 1] -->
-    <section id="view-test" class="app-view" style="display: none;">
-      <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-          <h4>My Test & Practice History</h4>
-          <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-            <select id="history-type-filter" class="form-control" onchange="loadTestHistory()" style="max-width: 200px;">
-              <option value="ALL" selected>🌐 All History</option>
-              <option value="typing">⌨️ Typing Test Only</option>
-              <option value="pitman">📖 Pitman</option>
-              <option value="audio">🔉 Audio Transcription</option>
-            </select>
-            <label style="display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
-              <input type="checkbox" id="toggle-time-used" onchange="loadTestHistory()"> Toggle Time-Used Speed View
-            </label>
-          </div>
-        </div>
-        <div id="test-history-container" class="watermark-text-container" style="margin-top: 10px; overflow-x: auto;">
-          <p style="color: var(--text-muted);">Loading test history...</p>
-        </div>
+    <!-- Step 2: Select Exam Name (Filtered by Language) -->
+    <div id="typing-step-2" class="typing-wizard-step" style="display: none; margin-top: 15px;">
+      <div class="form-group">
+        <label>2. Select Exam Name <span class="required-star">*</span></label>
+        <select id="typing-select-exam" class="form-control" onchange="onTypingExamSelected()">
+          <option value="" disabled selected>-- Select Exam Name --</option>
+        </select>
       </div>
-    </section>
+    </div>
+
+    <!-- Step 3: Select Date -->
+    <div id="typing-step-3" class="typing-wizard-step" style="display: none; margin-top: 15px;">
+      <div class="form-group">
+        <label>3. Select Exam Date <span class="required-star">*</span> <small style="color:var(--text-muted);">(Back dates allowed, future dates restricted for users)</small></label>
+        <input type="date" id="typing-select-date" class="form-control" onchange="onTypingDateSelected()">
+      </div>
+    </div>
+
+    <!-- Step 4: Select Passage (Exam Material / Title) -->
+    <div id="typing-step-4" class="typing-wizard-step" style="display: none; margin-top: 15px;">
+      <div class="form-group">
+        <label>4. Select Exam Material <span class="required-star">*</span></label>
+        <select id="typing-select-passage" class="form-control" onchange="onTypingPassageSelected()">
+          <option value="" disabled selected>-- Select Exam Material --</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Step 5: Rules & Details Summary -->
+    <div id="typing-step-5" class="typing-wizard-step" style="display: none; margin-top: 15px;">
+      <div style="background: var(--border); padding: 14px; border-radius: 8px; margin-bottom: 15px;">
+        <h5 style="margin-bottom: 8px; color: var(--secondary);">📋 Exam Details & Evaluation Rules</h5>
+        <div id="typing-rules-summary" style="font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 4px;"></div>
+      </div>
+      <button class="btn btn-primary" style="width: 100%;" onclick="startConfiguredTypingExam()">Next / Start Exam</button>
+    </div>
+
+    <div style="margin-top: 15px; display: flex; justify-content: flex-start;">
+      <button id="typing-reset-wizard-btn" class="btn btn-secondary btn-sm" style="display: none;" onclick="resetTypingWizard()">Reset Selection</button>
+    </div>
+  </div>
+</section>
+
+<!-- TEST / EXAM VIEW (History with Filters - Default ALL) -->
+<section id="view-test" class="app-view" style="display: none;">
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+      <h4>My Test & Practice History</h4>
+      <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <select id="history-type-filter" class="form-control" onchange="loadTestHistory()" style="max-width: 200px;">
+          <option value="ALL" selected>🌐 All History</option>
+          <option value="typing">⌨️ Typing Test Only</option>
+          <option value="pitman">📖 Pitman</option>
+          <option value="audio">🔉 Audio Transcription</option>
+        </select>
+        <label style="display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
+          <input type="checkbox" id="toggle-time-used" onchange="loadTestHistory()"> Toggle Time-Used Speed View
+        </label>
+      </div>
+    </div>
+    <div id="test-history-container" class="watermark-text-container" style="margin-top: 10px; overflow-x: auto;">
+      <p style="color: var(--text-muted);">Loading test history...</p>
+    </div>
+  </div>
+</section>
 
     <!-- HELP / FEEDBACK VIEW -->
     <section id="view-feedback" class="app-view" style="display: none;">
@@ -710,7 +711,7 @@
       </div>
     </section>
 
-    <!-- ADMIN PANEL -->
+<!-- ADMIN PANEL -->
     <section id="view-admin" class="app-view" style="display: none;">
       <div class="subtab-bar">
         <button class="subtab-btn active" onclick="switchAdminTab('content', this)"> 📚 Content Uploaded </button>
@@ -782,10 +783,11 @@
               <div id="adm-auto-stats" style="font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 4px;"></div>
             </div>
 
-            <!-- New Field for Audio Master Passage / Text -->
+<!-- New Field for Audio Master Passage / Text -->
             <div class="form-group" id="group-adm-audio-passage" style="display: none; grid-column: 1 / -1;">
               <label>Audio Master Passage / Transcription Text <span class="required-star">*</span></label>
-              <textarea id="adm-upload-audio-passage" class="form-control" rows="3" placeholder="Paste master transcription passage for audio evaluation (hidden from user during typing)..."></textarea>
+              <textarea id="adm-upload-audio-passage" class="form-control" rows="3" placeholder="Paste master transcription passage for audio evaluation (hidden from user during typing)..." oninput="autoCalculateAudioWordsAndStrokes()"></textarea>
+              <div id="adm-audio-auto-stats" style="font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 4px;"></div>
             </div>
 
             <!-- New Field for Pitman Logo / Secondary Image URL -->
@@ -794,7 +796,7 @@
               <input type="text" id="adm-upload-logo" class="form-control" placeholder="Logo or secondary badge image URL">
             </div>
 
-<div class="form-group" id="group-adm-thumb">
+            <div class="form-group" id="group-adm-thumb">
               <label>Thumbnail / Pitman Book Photo URL</label>
               <input type="text" id="adm-upload-thumb" class="form-control" placeholder="Exercise Picture / Thumbnail URL">
             </div>
@@ -825,12 +827,12 @@
           </form>
         </div>
 
-        <div style="margin-top: 16px;">
+<div style="margin-top: 16px;">
           <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
             <h4> Existing Materials </h4>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <input type="text" id="admin-search-materials" class="form-control" placeholder="Search material..." oninput="renderAdminMaterialsTable()" style="max-width: 220px;">
-              <select id="admin-filter-material-type" class="form-control" onchange="renderAdminMaterialsTable()" style="max-width: 180px;">
+              <input type="text" id="admin-search-materials" class="form-control" placeholder="Search material..." oninput="currentAdminMaterialPage = 1; renderAdminMaterialsTable();" style="max-width: 220px;">
+              <select id="admin-filter-material-type" class="form-control" onchange="currentAdminMaterialPage = 1; renderAdminMaterialsTable();" style="max-width: 180px;">
                 <option value="ALL">All Types</option>
                 <option value="pdf">PDF</option>
                 <option value="word">Word & Outline</option>
@@ -844,6 +846,13 @@
             </div>
           </div>
           <div id="admin-materials-table-container" style="overflow-x: auto;"></div>
+          
+          <!-- 👉 Pagination Controls Bar (Previous / Next) -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+            <button class="btn btn-secondary btn-sm" onclick="paginateAdminMaterials(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+            <span id="admin-materials-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+            <button class="btn btn-secondary btn-sm" onclick="paginateAdminMaterials(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+          </div>
         </div>
       </div>
 
@@ -1274,9 +1283,9 @@
 
 <!-- Active Test / Audio / Pitman / Typing Exam Modal -->
   <div class="modal-backdrop" id="active-test-modal" style="background: rgba(0,0,0,0.95); z-index: 5000;">
-    <div class="modal-content" style="max-width: 100vw; width: 100vw; height: 100vh; max-height: 100vh; border-radius: 0; display: flex; flex-direction: column; background: var(--background);">
+    <div class="modal-content" style="max-width: 100vw; width: 100vw; height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; background: var(--background); overflow: hidden;">
       
-      <div class="modal-header" style="background: #ffffff; color: var(--secondary); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+      <div class="modal-header" style="background: #ffffff; color: var(--secondary); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; flex-shrink: 0;">
         <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px;">
           <span style="font-size: 15px; font-weight: 800; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
             <i class="fa-solid fa-feather"></i> <span id="test-modal-title">Stenoshala Shorthand Academy</span>
@@ -1291,12 +1300,12 @@
         </div>
       </div>
 
-      <!-- Main Test Content Body -->
-      <div class="modal-body watermark-text-container" id="test-main-body-container" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 16px; flex: 1; padding: 24px; overflow-y: auto;">
+      <!-- Main Test Content Body (Scrollable & Flexible) -->
+      <div class="modal-body watermark-text-container" id="test-main-body-container" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 16px; flex: 1; padding: 16px; overflow-y: auto; min-height: 0;">
       </div>
 
-      <!-- Footer Controls for Test -->
-      <div style="background: var(--surface); border-top: 1px solid var(--border); padding: 12px 24px; display: flex; gap: 12px; justify-content: center; align-items: center; z-index: 10;">
+      <!-- Footer Controls for Test (Pinned at Bottom) -->
+      <div style="background: var(--surface); border-top: 1px solid var(--border); padding: 12px 24px; display: flex; gap: 12px; justify-content: center; align-items: center; z-index: 10; flex-shrink: 0;">
         <button class="btn btn-primary" style="padding: 10px 32px; border-radius: 20px; font-weight: 700;" onclick="submitStenoTest()">Submit Test</button>
         <button id="test-pause-btn" class="btn btn-secondary" style="padding: 10px 24px; border-radius: 20px; font-weight: 700; background: var(--surface);" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
       </div>
@@ -1402,10 +1411,11 @@ let currentUser = JSON.parse(localStorage.getItem('steno_user')) || null;
     let secondsRemainingGlobal = 0;
     let isTypingTimerStarted = false;
 
-    let selectedTypingMedium = null;
-    let selectedTypingExam = null;
-    let selectedTypingDate = null;
-    let selectedTypingPassage = null;
+let selectedTypingMedium = null;
+let selectedTypingExam = null;
+let selectedTypingDate = null;
+let selectedTypingPassage = null;
+let currentTypingPassagesCache = []; // 👈 Add it right here with the other global typing variables
 
     const SITE_NAME = 'RP Skill';
     const DEFAULT_LOGO_URL = 'https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_';
@@ -1726,7 +1736,7 @@ function getEvaluationRulesForTab(subtabKey) {
       return defaultEvaluationRule;
     }
 
-function loadSelectedEvaluationRulesIntoForm() {
+    function loadSelectedEvaluationRulesIntoForm() {
       const key = getSelectedEvalKey();
       const rules = getEvaluationRulesForTab(key);
 
@@ -1734,36 +1744,39 @@ function loadSelectedEvaluationRulesIntoForm() {
         return;
       }
 
-      const setVal = (id, val) => {
+      // 👉 Updated setVal helper to safely allow zero-bound numbers (0) without falling back
+      const setVal = (id, val, fallback) => {
         const elem = document.getElementById(id);
-        if (elem) elem.value = val !== undefined ? val : '';
+        if (elem) {
+          elem.value = (val !== undefined && val !== null) ? val : fallback;
+        }
       };
 
-      setVal('eval-time-limit', rules.timeLimit || 5);          // 👈 Included Typing Test Time Limit
-      setVal('eval-backspace-mode', rules.backspaceMode || 'on');
-      setVal('eval-total-marks', rules.totalMarks || 100);
-      setVal('eval-passing-marks', rules.passingMarks || 40);
-      setVal('eval-passing-accuracy', rules.passingAccuracy || 85);
-      setVal('eval-min-gross-stroke-pct', rules.minGrossStrokePct !== undefined ? rules.minGrossStrokePct : 100);
-      setVal('eval-ignore-paragraph-change', rules.ignoreParagraphChange || 'yes');
-      setVal('eval-repeat-passage', rules.repeatPassage || 'yes');
-      setVal('eval-default-text-size', rules.defaultTextSize || 15);
-      setVal('eval-deduct-punctuation', rules.deductPunctuation || 0.5);
-      setVal('eval-deduct-word', rules.deductWord || 1.0);
-      setVal('eval-deduct-wrong', rules.deductWrong || 1.0);
-      setVal('eval-deduct-omission', rules.deductOmission || 1.0);
-      setVal('eval-deduct-extra-word', rules.deductExtraWord || 0.5);         // Extra Words Deduction
-      setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged || 1.0); // Paragraph Not Changed Deduction
-      setVal('eval-copypaste-mode', rules.copyPasteMode || 'yes');
-      setVal('eval-func-keys-mode', rules.funcKeysMode || 'yes');
-      setVal('eval-word-count-rule', rules.wordCountRule || '1word');
-      setVal('eval-autoscroll-mode', rules.autoScrollMode || 'on');
-      setVal('eval-highlight-mode', rules.highlightMode || 'on');
-      setVal('eval-layout-position', rules.layoutPosition || 'top');
-      setVal('eval-initial-words', rules.initialWords || 0);
-      setVal('eval-min-time', rules.minTimeSeconds || 0);
-      setVal('eval-ignore-error-pct', rules.ignoreErrorPct || 5);
-      setVal('eval-penalty-value', rules.penaltyValue || 1.0);
+      setVal('eval-time-limit', rules.timeLimit, 5);          // 👈 Included Typing Test Time Limit
+      setVal('eval-backspace-mode', rules.backspaceMode, 'on');
+      setVal('eval-total-marks', rules.totalMarks, 100);
+      setVal('eval-passing-marks', rules.passingMarks, 40);
+      setVal('eval-passing-accuracy', rules.passingAccuracy, 85);
+      setVal('eval-min-gross-stroke-pct', rules.minGrossStrokePct, 100);
+      setVal('eval-ignore-paragraph-change', rules.ignoreParagraphChange, 'yes');
+      setVal('eval-repeat-passage', rules.repeatPassage, 'yes');
+      setVal('eval-default-text-size', rules.defaultTextSize, 15);
+      setVal('eval-deduct-punctuation', rules.deductPunctuation, 0.5);
+      setVal('eval-deduct-word', rules.deductWord, 1.0);
+      setVal('eval-deduct-wrong', rules.deductWrong, 1.0);
+      setVal('eval-deduct-omission', rules.deductOmission, 1.0);
+      setVal('eval-deduct-extra-word', rules.deductExtraWord, 0.5);         // Extra Words Deduction
+      setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged, 1.0); // Paragraph Not Changed Deduction
+      setVal('eval-copypaste-mode', rules.copyPasteMode, 'yes');
+      setVal('eval-func-keys-mode', rules.funcKeysMode, 'yes');
+      setVal('eval-word-count-rule', rules.wordCountRule, '1word');
+      setVal('eval-autoscroll-mode', rules.autoScrollMode, 'on');
+      setVal('eval-highlight-mode', rules.highlightMode, 'on');
+      setVal('eval-layout-position', rules.layoutPosition, 'top');
+      setVal('eval-initial-words', rules.initialWords, 0);       // Safely allows 0
+      setVal('eval-min-time', rules.minTimeSeconds, 0);          // Safely allows 0
+      setVal('eval-ignore-error-pct', rules.ignoreErrorPct, 5);
+      setVal('eval-penalty-value', rules.penaltyValue, 1.0);
     }
 
     async function saveEvaluationRulesSettings() {
@@ -1772,37 +1785,46 @@ function loadSelectedEvaluationRulesIntoForm() {
         showToast('Please select a valid evaluation category/subtab.');
         return;
       }
+      
+      const getNumVal = (id, fallback) => {
+        const val = document.getElementById(id)?.value;
+        return (val !== undefined && val !== '' && !isNaN(val)) ? Number(val) : fallback;
+      };
+
       const ruleData = {
-        timeLimit: parseInt(document.getElementById('eval-time-limit').value) || 5, // 👈 Included Typing Test Time Limit
-        backspaceMode: document.getElementById('eval-backspace-mode').value,
-        totalMarks: parseFloat(document.getElementById('eval-total-marks').value) || 100,
-        passingMarks: parseFloat(document.getElementById('eval-passing-marks').value) || 40,
-        passingAccuracy: parseFloat(document.getElementById('eval-passing-accuracy').value) || 85,
-        minGrossStrokePct: parseFloat(document.getElementById('eval-min-gross-stroke-pct').value) || 100,
-        ignoreParagraphChange: document.getElementById('eval-ignore-paragraph-change').value || 'yes',
-        repeatPassage: document.getElementById('eval-repeat-passage').value || 'yes',
-        defaultTextSize: parseInt(document.getElementById('eval-default-text-size').value) || 15,
-        deductPunctuation: parseFloat(document.getElementById('eval-deduct-punctuation').value) || 0.5,
-        deductWord: parseFloat(document.getElementById('eval-deduct-word').value) || 1.0,
-        deductWrong: parseFloat(document.getElementById('eval-deduct-wrong').value) || 1.0,
-        deductOmission: parseFloat(document.getElementById('eval-deduct-omission').value) || 1.0,
-        deductExtraWord: parseFloat(document.getElementById('eval-deduct-extra-word').value) || 0.5,         // 👈 Included Extra Words Deduction
-        deductParaNotChanged: parseFloat(document.getElementById('eval-deduct-para-not-changed').value) || 1.0, // 👈 Included Paragraph Not Changed Deduction
-        copyPasteMode: document.getElementById('eval-copypaste-mode').value,
-        funcKeysMode: document.getElementById('eval-func-keys-mode').value,
-        wordCountRule: document.getElementById('eval-word-count-rule').value,
-        autoScrollMode: document.getElementById('eval-autoscroll-mode').value,
-        highlightMode: document.getElementById('eval-highlight-mode').value,
-        layoutPosition: document.getElementById('eval-layout-position').value,
-        initialWords: parseInt(document.getElementById('eval-initial-words').value) || 0,
-        minTimeSeconds: parseInt(document.getElementById('eval-min-time').value) || 0,
-        ignoreErrorPct: parseFloat(document.getElementById('eval-ignore-error-pct').value) || 5,
-        penaltyValue: parseFloat(document.getElementById('eval-penalty-value').value) || 1.0
+        timeLimit: getNumVal('eval-time-limit', 5),
+        backspaceMode: document.getElementById('eval-backspace-mode')?.value || 'on',
+        totalMarks: getNumVal('eval-total-marks', 100),
+        passingMarks: getNumVal('eval-passing-marks', 40),
+        passingAccuracy: getNumVal('eval-passing-accuracy', 85),
+        minGrossStrokePct: getNumVal('eval-min-gross-stroke-pct', 100),
+        ignoreParagraphChange: document.getElementById('eval-ignore-paragraph-change')?.value || 'yes',
+        repeatPassage: document.getElementById('eval-repeat-passage')?.value || 'yes',
+        defaultTextSize: getNumVal('eval-default-text-size', 15),
+        deductPunctuation: getNumVal('eval-deduct-punctuation', 0.5),
+        deductWord: getNumVal('eval-deduct-word', 1.0),
+        deductWrong: getNumVal('eval-deduct-wrong', 1.0),
+        deductOmission: getNumVal('eval-deduct-omission', 1.0),
+        deductExtraWord: getNumVal('eval-deduct-extra-word', 0.5),
+        deductParaNotChanged: getNumVal('eval-deduct-para-not-changed', 1.0),
+        copyPasteMode: document.getElementById('eval-copypaste-mode')?.value || 'yes',
+        funcKeysMode: document.getElementById('eval-func-keys-mode')?.value || 'yes',
+        wordCountRule: document.getElementById('eval-word-count-rule')?.value || '1word',
+        autoScrollMode: document.getElementById('eval-autoscroll-mode')?.value || 'on',
+        highlightMode: document.getElementById('eval-highlight-mode')?.value || 'on',
+        layoutPosition: document.getElementById('eval-layout-position')?.value || 'top',
+        initialWords: getNumVal('eval-initial-words', 0),
+        minTimeSeconds: getNumVal('eval-min-time', 0),
+        ignoreErrorPct: getNumVal('eval-ignore-error-pct', 5),
+        penaltyValue: getNumVal('eval-penalty-value', 1.0)
       };
 
       allEvaluationRules[key] = ruleData;
       localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-      populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
+      
+      if (typeof populateSavedRulesQuickDropdown === 'function') {
+        populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
+      }
 
       // Sync and save permanently to the Google Sheets backend
       const res = await apiCall('saveEvaluationRules', {
@@ -1834,7 +1856,7 @@ function loadSelectedEvaluationRulesIntoForm() {
           ruleJson: ''
         });
 
-        loadSelectedEvaluationRulesIntoForm();
+loadSelectedEvaluationRulesIntoForm();
         if (res.success) {
           showToast('Evaluation rule deleted and synced successfully.');
         } else {
@@ -1843,7 +1865,7 @@ function loadSelectedEvaluationRulesIntoForm() {
       }
     }
 
-    function navigateTo(tabName, pushHistory = true) {
+function navigateTo(tabName, pushHistory = true) {
       if (!currentUser) {
         switchAuthTab('login');
         return;
@@ -1875,13 +1897,14 @@ function loadSelectedEvaluationRulesIntoForm() {
       if (tabName === 'pdf') loadMaterials('pdf');
       if (tabName === 'audio') loadMaterials('audio');
       if (tabName === 'pitman') loadMaterials('pitman');
-      if (tabName === 'typingtest') initTypingTestWizard();
+      if (tabName === 'typingtest') loadMaterials('typingtest'); // 👉 Updated to load materials and initialize wizard properly
       if (tabName === 'test') loadTestHistory();
       if (tabName === 'feedback') loadUserFeedback();
       if (tabName === 'admin') {
         loadAdminData();
         populateEvalCategoryDropdown();
         loadSelectedEvaluationRulesIntoForm();
+        adjustAdminUploadForm();
       }
     }
 
@@ -2511,11 +2534,12 @@ function getThumbnailUrl(item) {
       renderPitmanList('ALL');
     }
 
-    async function initTypingTestWizard() {
+async function initTypingTestWizard() {
       if (materialsData.filter(m => (m.Type || '').toLowerCase() === 'typingtest').length === 0) {
         const res = await apiCall('getMaterials', { type: 'typingtest' });
         if (res.success) {
           materialsData = res.materials || [];
+          subtabsData = res.subtabs || []; // 👈 Populate subtabsData securely on load/refresh
         }
       }
 
@@ -2534,7 +2558,7 @@ function getThumbnailUrl(item) {
       selectedTypingPassage = null;
     }
 
-function onTypingMediumSelected() {
+    function onTypingMediumSelected() {
       const mediumSelect = document.getElementById('typing-select-medium');
       selectedTypingMedium = mediumSelect.value;
       if (!selectedTypingMedium) return;
@@ -2546,7 +2570,15 @@ function onTypingMediumSelected() {
 
       // 👉 Always show Exam Name (Subtab) selection step for all language mediums
       const examSelect = document.getElementById('typing-select-exam');
-      const targetSubtabs = (adminData.subtabs || []).filter(s => String(s.Type || '').toLowerCase() === 'typingtest');
+      
+      let targetSubtabs = (subtabsData || []).filter(s => String(s.Type || '').toLowerCase() === 'typingtest');
+      if (targetSubtabs.length === 0) {
+        targetSubtabs = (adminData.subtabs || []).filter(s => String(s.Type || '').toLowerCase() === 'typingtest');
+      }
+      if (targetSubtabs.length === 0) {
+        const uniqueNames = [...new Set(typingItems.map(m => m.Subtab || 'General Exam'))].filter(Boolean);
+        targetSubtabs = uniqueNames.map(name => ({ SubtabName: name }));
+      }
 
       examSelect.innerHTML = '<option value="" disabled selected>-- Select Exam Name / Subtab --</option>';
       
@@ -2571,7 +2603,7 @@ function onTypingMediumSelected() {
       document.getElementById('typing-reset-wizard-btn').style.display = 'inline-flex';
     }
 
-    function onTypingExamSelected() {
+function onTypingExamSelected() {
       const examSelect = document.getElementById('typing-select-exam');
       selectedTypingExam = examSelect.value;
       if (!selectedTypingExam) return;
@@ -2605,46 +2637,73 @@ function onTypingMediumSelected() {
       if (!selectedTypingDate) return;
 
       const passageSelect = document.getElementById('typing-select-passage');
-      const typingItems = materialsData.filter(m => 
-        (m.Type || '').toLowerCase() === 'typingtest' && 
-        ((m.Medium || 'English').toLowerCase() === (selectedTypingMedium || 'English').toLowerCase()) &&
-        (m.ExamDate || '').startsWith(selectedTypingDate)
-      );
+      
+      const typingItems = materialsData.filter(m => {
+        const isTypingTest = (m.Type || '').toLowerCase() === 'typingtest';
+        const matchesMedium = ((m.Medium || 'English').toLowerCase() === (selectedTypingMedium || 'English').toLowerCase());
+        const itemDate = formatLocalDate(m.ExamDate || m.date || '');
+        
+        const mSub = (m.Subtab || 'General').trim();
+        const selExam = (selectedTypingExam || '').trim();
+        const matchesSubtab = !selExam || 
+                              mSub === 'ALL' || 
+                              mSub === '-' || 
+                              !mSub || 
+                              mSub === selExam || 
+                              selExam.includes(mSub) || 
+                              mSub.toLowerCase().includes('general') ||
+                              selExam.toLowerCase().includes('general');
+
+        return isTypingTest && matchesMedium && itemDate === selectedTypingDate && matchesSubtab;
+      });
+
+      // 👉 Save the filtered items into the global cache
+      currentTypingPassagesCache = typingItems;
 
       passageSelect.innerHTML = '<option value="" disabled selected>-- Select Exam Material --</option>';
-      typingItems.forEach((item, index) => {
-        const opt = document.createElement('option');
-        opt.value = index;
-        opt.innerText = `Master Passage: ${item.Title} (${item.Difficulty || 'Medium'})`;
-        passageSelect.appendChild(opt);
-      });
+      
+      if (typingItems.length === 0) {
+        passageSelect.innerHTML = '<option value="" disabled selected>-- No passages found for this date & exam --</option>';
+        showToast('No exam materials found for the selected date and exam subtab.');
+      } else {
+        typingItems.forEach((item, index) => {
+          const opt = document.createElement('option');
+          opt.value = index;
+          opt.innerText = `Master Passage: ${item.Title} (${item.Difficulty || 'Medium'})`;
+          passageSelect.appendChild(opt);
+        });
+      }
 
       document.getElementById('typing-step-4').style.display = 'block';
       document.getElementById('typing-step-5').style.display = 'none';
     }
 
-    function onTypingPassageSelected() {
+function onTypingPassageSelected() {
       const passageSelect = document.getElementById('typing-select-passage');
-      const idx = passageSelect.value;
-      if (idx === '') return;
+      const rawVal = passageSelect.value;
+      if (rawVal === '' || rawVal === null || rawVal === undefined) return;
+      
+      const idx = parseInt(rawVal, 10);
+      if (isNaN(idx) || idx < 0) return;
 
-      const typingItems = materialsData.filter(m => 
-        (m.Type || '').toLowerCase() === 'typingtest' && 
-        ((m.Medium || 'English').toLowerCase() === (selectedTypingMedium || 'English').toLowerCase()) &&
-        (m.ExamDate || '').startsWith(selectedTypingDate)
-      );
+      // 👉 Safely fetch directly from the global cache array instead of re-filtering
+      selectedTypingPassage = (typeof currentTypingPassagesCache !== 'undefined') ? currentTypingPassagesCache[idx] : null;
+      
+      if (!selectedTypingPassage) {
+        showToast('Selected passage could not be loaded.');
+        return;
+      }
 
-      selectedTypingPassage = typingItems[idx];
-      if (!selectedTypingPassage) return;
-
-      // 👉 Evaluation rules mapped strictly by the specific Exam Name (Subtab) chosen by user
-      const evaluationKey = selectedTypingExam ? `typingtest_${selectedTypingExam}` : 'typingtest';
-      const rules = getEvaluationRulesForTab(evaluationKey);
+      const cleanExamName = selectedTypingExam ? selectedTypingExam.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+      const evaluationKey = `typingtest_${cleanExamName}`;
+      
+      let rules = getEvaluationRulesForTab(evaluationKey);
+      if (!rules || Object.keys(rules).length === 0) {
+        rules = getEvaluationRulesForTab('typingtest');
+      }
       
       const text = selectedTypingPassage.ContentOrUrl || '';
       const totalWords = text.split(/\s+/).filter(Boolean).length;
-      
-      // 👉 Time limit is fetched strictly from the evaluation rules set by admin for this exam subtab
       const totalDuration = rules.timeLimit ? rules.timeLimit : 5;
 
       const summaryDiv = document.getElementById('typing-rules-summary');
@@ -2658,19 +2717,23 @@ function onTypingMediumSelected() {
           <div><strong>Min Gross Strokes Required:</strong> ${Math.round((text.length * (rules.minGrossStrokePct || 100)) / 100)} (${rules.minGrossStrokePct || 100}%)</div>
           <div><strong>Total Duration:</strong> ${totalDuration} Minutes</div>
           <div><strong>Passing Accuracy:</strong> ${rules.passingAccuracy}% | <strong>Total Marks:</strong> ${rules.totalMarks}</div>
-          <div><strong>Backspace:</strong> ${rules.backspaceMode.toUpperCase()} | <strong>Copy/Paste:</strong> ${rules.copyPasteMode.toUpperCase()}</div>
+          <div><strong>Backspace:</strong> ${(rules.backspaceMode || 'on').toUpperCase()} | <strong>Copy/Paste:</strong> ${(rules.copyPasteMode || 'yes').toUpperCase()}</div>
         `;
       }
 
+      // 👉 Explicitly force step-5 block display and smooth scroll into view to reveal the Start button
       const step5 = document.getElementById('typing-step-5');
-      if (step5) step5.style.display = 'block';
+      if (step5) {
+        step5.style.display = 'block';
+        step5.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
     }
 
     function resetTypingWizard() {
       initTypingTestWizard();
     }
 
-function startConfiguredTypingExam() {
+    function startConfiguredTypingExam() {
       if (!selectedTypingPassage) {
         showToast('Please select medium, exam, date, and passage first.');
         return;
@@ -2691,12 +2754,12 @@ function startConfiguredTypingExam() {
       startTypingExam(selectedTypingPassage);
     }
 
-    function startTypingExam(item) {
+function startTypingExam(item) {
       currentExamName = `Typing Test: ${selectedTypingExam || 'General'} - ${item.Title}`;
       
-      // 👉 Fetch test duration strictly from evaluation rules of the chosen exam subtab
-      const evaluationKey = selectedTypingExam ? `typingtest_${selectedTypingExam}` : 'typingtest';
-      const rules = getEvaluationRulesForTab(evaluationKey);
+      const cleanExamName = selectedTypingExam ? selectedTypingExam.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+      const evaluationKey = `typingtest_${cleanExamName}`;
+      const rules = getEvaluationRulesForTab(evaluationKey) || getEvaluationRulesForTab('typingtest');
       
       testDurationMinutes = rules.timeLimit ? parseInt(rules.timeLimit) : 5;
       testBackspaces = 0;
@@ -2818,8 +2881,10 @@ function startConfiguredTypingExam() {
       items.forEach(item => {
         const card = document.createElement('div');
         card.className = 'card';
-        const logoTarget = item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '' ? item.LogoUrl : (item.ThumbnailUrl || item.ContentOrUrl);
-        const thumbUrl = (logoTarget && logoTarget !== '-' && logoTarget.trim() !== '') ? getUniversalUrl(logoTarget, 'image') : DEFAULT_LOGO_URL;
+        
+        const photoTarget = item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '' ? item.ThumbnailUrl : DEFAULT_LOGO_URL;
+        const thumbUrl = getUniversalUrl(photoTarget, 'image');
+
         const adminTimeLimit = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
 
         card.innerHTML = `
@@ -2831,7 +2896,6 @@ function startConfiguredTypingExam() {
         grid.appendChild(card);
       });
     }
-
 
 function startPitmanTest(item) {
       // 👉 Security validation check to enforce membership/admin access restrictions
@@ -2869,8 +2933,9 @@ function startPitmanTest(item) {
       const mainBody = document.getElementById('test-main-body-container');
       testPhotoZoom = 1;
 
-      // 👉 Active test viewer specifically uses ThumbnailUrl for the exercise picture
-      const pitmanThumbUrl = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') ? getUniversalUrl(item.ThumbnailUrl, 'image') : DEFAULT_LOGO_URL;
+      // 👉 Strictly use LogoUrl for the active test viewer photo without fallback to thumbnail
+      const logoTarget = item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '' ? item.LogoUrl : DEFAULT_LOGO_URL;
+      const pitmanThumbUrl = getUniversalUrl(logoTarget, 'image');
 
       mainBody.innerHTML = `
         <div style="display: flex; gap: 20px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap;">
@@ -3153,7 +3218,7 @@ let canView = false;
       select.value = selectedCategoryFilter;
     }
 
-    function renderWords() {
+function renderWords() {
       const grid = document.getElementById('words-grid');
       if (!grid) return;
       grid.innerHTML = '';
@@ -3183,28 +3248,57 @@ let canView = false;
         return;
       }
 
+      const role = currentUser ? currentUser.role : 'user';
+
       words.forEach((w, index) => {
         const card = document.createElement('div');
         card.className = 'card';
         card.style.position = 'relative';
-const displayTitle = w.Title || w.Word || '';
+
+        const displayTitle = w.Title || w.Word || '';
+        const accessLevel = (w.AccessLevel || 'public').toLowerCase();
+
+        let canView = false;
+        if (role === 'admin') {
+          canView = true;
+        } else if (accessLevel === 'public') {
+          canView = true;
+        } else if (accessLevel === 'user') {
+          canView = (role === 'user' || role === 'member' || role === 'admin');
+        } else if (accessLevel === 'member') {
+          canView = (role === 'member' || role === 'admin');
+        } else if (accessLevel === 'admin') {
+          canView = (role === 'admin');
+        }
+
         const thumbUrl = getUniversalUrl(w.ThumbnailUrl || w.ContentOrUrl || '', 'image') || DEFAULT_LOGO_URL;
-        // 👉 Define the full content URL for the click modal
         const fullContentUrl = getUniversalUrl(w.ContentOrUrl || w.ThumbnailUrl || '', 'image') || DEFAULT_LOGO_URL;
+
+        let actionHtml = '';
+        if (canView) {
+          actionHtml = `<img src="${thumbUrl}" class="card-thumb" style="object-fit:contain; margin-top:8px; position: relative; z-index: 1; cursor: pointer;" onerror="this.src='${DEFAULT_LOGO_URL}'" onclick="openEmbeddedImageModal('${fullContentUrl}', 'Sl. No. ${index + 1} - ${displayTitle}')">`;
+        } else {
+          actionHtml = `
+            <div style="margin-top:8px; position:relative; z-index:1;">
+              <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+                <i class="fa-solid fa-lock"></i> Locked Content
+              </button>
+            </div>
+          `;
+        }
 
         // Clearly marked Sl. No. and Title
         card.innerHTML = `
           <div style="font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 2px; position: relative; z-index: 1;">Sl. No. ${index + 1}</div>
           <strong style="font-size: 15px; margin-bottom: 6px; display: block; position: relative; z-index: 1; color: var(--secondary);">${displayTitle}</strong>
           <span class="subtab-badge" style="position:relative; z-index:1;">📁 ${w.Category || 'General'}</span>
-          <!-- 👉 Updated onclick to pass fullContentUrl instead of thumbUrl -->
-          <img src="${thumbUrl}" class="card-thumb" style="object-fit:contain; margin-top:8px; position: relative; z-index: 1; cursor: pointer;" onerror="this.src='${DEFAULT_LOGO_URL}'" onclick="openEmbeddedImageModal('${fullContentUrl}', 'Sl. No. ${index + 1} - ${displayTitle}')">
+          ${actionHtml}
         `;
         grid.appendChild(card);
       });
     }
 
-function viewItem(type, url, title, accessLevel = 'public') {
+    function viewItem(type, url, title, accessLevel = 'public') {
       const role = currentUser ? currentUser.role : 'user';
       const normalizedAccess = (accessLevel || 'public').toLowerCase();
 
@@ -4190,17 +4284,57 @@ function renderAdminUsers() {
       if (res.success) loadAdminData();
     }
 
+let logsPage = 1;
+    const LOGS_PER_PAGE = 20;
+
     function renderAdminLogs() {
       const tbody = document.getElementById('admin-logs-tbody');
+      const pageIndicator = document.getElementById('logs-page-indicator');
       if (!tbody) return;
       tbody.innerHTML = '';
+      
       const logs = adminData.logs || [];
+      const totalPages = Math.ceil(logs.length / LOGS_PER_PAGE) || 1;
 
-      logs.slice(0, 20).forEach(l => {
+      if (logsPage > totalPages) logsPage = totalPages;
+      if (logsPage < 1) logsPage = 1;
+
+      const startIndex = (logsPage - 1) * LOGS_PER_PAGE;
+      const paginatedLogs = logs.slice(startIndex, startIndex + LOGS_PER_PAGE);
+
+      if (pageIndicator) {
+        pageIndicator.innerText = `Page ${logsPage} of ${totalPages} (${logs.length} total logs)`;
+      }
+
+      if (paginatedLogs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No security or activity logs recorded.</td></tr>`;
+        return;
+      }
+
+      paginatedLogs.forEach(l => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${l.LogID}</td><td>${l.UserName}</td><td>${l.ActivityType}</td><td>${l.Details}</td><td>${new Date(l.Timestamp).toLocaleString()}</td>`;
+        const formattedTime = l.Timestamp ? new Date(l.Timestamp).toLocaleString() : '-';
+        tr.innerHTML = `
+          <td>${l.LogID || '-'}</td>
+          <td>${l.UserName || 'Guest'}</td>
+          <td>${l.ActivityType || '-'}</td>
+          <td>${l.Details || '-'}</td>
+          <td>${formattedTime}</td>
+        `;
         tbody.appendChild(tr);
       });
+    }
+
+    function paginateLogs(dir) {
+      const logs = adminData.logs || [];
+      const totalPages = Math.ceil(logs.length / LOGS_PER_PAGE) || 1;
+
+      if (dir === 1 && logsPage < totalPages) {
+        logsPage++;
+      } else if (dir === -1 && logsPage > 1) {
+        logsPage--;
+      }
+      renderAdminLogs();
     }
 
 function onFeedbackSearchFocus() {
@@ -4307,7 +4441,7 @@ function adjustAdminUploadForm() {
       if (!typeElem) return;
 
       const type = typeElem.value;
-      const normalizedType = type.toLowerCase().replace(/[-_\s]/g, '').trim();
+      const normalizedType = type ? type.toLowerCase().replace(/[-_\s]/g, '').trim() : '';
 
       const titleLabel = document.getElementById('adm-title-label');
       const subtabLabel = document.getElementById('adm-subtab-label');
@@ -4323,23 +4457,32 @@ function adjustAdminUploadForm() {
       const groupMedium = document.getElementById('group-adm-medium');
       const groupDifficulty = document.getElementById('group-adm-difficulty');
       const groupExamDate = document.getElementById('group-adm-exam-date');
+      const groupAccess = document.getElementById('group-adm-access'); // 👉 Access level wrapper group reference
 
       // Toggle visibility for audio passage and pitman logo fields
       if (groupAudioPassage) groupAudioPassage.style.display = (normalizedType === 'audio') ? 'block' : 'none';
       if (groupLogo) groupLogo.style.display = (normalizedType === 'pitman') ? 'block' : 'none';
 
+      // 👉 Completely hide/show the entire Access Level form group container in UI
+      if (groupAccess) {
+        const hideAccessForTypes = ['homework', 'announcement', 'announcements', 'video', 'videos'];
+        if (hideAccessForTypes.includes(normalizedType)) {
+          groupAccess.style.display = 'none'; // Hides label, input, asterisks, and wrapper completely from UI
+        } else {
+          groupAccess.style.display = 'block'; // Shows it for other types like pdf, word, audio, etc.
+        }
+      }
+
       if (normalizedType === 'typingtest') {
         if (titleLabel) titleLabel.innerHTML = 'Master Passage / Title <span class="required-star">*</span>';
         if (urlLabel) urlLabel.innerHTML = 'Master Passage Text <span class="required-star">*</span>';
         
-        // 👉 Strictly hide Exam Name (Subtab), Thumbnail, and Time Limit for Typing Test as requested
         if (groupSubtab) groupSubtab.style.display = 'none';
         if (groupThumb) groupThumb.style.display = 'none';
         if (groupTimeLimit) groupTimeLimit.style.display = 'none';
         if (groupCategory) groupCategory.style.display = 'none';
         if (groupTargetDate) groupTargetDate.style.display = 'none';
 
-        // Show only required fields for typing test: Title, medium, difficulty, access, material, date
         if (groupMedium) groupMedium.style.display = 'block';
         if (groupDifficulty) groupDifficulty.style.display = 'block';
         if (groupExamDate) groupExamDate.style.display = 'block';
@@ -4394,7 +4537,7 @@ function adjustAdminUploadForm() {
       if (!select || !typeElem) return;
       
       const currentType = typeElem.value;
-      if (currentType.toLowerCase() === 'typingtest') return; // Typing tests do not use subtabs during upload[cite: 1]
+      if (currentType.toLowerCase() === 'typingtest') return;
 
       select.innerHTML = '<option value="" disabled selected>-- Select Subtab / Exam Name --</option>';
 
@@ -4423,7 +4566,7 @@ function adjustAdminUploadForm() {
 
       let subtabVal = '-';
       if (type.toLowerCase() === 'typingtest') {
-        subtabVal = 'ALL'; // Set to ALL so it displays across all exams matching the medium language[cite: 1]
+        subtabVal = 'ALL'; 
       } else {
         subtabVal = document.getElementById('adm-upload-subtab').value || '-';
       }
@@ -4434,6 +4577,11 @@ function adjustAdminUploadForm() {
       const rawTimeLimit = document.getElementById('adm-upload-time-limit')?.value;
       const timeLimitVal = (rawTimeLimit !== undefined && rawTimeLimit !== '' && !isNaN(rawTimeLimit)) ? rawTimeLimit : '5';
 
+      // Safe default fallback for hidden fields
+      const normalizedType = type ? type.toLowerCase().replace(/[-_\s]/g, '').trim() : '';
+      const isAccessHidden = ['homework', 'announcement', 'announcements', 'video', 'videos'].includes(normalizedType);
+      const accessVal = isAccessHidden ? 'public' : (document.getElementById('adm-upload-access')?.value || 'user');
+
       const payload = {
         id: editingMaterialId || undefined,
         materialType: type,
@@ -4443,7 +4591,7 @@ function adjustAdminUploadForm() {
         contentOrUrl: document.getElementById('adm-upload-url').value.trim() || '-',
         thumbnailUrl: (type.toLowerCase() === 'audio') ? audioPassage : (document.getElementById('adm-upload-thumb')?.value.trim() || DEFAULT_LOGO_URL),
         logoUrl: logoUrl,
-        accessLevel: document.getElementById('adm-upload-access').value || 'user',
+        accessLevel: accessVal,
         timeLimit: timeLimitVal,
         targetDate: document.getElementById('adm-upload-date')?.value || '-',
         medium: medium,
@@ -4480,7 +4628,14 @@ function adjustAdminUploadForm() {
         document.getElementById('adm-upload-subtab').value = item.Subtab || '';
       }
       if (document.getElementById('adm-upload-category')) document.getElementById('adm-upload-category').value = item.Category || '';
-      document.getElementById('adm-upload-access').value = item.AccessLevel || 'user';
+      
+      const normalizedType = item.Type ? item.Type.toLowerCase().replace(/[-_\s]/g, '').trim() : '';
+      const isAccessHidden = ['homework', 'announcement', 'announcements', 'video', 'videos'].includes(normalizedType);
+
+      if (document.getElementById('adm-upload-access')) {
+        document.getElementById('adm-upload-access').value = isAccessHidden ? 'public' : (item.AccessLevel || 'user');
+      }
+      
       if (document.getElementById('adm-upload-time-limit')) document.getElementById('adm-upload-time-limit').value = item.TimeLimit || '5';
       
       if (document.getElementById('adm-upload-medium')) document.getElementById('adm-upload-medium').value = item.Medium || 'English';
@@ -4501,15 +4656,23 @@ function adjustAdminUploadForm() {
       if (document.getElementById('adm-upload-audio-passage')) document.getElementById('adm-upload-audio-passage').value = '';
       if (document.getElementById('adm-upload-logo')) document.getElementById('adm-upload-logo').value = '';
       if (document.getElementById('adm-upload-category')) document.getElementById('adm-upload-category').value = '';
-      document.getElementById('adm-upload-access').value = 'user';
+      
+      if (document.getElementById('adm-upload-access')) {
+        document.getElementById('adm-upload-access').value = 'user';
+      }
+      
       if (document.getElementById('adm-upload-time-limit')) document.getElementById('adm-upload-time-limit').value = '5';
       document.getElementById('adm-upload-submit-btn').innerText = 'Upload Item';
       adjustAdminUploadForm();
       showToast('Form reset successfully.');
     }
 
+let currentAdminMaterialPage = 1;
+    const ADMIN_MATERIALS_PER_PAGE = 30;
+
     function renderAdminMaterialsTable() {
       const container = document.getElementById('admin-materials-table-container');
+      const pageIndicator = document.getElementById('admin-materials-page-indicator');
       if (!container) return;
 
       let materials = adminData.materials || [];
@@ -4529,7 +4692,18 @@ function adjustAdminUploadForm() {
         materials = materials.filter(m => (m.Type || '').toLowerCase() === typeFilter.toLowerCase());
       }
 
-      if (materials.length === 0) {
+      const totalPages = Math.ceil(materials.length / ADMIN_MATERIALS_PER_PAGE) || 1;
+      if (currentAdminMaterialPage > totalPages) currentAdminMaterialPage = totalPages;
+      if (currentAdminMaterialPage < 1) currentAdminMaterialPage = 1;
+
+      const startIndex = (currentAdminMaterialPage - 1) * ADMIN_MATERIALS_PER_PAGE;
+      const paginatedMaterials = materials.slice(startIndex, startIndex + ADMIN_MATERIALS_PER_PAGE);
+
+      if (pageIndicator) {
+        pageIndicator.innerText = `Page ${currentAdminMaterialPage} of ${totalPages} (${materials.length} total items)`;
+      }
+
+      if (paginatedMaterials.length === 0) {
         container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No matching materials found.</div>`;
         return;
       }
@@ -4539,7 +4713,7 @@ function adjustAdminUploadForm() {
           <th>ID</th><th>Type</th><th>Title / Master Passage</th><th>Subtab / Exam Name</th><th>Time Limit</th><th>Access</th><th>Actions</th>
         </tr>`;
 
-      materials.forEach(m => {
+      paginatedMaterials.forEach(m => {
         html += `<tr>
           <td>${m.ID}</td>
           <td>${m.Type || '-'}</td>
@@ -4556,6 +4730,34 @@ function adjustAdminUploadForm() {
 
       html += `</table>`;
       container.innerHTML = html;
+    }
+
+    function paginateAdminMaterials(direction) {
+      let materials = adminData.materials || [];
+      const search = (document.getElementById('admin-search-materials')?.value || '').toLowerCase().trim();
+      const typeFilter = document.getElementById('admin-filter-material-type')?.value || 'ALL';
+
+      if (search) {
+        materials = materials.filter(m => 
+          (m.Title || '').toLowerCase().includes(search) ||
+          (m.Subtab || '').toLowerCase().includes(search) ||
+          (m.Category || '').toLowerCase().includes(search) ||
+          (m.ID || '').toString().includes(search)
+        );
+      }
+      if (typeFilter !== 'ALL') {
+        materials = materials.filter(m => (m.Type || '').toLowerCase() === typeFilter.toLowerCase());
+      }
+
+      const totalPages = Math.ceil(materials.length / ADMIN_MATERIALS_PER_PAGE) || 1;
+
+      if (direction === 1 && currentAdminMaterialPage < totalPages) {
+        currentAdminMaterialPage++;
+      } else if (direction === -1 && currentAdminMaterialPage > 1) {
+        currentAdminMaterialPage--;
+      }
+
+      renderAdminMaterialsTable();
     }
 
     async function deleteMaterialItem(id) {
@@ -4976,54 +5178,81 @@ function openEmbeddedImageModal(imgUrl, title) {
     }
 
 
-async function openPdfModal(pdfUrl, title) {
-  const modal = document.getElementById('reader-modal');
-  const body = document.getElementById('modal-viewport');
-  const titleEl = document.getElementById('modal-title');
-  
-  if (titleEl) titleEl.innerText = title || 'PDF Viewer';
-  
-  let resolvedUrl = getUniversalUrl(pdfUrl, 'pdf');
+let pdfZoomLevel = 1;
 
-  if (resolvedUrl.includes('drive.google.com') || resolvedUrl.includes('docs.google.com')) {
-    const fileIdMatch = resolvedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || resolvedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    if (fileIdMatch && fileIdMatch[1]) {
-      resolvedUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+    async function openPdfModal(pdfUrl, title) {
+      const modal = document.getElementById('reader-modal');
+      const body = document.getElementById('modal-viewport');
+      const titleEl = document.getElementById('modal-title');
+      
+      if (titleEl) titleEl.innerText = title || 'PDF Viewer';
+      
+      let resolvedUrl = getUniversalUrl(pdfUrl, 'pdf');
+
+      if (resolvedUrl.includes('drive.google.com') || resolvedUrl.includes('docs.google.com')) {
+        const fileIdMatch = resolvedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || resolvedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (fileIdMatch && fileIdMatch[1]) {
+          resolvedUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+        }
+      }
+
+      pdfZoomLevel = 1;
+
+      if (body) {
+        body.innerHTML = `
+          <div class="watermark-text-container" style="position: relative; width: 100vw; height: calc(100vh - 50px); background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+            <div class="global-watermark-layer" style="opacity: 0.16; z-index: 10; pointer-events: none;"></div>
+            <!-- Blocking banner covering the top-right pop-out/open-in-new-tab buttons inside Google Drive viewer -->
+            <div style="position: absolute; top: 0; right: 0; width: 180px; height: 65px; z-index: 25; pointer-events: auto; background: #ffffff;"></div>
+            
+            <!-- Zoomable wrapper for PDF content -->
+            <div id="pdf-zoomable-wrapper" style="width: 100%; height: 100%; transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; flex: 1;">
+              <!-- Inner container forcing white background on sides/letterboxing -->
+              <div style="width: 100%; height: 100%; background: #ffffff !important; color-scheme: light !important; display: flex; align-items: center; justify-content: center; position: relative;">
+                <iframe src="${resolvedUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width: 100%; height: 100%; border: none; background: #ffffff !important; color-scheme: light !important;" allowfullscreen></iframe>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Zoom Controls Bar -->
+          <div style="background: #ffffff; border-top: 1px solid var(--border); padding: 10px; display: flex; gap: 12px; justify-content: center; align-items: center; z-index: 30; width: 100%;">
+            <button class="btn btn-secondary btn-sm" onclick="adjustPdfZoom(0.2)"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In</button>
+            <button class="btn btn-secondary btn-sm" onclick="adjustPdfZoom(-0.2)"><i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out</button>
+            <button class="btn btn-secondary btn-sm" onclick="resetPdfZoom()"><i class="fa-solid fa-rotate"></i> Reset Zoom</button>
+          </div>
+        `;
+      }
+
+      if (modal) {
+        modal.style.display = 'flex';
+        modal.style.background = '#ffffff'; 
+        modal.style.setProperty('background-color', '#ffffff', 'important');
+        modal.style.setProperty('color-scheme', 'light', 'important');
+        
+        const modalContentContainer = document.getElementById('modal-watermark-container');
+        if (modalContentContainer) {
+          modalContentContainer.style.background = '#ffffff';
+          modalContentContainer.style.setProperty('background-color', '#ffffff', 'important');
+        }
+
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      }
+      renderGlobalWatermark();
     }
-  }
 
-  if (body) {
-    body.innerHTML = `
-      <div class="watermark-text-container" style="position: relative; width: 100vw; height: calc(100vh - 50px); background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
-        <div class="global-watermark-layer" style="opacity: 0.16; z-index: 10; pointer-events: none;"></div>
-        <!-- Blocking banner covering the top-right pop-out/open-in-new-tab buttons inside Google Drive viewer -->
-        <div style="position: absolute; top: 0; right: 0; width: 180px; height: 65px; z-index: 25; pointer-events: auto; background: #ffffff;"></div>
-        <!-- Inner container forcing white background on sides/letterboxing -->
-        <div style="width: 100%; height: 100%; background: #ffffff !important; color-scheme: light !important; display: flex; align-items: center; justify-content: center; position: relative; z-index: 5;">
-          <iframe src="${resolvedUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width: 100%; height: 100%; border: none; background: #ffffff !important; color-scheme: light !important;" allowfullscreen></iframe>
-        </div>
-      </div>
-    `;
-  }
-
-  if (modal) {
-    modal.style.display = 'flex';
-    modal.style.background = '#ffffff'; 
-    modal.style.setProperty('background-color', '#ffffff', 'important');
-    modal.style.setProperty('color-scheme', 'light', 'important');
-    
-    const modalContentContainer = document.getElementById('modal-watermark-container');
-    if (modalContentContainer) {
-      modalContentContainer.style.background = '#ffffff';
-      modalContentContainer.style.setProperty('background-color', '#ffffff', 'important');
+    function adjustPdfZoom(amount) {
+      pdfZoomLevel = Math.max(0.5, Math.min(4, pdfZoomLevel + amount));
+      const wrapper = document.getElementById('pdf-zoomable-wrapper');
+      if (wrapper) wrapper.style.transform = `scale(${pdfZoomLevel})`;
     }
 
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+    function resetPdfZoom() {
+      pdfZoomLevel = 1;
+      const wrapper = document.getElementById('pdf-zoomable-wrapper');
+      if (wrapper) wrapper.style.transform = `scale(1)`;
     }
-  }
-  renderGlobalWatermark();
-}
 
 
 function cancelStenoTest() {
@@ -5245,57 +5474,19 @@ async function deleteEvaluationRuleByKey(key) {
 }
 
 
-function handleUploadMaterial(payload) {
-  var materialType = payload.materialType;
-  var normalizedType = materialType ? materialType.toLowerCase().replace(/[-_]/g, ' ').trim() : '';
-  
-  var sheetName = 'MATERIALS';
-  if (normalizedType === 'homework') sheetName = 'HOMEWORK';
-  else if (normalizedType === 'announcement') sheetName = 'ANNOUNCEMENTS';
+function autoCalculateAudioWordsAndStrokes() {
+      const text = document.getElementById('adm-upload-audio-passage').value || '';
+      const statsElem = document.getElementById('adm-audio-auto-stats');
+      if (!statsElem) return;
 
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-  var id = 'MAT-' + Date.now();
+      const words = text.split(/\s+/).filter(Boolean).length;
+      const strokes = text.length;
+      statsElem.innerText = `Auto Count - Words: ${words} | Strokes (Characters): ${strokes}`;
+    }
 
-  if (normalizedType === 'homework') {
-    sheet.appendRow([
-      id, 
-      payload.targetDate || '', 
-      sanitizeInput(payload.title || ''), 
-      sanitizeInput(payload.details || payload.contentOrUrl || ''), 
-      new Date().toISOString()
-    ]);
-  } else if (normalizedType === 'announcement') {
-    sheet.appendRow([
-      id, 
-      sanitizeInput(payload.title || ''), 
-      sanitizeInput(payload.contentOrUrl || payload.content || ''), 
-      new Date().toISOString()
-    ]);
-  } else {
-    // 👉 For typing tests, subtab is stored as 'ALL' or empty so it matches across all medium exams
-    var subtabVal = (normalizedType === 'typingtest') ? 'ALL' : sanitizeInput(payload.subtab || 'General');
-
-    sheet.appendRow([
-      id,
-      payload.materialType || '',
-      subtabVal,
-      sanitizeInput(payload.category || ''),
-      sanitizeInput(payload.title || ''),
-      sanitizeInput(formatDriveUrl(payload.contentOrUrl || '')),
-      sanitizeInput(formatDriveUrl(payload.thumbnailUrl || '')),
-      sanitizeInput(formatDriveUrl(payload.logoUrl || '')),
-      payload.accessLevel || 'public',
-      new Date().toISOString(),
-      payload.medium || 'English',
-      payload.difficulty || 'Medium',
-      payload.examDate || getScriptLocalDate(),
-      payload.timeLimit || 5
-    ]);
-  }
-
-  return { success: true, message: 'Material uploaded successfully.' };
-}
 
   </script>
 </body>
 </html>
+
+
