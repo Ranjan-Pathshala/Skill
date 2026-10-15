@@ -260,8 +260,14 @@
 </head>
 <body>
 
-  <!-- Dynamic Cross Watermark Background Layer[cite: 1] -->
+<!-- Dynamic Cross Watermark Background Layer[cite: 1] -->
   <div class="global-watermark-layer" id="global-watermark-layer"></div>
+
+  <!-- Hidden audio element for exam hall ambient noise -->
+<!-- ✅ CORRECT -->
+  <audio id="exam-hall-audio" src="https://drive.google.com/uc?export=download&id=1AhZAgNKWjSeTyu0QYHBebXwA4mCzRrNP" loop preload="auto">
+    Your browser does not support the audio element.
+  </audio>
 
   <div id="center-toast"></div>
 
@@ -270,7 +276,7 @@
     <span style="font-weight: 600; font-size: 13px;">Processing...</span>
   </div>
 
-<div id="announcement-banner">
+  <div id="announcement-banner">
     <div class="banner-marquee-wrapper">
       <div class="banner-marquee-container">
         <span id="banner-text-content"> Welcome to Ranjan Pathshala Skill </span>
@@ -496,8 +502,7 @@
           </div>
         </div>
       </div>
-
-      <!-- User Performance Analytics Chart Dashboard Card -->
+<!-- User Performance Analytics Chart Dashboard Card -->
       <div class="card" style="margin-bottom: 24px;">
         <h4 style="margin-bottom: 12px; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
           <i class="fa-solid fa-chart-line" style="color: var(--primary);"></i> User Performance Analytics (Accuracy & Speed Trends)
@@ -507,7 +512,7 @@
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px; align-items: start;">
         <div class="card">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 12px;">
             <h4 style="font-size: 15px; font-weight: 700; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
@@ -526,7 +531,7 @@
               <i class="fa-solid fa-bullhorn" style="color: #f59e0b;"></i> Latest Announcements
             </h4>
           </div>
-          <div id="announcement-list" class="watermark-text-container" style="display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto;"></div>
+          <div id="announcement-list" class="watermark-text-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
             <button class="btn btn-secondary btn-sm" onclick="paginateAnnouncements(-1)"><i class="fa-solid fa-chevron-left"></i> Prev</button>
             <div id="announcement-dots" style="display: flex; gap: 4px; align-items: center;"></div>
@@ -546,7 +551,7 @@
         </div>
       </div>
     </section>
-    <!-- WORDS OUTLINE VIEW -->
+<!-- WORDS OUTLINE VIEW -->
     <section id="view-words" class="app-view" style="display: none;">
       <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <div class="alphabet-bar" id="alphabet-bar" style="flex: 1; margin-bottom: 0;"></div>
@@ -554,7 +559,7 @@
           <select id="words-category-filter" class="form-control" onchange="renderWords()" style="max-width: 150px;">
             <option value="ALL">All Categories</option>
           </select>
-          <input type="text" id="words-search" class="form-control" placeholder="Search word..." oninput="renderWords()" style="flex: 1;">
+          <input type="text" id="words-search" class="form-control" placeholder="Search word..." onfocus="activateAllSubtabs('word')" oninput="activateAllSubtabs('word')" style="flex: 1;">
         </div>
       </div>
       <div id="words-grid" class="grid-cards"></div>
@@ -565,7 +570,7 @@
       <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
         <div class="subtab-bar" id="pdf-subtabs"></div>
         <div style="width: 100%;">
-          <input type="text" id="pdf-search-input" class="form-control" placeholder="🔍 Search all PDFs..." onfocus="activateAllSubtabs('pdf')" oninput="renderMaterialsList('pdf', currentSubtabFilter.pdf || 'ALL')">
+          <input type="text" id="pdf-search-input" class="form-control" placeholder="🔍 Search all PDFs..." onfocus="activateAllSubtabs('pdf')" oninput="activateAllSubtabs('pdf')">
         </div>
       </div>
       <div id="pdf-grid" class="grid-cards"></div>
@@ -576,7 +581,7 @@
       <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
         <div class="subtab-bar" id="audio-subtabs"></div>
         <div style="width: 100%;">
-          <input type="text" id="audio-search-input" class="form-control" placeholder="🔍 Search all Audios..." onfocus="activateAllSubtabs('audio')" oninput="renderMaterialsList('audio', currentSubtabFilter.audio || 'ALL')">
+          <input type="text" id="audio-search-input" class="form-control" placeholder="🔍 Search all Audios..." onfocus="activateAllSubtabs('audio')" oninput="activateAllSubtabs('audio')">
         </div>
       </div>
       <div id="audio-grid" class="grid-cards"></div>
@@ -587,7 +592,7 @@
       <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
         <div class="subtab-bar" id="pitman-subtabs"></div>
         <div style="width: 100%;">
-          <input type="text" id="pitman-search-input" class="form-control" placeholder="🔍 Search Pitman exercises..." oninput="renderPitmanList()">
+          <input type="text" id="pitman-search-input" class="form-control" placeholder="🔍 Search Pitman exercises..." onfocus="activateAllSubtabs('pitman')" oninput="activateAllSubtabs('pitman')">
         </div>
       </div>
       <div id="pitman-grid" class="grid-cards"></div>
@@ -1028,19 +1033,20 @@
 
       <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>i. Marks Deduction for Leaving Punctuation</label>
+          <label>i. Marks Deduction for Punctuation Error</label>
           <input type="number" id="eval-deduct-punctuation" class="form-control" value="0.5" min="0" max="10" step="0.1">
         </div>
         <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>j. Marks Deduction for Leaving Word</label>
-          <input type="number" id="eval-deduct-word" class="form-control" value="1.0" min="0" max="10" step="0.1">
+          <label>j. Marks Deduction for Spelling / Wrong Word</label>
+          <input type="number" id="eval-deduct-wrong" class="form-control" value="1.0" min="0" max="10" step="0.1">
         </div>
       </div>
 
       <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>k. Marks Deduction for Wrong Typed</label>
-          <input type="number" id="eval-deduct-wrong" class="form-control" value="1.0" min="0" max="10" step="0.1">
+          <!-- 👉 Fixed duplicate ID -->
+          <input type="number" id="eval-deduct-wrong-typed" class="form-control" value="1.0" min="0" max="10" step="0.1">
         </div>
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>l. Marks Deduction for Word Left</label>
@@ -1144,9 +1150,8 @@
       </div>
     </form>
   </div>
-</div>
 
-  <!-- Existing Evaluation Rules Summary Table at the Bottom -->
+  <!-- Existing Evaluation Rules Summary Table placed securely inside the Tab Body -->
   <div style="margin-top: 20px; max-width: 800px;">
     <h4>Existing Uploaded / Saved Evaluation Rules</h4>
     <div id="admin-eval-rules-table-container" style="overflow-x: auto; margin-top: 10px;"></div>
@@ -1305,9 +1310,9 @@
       </div>
 
       <!-- Footer Controls for Test (Pinned at Bottom) -->
-      <div style="background: var(--surface); border-top: 1px solid var(--border); padding: 12px 24px; display: flex; gap: 12px; justify-content: center; align-items: center; z-index: 10; flex-shrink: 0;">
-        <button class="btn btn-primary" style="padding: 10px 32px; border-radius: 20px; font-weight: 700;" onclick="submitStenoTest()">Submit Test</button>
-        <button id="test-pause-btn" class="btn btn-secondary" style="padding: 10px 24px; border-radius: 20px; font-weight: 700; background: var(--surface);" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
+      <div style="background: var(--surface); border-top: 1px solid var(--border); padding: 10px 16px; display: flex; gap: 10px; justify-content: center; align-items: center; z-index: 10; flex-shrink: 0;">
+        <button class="btn btn-primary" style="padding: 10px 20px; border-radius: 20px; font-weight: 700; flex: 1; max-width: 200px;" onclick="submitStenoTest()">Submit Test</button>
+        <button id="test-pause-btn" class="btn btn-secondary" style="padding: 10px 16px; border-radius: 20px; font-weight: 700; background: var(--surface); flex: 1; max-width: 160px;" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
       </div>
 
     </div>
@@ -1326,7 +1331,7 @@
 
 
   <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl78VM_WN1YNH8uq2rq2AH1_Ys5O_aWC0tXwqXM9qF9ZCYVNUvT2MhXRffUPIckFMmCQ/exec'; 
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwFl3cH9Cf5_OzVMjluo3y9aXrulwb6QKE0wBgldIDkwK75hA8VNRbl_nU-3IQNJf_ufQ/exec'; 
 function getLocalDateString() {
       const d = new Date();
       const year = d.getFullYear();
@@ -1779,134 +1784,166 @@ function getEvaluationRulesForTab(subtabKey) {
       setVal('eval-penalty-value', rules.penaltyValue, 1.0);
     }
 
-    async function saveEvaluationRulesSettings() {
-      const key = getSelectedEvalKey();
-      if (!key) {
-        showToast('Please select a valid evaluation category/subtab.');
-        return;
-      }
-      
-      const getNumVal = (id, fallback) => {
-        const val = document.getElementById(id)?.value;
-        return (val !== undefined && val !== '' && !isNaN(val)) ? Number(val) : fallback;
-      };
+async function saveEvaluationRulesSettings() {
+  let key = getSelectedEvalKey();
+  if (!key) {
+    showToast('Please select a valid evaluation category/subtab.');
+    return;
+  }
 
-      const ruleData = {
-        timeLimit: getNumVal('eval-time-limit', 5),
-        backspaceMode: document.getElementById('eval-backspace-mode')?.value || 'on',
-        totalMarks: getNumVal('eval-total-marks', 100),
-        passingMarks: getNumVal('eval-passing-marks', 40),
-        passingAccuracy: getNumVal('eval-passing-accuracy', 85),
-        minGrossStrokePct: getNumVal('eval-min-gross-stroke-pct', 100),
-        ignoreParagraphChange: document.getElementById('eval-ignore-paragraph-change')?.value || 'yes',
-        repeatPassage: document.getElementById('eval-repeat-passage')?.value || 'yes',
-        defaultTextSize: getNumVal('eval-default-text-size', 15),
-        deductPunctuation: getNumVal('eval-deduct-punctuation', 0.5),
-        deductWord: getNumVal('eval-deduct-word', 1.0),
-        deductWrong: getNumVal('eval-deduct-wrong', 1.0),
-        deductOmission: getNumVal('eval-deduct-omission', 1.0),
-        deductExtraWord: getNumVal('eval-deduct-extra-word', 0.5),
-        deductParaNotChanged: getNumVal('eval-deduct-para-not-changed', 1.0),
-        copyPasteMode: document.getElementById('eval-copypaste-mode')?.value || 'yes',
-        funcKeysMode: document.getElementById('eval-func-keys-mode')?.value || 'yes',
-        wordCountRule: document.getElementById('eval-word-count-rule')?.value || '1word',
-        autoScrollMode: document.getElementById('eval-autoscroll-mode')?.value || 'on',
-        highlightMode: document.getElementById('eval-highlight-mode')?.value || 'on',
-        layoutPosition: document.getElementById('eval-layout-position')?.value || 'top',
-        initialWords: getNumVal('eval-initial-words', 0),
-        minTimeSeconds: getNumVal('eval-min-time', 0),
-        ignoreErrorPct: getNumVal('eval-ignore-error-pct', 5),
-        penaltyValue: getNumVal('eval-penalty-value', 1.0)
-      };
+  // 👉 Ensure key format matches the clean format used during tests (e.g., typingtest_SSC_Exam)
+  if (key.includes('_')) {
+    const parts = key.split('_');
+    const cat = parts[0];
+    const sub = parts.slice(1).join('_').replace(/[^a-zA-Z0-9_]/g, '_');
+    key = `${cat}_${sub}`;
+  }
+  
+  const getNumVal = (id, fallback) => {
+    const val = document.getElementById(id)?.value;
+    return (val !== undefined && val !== '' && !isNaN(val)) ? Number(val) : fallback;
+  };
 
-      allEvaluationRules[key] = ruleData;
-      localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-      
-      if (typeof populateSavedRulesQuickDropdown === 'function') {
-        populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
-      }
+  const ruleData = {
+    timeLimit: getNumVal('eval-time-limit', 5),
+    backspaceMode: document.getElementById('eval-backspace-mode')?.value || 'on',
+    totalMarks: getNumVal('eval-total-marks', 100),
+    passingMarks: getNumVal('eval-passing-marks', 40),
+    passingAccuracy: getNumVal('eval-passing-accuracy', 85),
+    minGrossStrokePct: getNumVal('eval-min-gross-stroke-pct', 100),
+    ignoreParagraphChange: document.getElementById('eval-ignore-paragraph-change')?.value || 'yes',
+    repeatPassage: document.getElementById('eval-repeat-passage')?.value || 'yes',
+    defaultTextSize: getNumVal('eval-default-text-size', 15),
+    deductPunctuation: getNumVal('eval-deduct-punctuation', 0.5),
+    deductWord: getNumVal('eval-deduct-word', 1.0),
+    deductWrong: getNumVal('eval-deduct-wrong', 1.0),
+    deductOmission: getNumVal('eval-deduct-omission', 1.0),
+    deductExtraWord: getNumVal('eval-deduct-extra-word', 0.5),
+    deductParaNotChanged: getNumVal('eval-deduct-para-not-changed', 1.0),
+    copyPasteMode: document.getElementById('eval-copypaste-mode')?.value || 'yes',
+    funcKeysMode: document.getElementById('eval-func-keys-mode')?.value || 'yes',
+    wordCountRule: document.getElementById('eval-word-count-rule')?.value || '1word',
+    autoScrollMode: document.getElementById('eval-autoscroll-mode')?.value || 'on',
+    highlightMode: document.getElementById('eval-highlight-mode')?.value || 'on',
+    layoutPosition: document.getElementById('eval-layout-position')?.value || 'top',
+    initialWords: getNumVal('eval-initial-words', 0),
+    minTimeSeconds: getNumVal('eval-min-time', 0),
+    ignoreErrorPct: getNumVal('eval-ignore-error-pct', 5),
+    penaltyValue: getNumVal('eval-penalty-value', 1.0)
+  };
 
-      // Sync and save permanently to the Google Sheets backend
-      const res = await apiCall('saveEvaluationRules', {
-        ruleKey: key,
-        ruleJson: JSON.stringify(ruleData)
-      });
+  allEvaluationRules[key] = ruleData;
+  localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+  
+  if (typeof populateSavedRulesQuickDropdown === 'function') {
+    populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
+  }
 
-      if (res.success) {
-        showToast('Exam & Evaluation rules saved, edited, and synced successfully.');
-      } else {
-        showToast('Rules saved locally, but backend sync failed: ' + res.message);
-      }
+  if (typeof renderAdminEvaluationRulesTable === 'function') {
+    renderAdminEvaluationRulesTable(); // 🔄 Refreshes rules list table
+  }
+
+  // Sync and save permanently to the Google Sheets backend
+  const res = await apiCall('saveEvaluationRules', {
+    ruleKey: key,
+    ruleJson: JSON.stringify(ruleData)
+  });
+
+  if (res.success) {
+    showToast('Exam & Evaluation rules saved, edited, and synced successfully.');
+  } else {
+    showToast('Rules saved locally, but backend sync failed: ' + res.message);
+  }
+}
+
+async function deleteSelectedEvaluationRules() {
+  let key = getSelectedEvalKey();
+  if (!key) {
+    showToast('Please select a valid evaluation category/subtab.');
+    return;
+  }
+
+  if (key.includes('_')) {
+    const parts = key.split('_');
+    const cat = parts[0];
+    const sub = parts.slice(1).join('_').replace(/[^a-zA-Z0-9_]/g, '_');
+    key = `${cat}_${sub}`;
+  }
+
+  if (confirm(`Are you sure you want to delete/reset evaluation rules for [ ${key} ]?`)) {
+    delete allEvaluationRules[key];
+    localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+    
+    if (typeof populateSavedRulesQuickDropdown === 'function') {
+      populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
     }
 
-    async function deleteSelectedEvaluationRules() {
-      const key = getSelectedEvalKey();
-      if (!key) {
-        showToast('Please select a valid evaluation category/subtab.');
-        return;
-      }
-
-      if (confirm(`Are you sure you want to delete/reset evaluation rules for [ ${key} ]?`)) {
-        delete allEvaluationRules[key];
-        localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-        populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
-
-        const res = await apiCall('saveEvaluationRules', {
-          ruleKey: key,
-          ruleJson: ''
-        });
-
-loadSelectedEvaluationRulesIntoForm();
-        if (res.success) {
-          showToast('Evaluation rule deleted and synced successfully.');
-        } else {
-          showToast('Deleted locally, but backend sync failed.');
-        }
-      }
+    if (typeof renderAdminEvaluationRulesTable === 'function') {
+      renderAdminEvaluationRulesTable(); // 🔄 Refreshes rules list table
     }
+
+    const res = await apiCall('saveEvaluationRules', {
+      ruleKey: key,
+      ruleJson: ''
+    });
+
+    loadSelectedEvaluationRulesIntoForm();
+    if (res.success) {
+      showToast('Evaluation rule deleted and synced successfully.');
+    } else {
+      showToast('Deleted locally, but backend sync failed.');
+    }
+  }
+}
 
 function navigateTo(tabName, pushHistory = true) {
-      if (!currentUser) {
-        switchAuthTab('login');
-        return;
-      }
+  if (!currentUser) {
+    switchAuthTab('login');
+    return;
+  }
 
-      activeTab = tabName;
-      if (pushHistory) {
-        history.pushState({ tab: tabName }, '', `#${tabName}`);
-      }
+  activeTab = tabName;
+  if (pushHistory) {
+    history.pushState({ tab: tabName }, '', `#${tabName}`);
+  }
 
-      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
-      });
+  document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+  });
 
-      document.querySelectorAll('.app-view').forEach(view => view.style.display = 'none');
-      
-      const targetView = document.getElementById(`view-${tabName}`);
-      if (targetView) targetView.style.display = 'block';
+  document.querySelectorAll('.app-view').forEach(view => view.style.display = 'none');
+  
+  const targetView = document.getElementById(`view-${tabName}`);
+  if (targetView) targetView.style.display = 'block';
 
-      apiCall('logActivity', {
-        userId: currentUser.userId,
-        userName: currentUser.name,
-        activityType: 'TAB_SWITCH',
-        details: 'Navigated to ' + tabName
-      });
+  apiCall('logActivity', {
+    userId: currentUser.userId,
+    userName: currentUser.name,
+    activityType: 'TAB_SWITCH',
+    details: 'Navigated to ' + tabName
+  });
 
-      if (tabName === 'dashboard') loadDashboardData();
-      if (tabName === 'words') loadMaterials('word');
-      if (tabName === 'pdf') loadMaterials('pdf');
-      if (tabName === 'audio') loadMaterials('audio');
-      if (tabName === 'pitman') loadMaterials('pitman');
-      if (tabName === 'typingtest') loadMaterials('typingtest'); // 👉 Updated to load materials and initialize wizard properly
-      if (tabName === 'test') loadTestHistory();
-      if (tabName === 'feedback') loadUserFeedback();
-      if (tabName === 'admin') {
-        loadAdminData();
-        populateEvalCategoryDropdown();
-        loadSelectedEvaluationRulesIntoForm();
-        adjustAdminUploadForm();
-      }
+  if (tabName === 'dashboard') loadDashboardData();
+  if (tabName === 'words') loadMaterials('word');
+  if (tabName === 'pdf') loadMaterials('pdf');
+  if (tabName === 'audio') loadMaterials('audio');
+  if (tabName === 'pitman') loadMaterials('pitman');
+  if (tabName === 'typingtest') loadMaterials('typingtest'); // 👉 Loads materials and initializes wizard
+  if (tabName === 'test') loadTestHistory();
+  if (tabName === 'feedback') loadUserFeedback();
+  if (tabName === 'admin') {
+    loadAdminData();
+    populateEvalCategoryDropdown();
+    if (typeof populateSavedRulesQuickDropdown === 'function') {
+      populateSavedRulesQuickDropdown();
     }
+    if (typeof renderAdminEvaluationRulesTable === 'function') {
+      renderAdminEvaluationRulesTable();
+    }
+    loadSelectedEvaluationRulesIntoForm();
+    adjustAdminUploadForm();
+  }
+}
 
     function renderAuthView() {
       const navTabs = document.getElementById('main-nav-tabs');
@@ -2236,7 +2273,7 @@ function renderUserDashboardLeaderboards() {
       return `<div style="white-space: pre-wrap; color: var(--text);">${text}</div>`;
     }
 
-    function renderAnnouncements() {
+function renderAnnouncements() {
       const list = document.getElementById('announcement-list');
       const dotsContainer = document.getElementById('announcement-dots');
       if (!list) return;
@@ -2258,7 +2295,14 @@ function renderUserDashboardLeaderboards() {
         dotsContainer.innerHTML = '';
         for (let p = 1; p <= totalPages; p++) {
           const dot = document.createElement('span');
-          dot.style.cssText = `width: 8px; height: 8px; border-radius: 50%; background: ${p === window.announcementPage ? 'var(--primary)' : 'var(--border)'}; display: inline-block; transition: 0.2s;`;
+          dot.style.cssText = `width: 8px; height: 8px; border-radius: 50%; background: ${p === window.announcementPage ? 'var(--primary)' : 'var(--border)'}; display: inline-block; transition: 0.2s; cursor: pointer;`;
+          
+          // Optional enhancement: allow clicking dots to jump to a specific page
+          dot.onclick = () => {
+            window.announcementPage = p;
+            renderAnnouncements();
+          };
+          
           dotsContainer.appendChild(dot);
         }
       }
@@ -2308,10 +2352,11 @@ function renderUserDashboardLeaderboards() {
 
       if (dir === 1 && window.announcementPage < totalPages) {
         window.announcementPage++;
+        renderAnnouncements();
       } else if (dir === -1 && window.announcementPage > 1) {
         window.announcementPage--;
+        renderAnnouncements();
       }
-      renderAnnouncements();
     }
 
 function renderHomework() {
@@ -2686,7 +2731,7 @@ function onTypingPassageSelected() {
       const idx = parseInt(rawVal, 10);
       if (isNaN(idx) || idx < 0) return;
 
-      // 👉 Safely fetch directly from the global cache array instead of re-filtering
+      // 👉 Safely fetch directly from the global cache array instead of re-filtering[cite: 1]
       selectedTypingPassage = (typeof currentTypingPassagesCache !== 'undefined') ? currentTypingPassagesCache[idx] : null;
       
       if (!selectedTypingPassage) {
@@ -2694,6 +2739,7 @@ function onTypingPassageSelected() {
         return;
       }
 
+      // 👉 Clean exam name consistently to match admin rule keys (e.g., typingtest_Exam_Name)[cite: 1]
       const cleanExamName = selectedTypingExam ? selectedTypingExam.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
       const evaluationKey = `typingtest_${cleanExamName}`;
       
@@ -2717,11 +2763,14 @@ function onTypingPassageSelected() {
           <div><strong>Min Gross Strokes Required:</strong> ${Math.round((text.length * (rules.minGrossStrokePct || 100)) / 100)} (${rules.minGrossStrokePct || 100}%)</div>
           <div><strong>Total Duration:</strong> ${totalDuration} Minutes</div>
           <div><strong>Passing Accuracy:</strong> ${rules.passingAccuracy}% | <strong>Total Marks:</strong> ${rules.totalMarks}</div>
-          <div><strong>Backspace:</strong> ${(rules.backspaceMode || 'on').toUpperCase()} | <strong>Copy/Paste:</strong> ${(rules.copyPasteMode || 'yes').toUpperCase()}</div>
+          <div><strong>Backspace Mode:</strong> ${(rules.backspaceMode || 'on').toUpperCase()}</div>
+          <div><strong>Highlight Mode:</strong> ${(rules.highlightMode || 'on').toUpperCase()}</div>
+          <div><strong>Auto Scroll:</strong> ${(rules.autoScrollMode || 'on').toUpperCase()}</div>
+          <div><strong>Copy/Paste:</strong> ${(rules.copyPasteMode || 'yes').toUpperCase()}</div>
         `;
       }
 
-      // 👉 Explicitly force step-5 block display and smooth scroll into view to reveal the Start button
+      // 👉 Explicitly force step-5 block display and smooth scroll into view to reveal the Start button[cite: 1]
       const step5 = document.getElementById('typing-step-5');
       if (step5) {
         step5.style.display = 'block';
@@ -2754,7 +2803,7 @@ function onTypingPassageSelected() {
       startTypingExam(selectedTypingPassage);
     }
 
-function startTypingExam(item) {
+    function startTypingExam(item) {
       currentExamName = `Typing Test: ${selectedTypingExam || 'General'} - ${item.Title}`;
       
       const cleanExamName = selectedTypingExam ? selectedTypingExam.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
@@ -2766,7 +2815,7 @@ function startTypingExam(item) {
       testStartTime = 0;
       currentReferenceText = item.ContentOrUrl || '';
       
-      activeTestSubtabKey = evaluationKey;
+      activeTestSubtabKey = evaluationKey; // 👉 Binds exact active evaluation key for keydown and highlight checks[cite: 1]
       isTestPaused = false;
       isTypingTimerStarted = false;
 
@@ -2801,7 +2850,19 @@ function startTypingExam(item) {
                 </div>
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
               </div>
-              <textarea id="test-user-input" class="form-control" style="width: 100%; flex: 1; min-height: 280px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" placeholder="Start typing passage here (Timer starts on first keypress)..." oninput="handleTypingInputProgress()" onkeydown="handleTestKeyDown(event)" onpaste="handleTestPaste(event)" oncopy="handleTestCopy(event)" oncut="handleTestCut(event)"></textarea>
+              <textarea id="test-user-input" 
+                        class="form-control" 
+                        spellcheck="false" 
+                        autocorrect="off" 
+                        autocapitalize="off" 
+                        autocomplete="off" 
+                        style="width: 100%; flex: 1; min-height: 280px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                        placeholder="Start typing passage here (Timer starts on first keypress)..." 
+                        oninput="handleTypingInputProgress()" 
+                        onkeydown="handleTestKeyDown(event)" 
+                        onpaste="handleTestPaste(event)" 
+                        oncopy="handleTestCopy(event)" 
+                        oncut="handleTestCut(event)"></textarea>
             </div>
           </div>
         `;
@@ -2825,6 +2886,8 @@ function startTypingExam(item) {
 
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
       if (!rules) return;
+      
+      // 👉 Respect highlight rule setting from admin evaluation rules[cite: 1]
       if (rules.highlightMode !== 'on') return;
 
       const userInput = document.getElementById('test-user-input');
@@ -2848,12 +2911,13 @@ function startTypingExam(item) {
       }
       passageContainer.innerHTML = highlightedHtml;
 
+      // 👉 Respect auto-scroll rule setting from admin evaluation rules[cite: 1]
       if (rules.autoScrollMode === 'on') {
         passageContainer.scrollTop = passageContainer.scrollHeight;
       }
     }
 
-    function renderPitmanList(filterSubtab = 'ALL') {
+function renderPitmanList(filterSubtab = 'ALL') {
       const grid = document.getElementById('pitman-grid');
       if (!grid) return;
       grid.innerHTML = '';
@@ -2891,13 +2955,22 @@ function startTypingExam(item) {
           <img src="${thumbUrl}" class="card-thumb" style="object-fit:contain;" onerror="this.src='${DEFAULT_LOGO_URL}'">
           <strong style="margin: 6px 0;">${item.Title}</strong>
           <span class="subtab-badge">📂 ${item.Subtab || 'General'} | ⏱️ ${adminTimeLimit} Mins</span>
-          <button class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%;" onclick='startPitmanTest(${JSON.stringify(item)})'><i class="fa-solid fa-play"></i> Start Pitman Test</button>
+          <button class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%;" onclick='startPitmanTestById("${item.ID || item.id}")'><i class="fa-solid fa-play"></i> Start Pitman Test</button>
         `;
         grid.appendChild(card);
       });
     }
 
-function startPitmanTest(item) {
+function startPitmanTestById(id) {
+      const item = materialsData.find(m => String(m.ID || m.id) === String(id));
+      if (item) {
+        startPitmanTest(item);
+      } else {
+        showToast('Pitman exercise material not found.');
+      }
+    }
+
+    function startPitmanTest(item) {
       // 👉 Security validation check to enforce membership/admin access restrictions
       const role = currentUser ? currentUser.role : 'user';
       const accessLevel = (item.AccessLevel || 'public').toLowerCase();
@@ -2933,9 +3006,14 @@ function startPitmanTest(item) {
       const mainBody = document.getElementById('test-main-body-container');
       testPhotoZoom = 1;
 
-      // 👉 Strictly use LogoUrl for the active test viewer photo without fallback to thumbnail
-      const logoTarget = item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '' ? item.LogoUrl : DEFAULT_LOGO_URL;
-      const pitmanThumbUrl = getUniversalUrl(logoTarget, 'image');
+      // 👉 Updated to check ThumbnailUrl first (admin upload field), then LogoUrl, then default
+      const photoTarget = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
+        ? item.ThumbnailUrl 
+        : ((item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
+            ? item.LogoUrl 
+            : DEFAULT_LOGO_URL);
+      
+      const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
 
       mainBody.innerHTML = `
         <div style="display: flex; gap: 20px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap;">
@@ -2963,7 +3041,18 @@ function startPitmanTest(item) {
                 <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
               </div>
             </div>
-            <textarea id="test-user-input" class="form-control" style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" placeholder="Type dictation here..." onkeydown="handleTestKeyDown(event)" onpaste="handleTestPaste(event)" oncopy="handleTestCopy(event)" oncut="handleTestCut(event)"></textarea>
+            <textarea id="test-user-input" 
+                      class="form-control" 
+                      spellcheck="false" 
+                      autocorrect="off" 
+                      autocapitalize="off" 
+                      autocomplete="off" 
+                      style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                      placeholder="Type dictation here..." 
+                      onkeydown="handleTestKeyDown(event)" 
+                      onpaste="handleTestPaste(event)" 
+                      oncopy="handleTestCopy(event)" 
+                      oncut="handleTestCut(event)"></textarea>
           </div>
         </div>
       `;
@@ -2987,7 +3076,7 @@ function startPitmanTest(item) {
       if (wrapper) wrapper.style.transform = `scale(1)`;
     }
 
-function startAudioDictationTestById(id) {
+    function startAudioDictationTestById(id) {
       const item = materialsData.find(m => String(m.ID || m.id) === String(id));
       if (item) {
         startAudioDictationTest(item);
@@ -3060,7 +3149,19 @@ function startAudioDictationTestById(id) {
         </div>
 
         <div style="width: 100%; max-width: 900px; flex: 1; display: flex; flex-direction: column;">
-          <textarea id="test-user-input" class="form-control" style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" placeholder="Listen to audio dictation and type here..." oninput="handleAudioTypingInput()" onkeydown="handleTestKeyDown(event)" onpaste="handleTestPaste(event)" oncopy="handleTestCopy(event)" oncut="handleTestCut(event)"></textarea>
+          <textarea id="test-user-input" 
+                    class="form-control" 
+                    spellcheck="false" 
+                    autocorrect="off" 
+                    autocapitalize="off" 
+                    autocomplete="off" 
+                    style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                    placeholder="Listen to audio dictation and type here..." 
+                    oninput="handleAudioTypingInput()" 
+                    onkeydown="handleTestKeyDown(event)" 
+                    onpaste="handleTestPaste(event)" 
+                    oncopy="handleTestCopy(event)" 
+                    oncut="handleTestCut(event)"></textarea>
         </div>
       `;
 
@@ -3069,120 +3170,7 @@ function startAudioDictationTestById(id) {
       toggleFullscreen();
     }
 
-    function renderMaterialsList(type, filterSubtab) {
-      const grid = document.getElementById(`${type}-grid`);
-      if (!grid) return;
-      grid.innerHTML = '';
-
-      let items = materialsData.filter(m => (m.Type || '').toLowerCase() === type.toLowerCase());
-
-      const searchInput = document.getElementById(`${type}-search-input`);
-      const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
-
-      if (filterSubtab !== 'ALL' && !searchQuery) {
-        items = items.filter(m => m.Subtab === filterSubtab);
-      }
-
-      if (searchQuery) {
-        items = items.filter(m => 
-          (m.Title || '').toLowerCase().includes(searchQuery) ||
-          (m.Category || '').toLowerCase().includes(searchQuery) ||
-          (m.Subtab || '').toLowerCase().includes(searchQuery)
-        );
-      }
-
-      if (items.length === 0) {
-        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No materials found.</div>`;
-        return;
-      }
-
-      items.forEach(item => {
-        const role = currentUser ? currentUser.role : 'user';
-        const accessLevel = (item.AccessLevel || 'public').toLowerCase();
-
-let canView = false;
-        let canDownload = false;
-
-        if (role === 'admin') {
-          canView = true;
-          canDownload = true;
-        } else if (accessLevel === 'public') {
-          canView = true;
-          canDownload = true;
-        } else if (accessLevel === 'user') {
-          canView = true;
-          canDownload = false;
-        } else if (accessLevel === 'member') {
-          canView = (role === 'member' || role === 'admin');
-          canDownload = false;
-        } else if (accessLevel === 'admin') {
-          canView = (role === 'admin');
-          canDownload = (role === 'admin');
-        }
-
-        // 👉 STRICT RULE: Audio, Typing Test, and Pitman Book can NEVER be downloaded in any condition
-        const materialType = (item.Type || '').toLowerCase();
-        if (['audio', 'typingtest', 'pitman'].includes(materialType)) {
-          canDownload = false;
-        }
-
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.position = 'relative';
-
-        const defaultThumb = getThumbnailUrl(item);
-        
-        let actionButtonsHtml = '';
-        if (type === 'audio') {
-          if (canView) {
-            // 👉 Pass item.ID safely to avoid serializing massive transcriptions into the HTML attributes
-            actionButtonsHtml = `
-              <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; position:relative; z-index:1;">
-                <button class="btn btn-primary btn-sm" style="width:100%;" onclick="openUniversalMediaViewer('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-play"></i> Play Dictation</button>
-                <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="startAudioDictationTestById('${item.ID || item.id}')">
-                  <i class="fa-solid fa-headphones"></i> Start Audio Test
-                </button>
-              </div>
-            `;
-          } else {
-            actionButtonsHtml = `
-              <div style="margin-top:8px; position:relative; z-index:1;">
-                <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
-                  <i class="fa-solid fa-lock"></i> Locked Content
-                </button>
-              </div>
-            `;
-          }
-        } else {
-          if (canView) {
-            actionButtonsHtml = `
-              <div style="margin-top:8px; display:flex; gap:4px; position:relative; z-index:1;">
-                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="viewItem('${type}', '${item.ContentOrUrl}', '${item.Title}', '${accessLevel}')">View</button>
-                ${canDownload ? `<button class="btn btn-secondary btn-sm" onclick="downloadItem('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-download"></i> Download</button>` : ''}
-              </div>
-            `;
-          } else {
-            actionButtonsHtml = `
-              <div style="margin-top:8px; position:relative; z-index:1;">
-                <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
-                  <i class="fa-solid fa-lock"></i> Locked Content
-                </button>
-              </div>
-            `;
-          }
-        }
-
-        card.innerHTML = `
-          <img src="${defaultThumb}" class="card-thumb" style="object-fit:contain; position:relative; z-index:1;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-          <strong style="position:relative; z-index:1;">${item.Title || item.Name || item.Word || ''}</strong>
-          <span class="subtab-badge" style="position:relative; z-index:1;">📂 ${item.Subtab || item.Category || 'General'}</span>
-          ${actionButtonsHtml}
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    function buildAlphabetBar() {
+function buildAlphabetBar() {
       const bar = document.getElementById('alphabet-bar');
       if (!bar) return;
       bar.innerHTML = '';
@@ -3218,7 +3206,7 @@ let canView = false;
       select.value = selectedCategoryFilter;
     }
 
-function renderWords() {
+    function renderWords() {
       const grid = document.getElementById('words-grid');
       if (!grid) return;
       grid.innerHTML = '';
@@ -3279,20 +3267,139 @@ function renderWords() {
           actionHtml = `<img src="${thumbUrl}" class="card-thumb" style="object-fit:contain; margin-top:8px; position: relative; z-index: 1; cursor: pointer;" onerror="this.src='${DEFAULT_LOGO_URL}'" onclick="openEmbeddedImageModal('${fullContentUrl}', 'Sl. No. ${index + 1} - ${displayTitle}')">`;
         } else {
           actionHtml = `
-            <div style="margin-top:8px; position:relative; z-index:1;">
-              <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
-                <i class="fa-solid fa-lock"></i> Locked Content
-              </button>
+            <div style="position: relative; margin-top:8px; height: 110px; border-radius: 8px; overflow: hidden; cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+              <img src="${thumbUrl}" style="width: 100%; height: 100%; object-fit: contain; filter: blur(6px); opacity: 0.7;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+              <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
+                <span style="color: #fff; font-weight: 700; font-size: 12px; background: rgba(239,68,68,0.85); padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+                  <i class="fa-solid fa-lock"></i> Access Denied
+                </span>
+              </div>
             </div>
           `;
         }
 
-        // Clearly marked Sl. No. and Title
         card.innerHTML = `
           <div style="font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 2px; position: relative; z-index: 1;">Sl. No. ${index + 1}</div>
           <strong style="font-size: 15px; margin-bottom: 6px; display: block; position: relative; z-index: 1; color: var(--secondary);">${displayTitle}</strong>
           <span class="subtab-badge" style="position:relative; z-index:1;">📁 ${w.Category || 'General'}</span>
           ${actionHtml}
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // Single retained instance of renderMaterialsList
+    function renderMaterialsList(type, filterSubtab) {
+      const grid = document.getElementById(`${type}-grid`);
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      let items = materialsData.filter(m => (m.Type || '').toLowerCase() === type.toLowerCase());
+
+      const searchInput = document.getElementById(`${type}-search-input`);
+      const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+      if (filterSubtab !== 'ALL' && !searchQuery) {
+        items = items.filter(m => m.Subtab === filterSubtab);
+      }
+
+      if (searchQuery) {
+        items = items.filter(m => 
+          (m.Title || '').toLowerCase().includes(searchQuery) ||
+          (m.Category || '').toLowerCase().includes(searchQuery) ||
+          (m.Subtab || '').toLowerCase().includes(searchQuery)
+        );
+      }
+
+      if (items.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No materials found.</div>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const role = currentUser ? currentUser.role : 'user';
+        const accessLevel = (item.AccessLevel || 'public').toLowerCase();
+
+        let canView = false;
+        let canDownload = false;
+
+        if (role === 'admin') {
+          canView = true;
+          canDownload = true;
+        } else if (accessLevel === 'public') {
+          canView = true;
+          canDownload = true;
+        } else if (accessLevel === 'user') {
+          canView = true;
+          canDownload = false;
+        } else if (accessLevel === 'member') {
+          canView = (role === 'member' || role === 'admin');
+          canDownload = false;
+        } else if (accessLevel === 'admin') {
+          canView = (role === 'admin');
+          canDownload = (role === 'admin');
+        }
+
+        const materialType = (item.Type || '').toLowerCase();
+        if (['audio', 'typingtest', 'pitman'].includes(materialType)) {
+          canDownload = false;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.position = 'relative';
+
+        const defaultThumb = getThumbnailUrl(item);
+        
+        let actionButtonsHtml = '';
+        let thumbHtml = '';
+
+        if (canView) {
+          thumbHtml = `<img src="${defaultThumb}" class="card-thumb" style="object-fit:contain; position:relative; z-index:1;" onerror="this.src='${DEFAULT_LOGO_URL}'">`;
+          
+          if (type === 'audio') {
+            actionButtonsHtml = `
+              <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; position:relative; z-index:1;">
+                <button class="btn btn-primary btn-sm" style="width:100%;" onclick="openUniversalMediaViewer('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-play"></i> Play Dictation</button>
+                <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="startAudioDictationTestById('${item.ID || item.id}')">
+                  <i class="fa-solid fa-headphones"></i> Start Audio Test
+                </button>
+              </div>
+            `;
+          } else {
+            actionButtonsHtml = `
+              <div style="margin-top:8px; display:flex; gap:4px; position:relative; z-index:1;">
+                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="viewItem('${type}', '${item.ContentOrUrl}', '${item.Title}', '${accessLevel}')">View</button>
+                ${canDownload ? `<button class="btn btn-secondary btn-sm" onclick="downloadItem('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-download"></i> Download</button>` : ''}
+              </div>
+            `;
+          }
+        } else {
+          thumbHtml = `
+            <div style="position: relative; margin-bottom: 10px; height: 110px; border-radius: 8px; overflow: hidden; cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+              <img src="${defaultThumb}" style="width: 100%; height: 100%; object-fit: contain; filter: blur(6px); opacity: 0.7;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+              <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
+                <span style="color: #fff; font-weight: 700; font-size: 12px; background: rgba(239,68,68,0.85); padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+                  <i class="fa-solid fa-lock"></i> Access Denied
+                </span>
+              </div>
+            </div>
+          `;
+
+          actionButtonsHtml = `
+            <div style="margin-top:8px; position:relative; z-index:1;">
+              <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+                <i class="fa-solid fa-lock"></i> Access Denied
+              </button>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          ${thumbHtml}
+          <strong style="position:relative; z-index:1;">${item.Title || item.Name || item.Word || ''}</strong>
+          <span class="subtab-badge" style="position:relative; z-index:1;">📂 ${item.Subtab || item.Category || 'General'}</span>
+          ${actionButtonsHtml}
         `;
         grid.appendChild(card);
       });
@@ -3319,7 +3426,6 @@ function renderWords() {
       
       const finalUrl = getUniversalUrl(url, type);
 
-      // If it's a PDF, open it in the full-screen reader modal instead of a new tab
       if (type.toLowerCase() === 'pdf') {
         openPdfModal(finalUrl, title);
       } else {
@@ -3446,7 +3552,7 @@ function renderWords() {
       window.open(finalUrl, '_blank', 'noopener,noreferrer');
     }
 
-function openZoomModal(imgUrl, title) {
+    function openZoomModal(imgUrl, title) {
       const finalImgUrl = getUniversalUrl(imgUrl, 'image');
       window.open(finalImgUrl, '_blank', 'noopener,noreferrer');
     }
@@ -3461,7 +3567,7 @@ function openZoomModal(imgUrl, title) {
       }
     }
 
-function toggleFullscreen() {
+    function toggleFullscreen() {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(() => {});
       } else {
@@ -3565,11 +3671,18 @@ async function submitStenoTest() {
   const refTextEval = rules.ignoreParagraphChange === 'yes' ? referenceText.replace(/[\r\n]+/g, ' ') : referenceText;
   const userTextEval = rules.ignoreParagraphChange === 'yes' ? typedText.replace(/[\r\n]+/g, ' ') : typedText;
 
-  const refWords = refTextEval.split(/\s+/).filter(Boolean);
-  const userWords = userTextEval.split(/\s+/).filter(Boolean);
+  // Helper function to cleanly separate alphanumeric word from surrounding punctuation
+  const parseToken = (token) => {
+    const clean = token.replace(/^[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+|[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+$/g, '');
+    const punct = (token.match(/[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]/g) || []).join('');
+    return { raw: token, word: clean.toLowerCase(), punct: punct };
+  };
+
+  const refTokens = refTextEval.split(/\s+/).filter(Boolean).map(parseToken);
+  const userTokens = userTextEval.split(/\s+/).filter(Boolean).map(parseToken);
   
-  const totalWordsOriginal = refWords.length;
-  const totalTypedWords = userWords.length;
+  const totalWordsOriginal = refTokens.length;
+  const totalTypedWords = userTokens.length;
   const totalCharacter = refTextEval.length;
   const totalTypedCharacter = userTextEval.length;
 
@@ -3585,13 +3698,13 @@ async function submitStenoTest() {
     showToast(`Warning: Minimum initial words required is ${rules.initialWords}.`);
   }
 
-  const m = refWords.length;
-  const n = userWords.length;
+  const m = refTokens.length;
+  const n = userTokens.length;
   const dp = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (refWords[i - 1].toLowerCase() === userWords[j - 1].toLowerCase()) {
+      if (refTokens[i - 1].word === userTokens[j - 1].word) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
@@ -3600,26 +3713,48 @@ async function submitStenoTest() {
   }
 
   let i = m, j = n;
-  let wrongTypedCount = 0;
+  let wrongTypedCount = 0; // Spelling/Wrong words
   let capitalErrorCount = 0;
-  let wordLeftCount = 0;
-  let extraTypedCount = 0;
+  let wordLeftCount = 0;   // Omissions
+  let extraTypedCount = 0; // Extra words
+  let punctuationLeftCount = 0;
+  let punctuationExtraCount = 0;
+  let punctuationWrongCount = 0;
 
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && refWords[i - 1].toLowerCase() === userWords[j - 1].toLowerCase()) {
-      if (refWords[i - 1] !== userWords[j - 1]) {
+    if (i > 0 && j > 0 && refTokens[i - 1].word === userTokens[j - 1].word) {
+      if (refTokens[i - 1].raw !== userTokens[j - 1].raw) {
         capitalErrorCount++;
+      }
+      // Check punctuation difference when word spelling is correct
+      if (refTokens[i - 1].punct !== userTokens[j - 1].punct) {
+        if (!refTokens[i - 1].punct && userTokens[j - 1].punct) punctuationExtraCount++;
+        else if (refTokens[i - 1].punct && !userTokens[j - 1].punct) punctuationLeftCount++;
+        else punctuationWrongCount++;
+      }
+      i--;
+      j--;
+    } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1]) {
+      // 👉 Accurate spelling/wrong word substitution detection
+      wrongTypedCount++;
+      if (refTokens[i - 1].punct !== userTokens[j - 1].punct) {
+        punctuationWrongCount++;
       }
       i--;
       j--;
     } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
       extraTypedCount++;
+      if (userTokens[j - 1].punct) punctuationExtraCount++;
       j--;
     } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
       wordLeftCount++;
+      if (refTokens[i - 1].punct) punctuationLeftCount++;
       i--;
     } else {
-      wrongTypedCount++;
+      wrongTypedCount++; // Spelling error fallback
+      if (refTokens[i - 1].punct !== userTokens[j - 1].punct) {
+        punctuationWrongCount++;
+      }
       i--;
       j--;
     }
@@ -3629,7 +3764,7 @@ async function submitStenoTest() {
   const accuracyPercentage = Math.max(0, Math.min(100, ((matchingWords / Math.max(totalWordsOriginal, 1)) * 100))).toFixed(2);
   const errorPercentage = (100 - accuracyPercentage).toFixed(2);
   
-  const punctuationLeftCount = (refTextEval.match(/[,.;!?]/g) || []).length !== (userTextEval.match(/[,.;!?]/g) || []).length ? 1 : 0;
+  const totalPunctuationErrors = punctuationLeftCount + punctuationExtraCount + punctuationWrongCount;
 
   const totalMarks = rules.totalMarks || 100;
   const deductWrong = rules.deductWrong !== undefined ? rules.deductWrong : 1.0;
@@ -3641,7 +3776,7 @@ async function submitStenoTest() {
 
   const wrongTypedDeduction = (wrongTypedCount * deductWrong).toFixed(2);
   const wordLeftDeduction = (wordLeftCount * deductOmission).toFixed(2);
-  const punctuationDeduction = (punctuationLeftCount * deductPunctuation).toFixed(2);
+  const punctuationDeduction = (totalPunctuationErrors * deductPunctuation).toFixed(2);
   const capitalDeduction = (capitalErrorCount * deductCapital).toFixed(2);
   const extraDeduction = (extraTypedCount * deductExtraWord).toFixed(2);
   const paraDeduction = (paraNotChangedCount * deductParaNotChanged).toFixed(2);
@@ -3699,7 +3834,7 @@ async function submitStenoTest() {
     extraDeduction: extraDeduction,
     paraNotChanged: paraNotChangedCount,
     paraDeduction: paraDeduction,
-    punctuationLeft: punctuationLeftCount,
+    punctuationLeft: totalPunctuationErrors, // Unified punctuation error tally
     punctuationDeduction: punctuationDeduction,
     status: isPassed ? 'PASSED' : 'FAILED',
     timeUsed: `${timeUsedMinutes} mins (Submitted at ${submissionTimeFormatted})`,
@@ -3775,8 +3910,11 @@ async function loadTestHistory() {
     const displayGross = h.GrossSpeed || h.grossSpeed || 0;
     const displayNet = h.NetSpeed || h.netSpeed || 0;
     const accuracy = h.AccuracyPercentage || h.accuracyPercentage || 0;
-    const marks = h.MarksObtained || h.marksObtained || '-';
-    const totalMarks = h.TotalMarks || h.totalMarks || 100;
+    
+    // 👉 Updated to check alternative key variations for marks and total marks
+    const marks = h.MarksObtained || h.marksObtained || h.Marks || h.marks || h.Score || h.score || '-';
+    const totalMarks = h.TotalMarks || h.totalMarks || h.Total || h.total || 100;
+    
     const status = h.Status || h.status || 'FAILED';
     const examName = h.ExamName || h.examName || '-';
 
@@ -3812,28 +3950,35 @@ function openTestComparison(indexOrItem) {
   }
 
 const modal = document.getElementById('reader-modal');
-const body = document.getElementById('modal-viewport');
-const titleEl = document.getElementById('modal-title');
-if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${historyItem.ExamName || historyItem.examName} (${historyItem.Date || historyItem.date})`;
+  const body = document.getElementById('modal-viewport');
+  const titleEl = document.getElementById('modal-title');
+  if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${historyItem.ExamName || historyItem.examName} (${historyItem.Date || historyItem.date})`;
 
   const refText = historyItem.ReferenceText || historyItem.referenceText || '';
   const userText = historyItem.UserTranscription || historyItem.userTranscription || '';
 
-  const refWords = refText.split(/\s+/).filter(Boolean);
-  const userWords = userText.split(/\s+/).filter(Boolean);
+  // Helper function to cleanly separate alphanumeric word from surrounding punctuation
+  const parseToken = (token) => {
+    const clean = token.replace(/^[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+|[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+$/g, '');
+    const punct = (token.match(/[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]/g) || []).join('');
+    return { raw: token, word: clean.toLowerCase(), punct: punct };
+  };
 
-  const totalWordsMaterial = refWords.length;
+  const refTokens = refText.split(/\s+/).filter(Boolean).map(parseToken);
+  const userTokens = userText.split(/\s+/).filter(Boolean).map(parseToken);
+
+  const totalWordsMaterial = refTokens.length;
   const totalStrokesMaterial = refText.length;
-  const totalWordsUser = userWords.length;
+  const totalWordsUser = userTokens.length;
   const totalStrokesUser = userText.length;
 
-  const m = refWords.length;
-  const n = userWords.length;
+  const m = refTokens.length;
+  const n = userTokens.length;
   const dp = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (refWords[i - 1].toLowerCase() === userWords[j - 1].toLowerCase()) {
+      if (refTokens[i - 1].word === userTokens[j - 1].word) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
@@ -3846,63 +3991,70 @@ if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${hist
   let annotatedRefHtml = [];
 
   // 👉 Counters to compute live stats directly from the comparison loop
-  let computedWrongWords = 0;
-  let computedWordsLeft = 0;
-  let computedExtraWords = 0;
+  let computedWrongWords = 0; // Spelling/Wrong words
+  let computedWordsLeft = 0;   // Omissions
+  let computedExtraWords = 0; // Extra words
   let computedCapitalErrors = 0;
   let computedPunctuationErrors = { extra: 0, left: 0, wrong: 0 };
 
-  // Helper function to extract punctuation marks from a word token
-  const getPunctuation = (str) => (str.match(/[.,\/$%\^&\*;:{}=\-_`~()\[\]?+"]/g) || []).join('');
-
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && refWords[i - 1].toLowerCase() === userWords[j - 1].toLowerCase()) {
-      const refW = refWords[i - 1];
-      const userW = userWords[j - 1];
+    if (i > 0 && j > 0 && refTokens[i - 1].word === userTokens[j - 1].word) {
+      const refT = refTokens[i - 1];
+      const userT = userTokens[j - 1];
 
-      const isCapErr = refW !== userW;
+      const isCapErr = refT.raw !== userT.raw;
       if (isCapErr) {
         computedCapitalErrors++;
-        annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Capitalization Error">${userW} <small>(Ref: ${refW})</small></span>`);
-      } else {
-        annotatedUserHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${userW}</span>`);
       }
 
       // Check punctuation mismatch on matching words
-      const refPunct = getPunctuation(refW);
-      const userPunct = getPunctuation(userW);
-      if (refPunct !== userPunct) {
-        if (!refPunct && userPunct) computedPunctuationErrors.extra++;
-        else if (refPunct && !userPunct) computedPunctuationErrors.left++;
+      if (refT.punct !== userT.punct) {
+        if (!refT.punct && userT.punct) computedPunctuationErrors.extra++;
+        else if (refT.punct && !userT.punct) computedPunctuationErrors.left++;
         else computedPunctuationErrors.wrong++;
+
+        annotatedUserHtml.unshift(`<span style="background: rgba(6, 182, 212, 0.2); color: var(--accent); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Punctuation Error">${userT.raw} <small>(Punct Error)</small></span>`);
+      } else if (isCapErr) {
+        annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Capitalization Error">${userT.raw} <small>(Ref: ${refT.raw})</small></span>`);
+      } else {
+        annotatedUserHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${userT.raw}</span>`);
       }
 
-      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refW}</span>`);
+      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refT.raw}</span>`);
+      i--;
+      j--;
+    } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1]) {
+      // 👉 Accurate spelling/wrong word substitution detection
+      computedWrongWords++;
+      const refT = refTokens[i - 1];
+      const userT = userTokens[j - 1];
+      if (refT.punct !== userT.punct) computedPunctuationErrors.wrong++;
+
+      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Spelling / Wrong Word"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
+      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refT.raw}</span>`);
       i--;
       j--;
     } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
       computedExtraWords++;
-      const userPunct = getPunctuation(userWords[j - 1]);
-      if (userPunct) computedPunctuationErrors.extra++;
+      if (userTokens[j - 1].punct) computedPunctuationErrors.extra++;
 
-      annotatedUserHtml.unshift(`<span style="background: rgba(139, 92, 246, 0.25); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Extra Typed Word"><s>${userWords[j - 1]}</s> <small>(Extra)</small></span>`);
+      annotatedUserHtml.unshift(`<span style="background: rgba(139, 92, 246, 0.25); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Extra Typed Word"><s>${userTokens[j - 1].raw}</s> <small>(Extra)</small></span>`);
       j--;
     } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
       computedWordsLeft++;
-      const refPunct = getPunctuation(refWords[i - 1]);
-      if (refPunct) computedPunctuationErrors.left++;
+      if (refTokens[i - 1].punct) computedPunctuationErrors.left++;
 
-      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refWords[i - 1]}</span>`);
-      annotatedUserHtml.unshift(`<span style="color: var(--danger); font-weight: bold; margin: 0 2px;" title="Word Left / Omission">(Left) <s>${refWords[i - 1]}</s></span>`);
+      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refTokens[i - 1].raw}</span>`);
+      annotatedUserHtml.unshift(`<span style="color: var(--danger); font-weight: bold; margin: 0 2px;" title="Word Left / Omission">(Left) <s>${refTokens[i - 1].raw}</s></span>`);
       i--;
     } else {
-      computedWrongWords++;
-      const refPunct = getPunctuation(refWords[i - 1]);
-      const userPunct = getPunctuation(userWords[j - 1]);
-      if (refPunct !== userPunct) computedPunctuationErrors.wrong++;
+      computedWrongWords++; // Spelling error fallback
+      const refT = refTokens[i - 1];
+      const userT = userTokens[j - 1];
+      if (refT.punct !== userT.punct) computedPunctuationErrors.wrong++;
 
-      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Wrong Typed Word"><s>${userWords[j - 1]}</s> <strong style="color:var(--success);">[${refWords[i - 1]}]</strong></span>`);
-      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refWords[i - 1]}</span>`);
+      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Spelling / Wrong Word"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
+      annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refT.raw}</span>`);
       i--;
       j--;
     }
@@ -3910,11 +4062,9 @@ if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${hist
 
   if (body) {
     const accuracy = historyItem.AccuracyPercentage || historyItem.accuracyPercentage || 0;
-    const errorVal = historyItem.ErrorPercentage !== undefined ? `${historyItem.ErrorPercentage}%` : `${(100 - parseFloat(accuracy)).toFixed(2)}%`;
-    const totalMarksVal = historyItem.TotalMarks || historyItem.totalMarks || defaultEvaluationRule.totalMarks;
+    const totalMarksVal = historyItem.TotalMarks || historyItem.totalMarks || 100;
     const marksObtainedVal = historyItem.MarksObtained || historyItem.marksObtained || '-';
     
-    // 👉 Fallback to database properties if present, otherwise use our computed loop metrics
     const totalBackspaces = historyItem.TotalBackspace ?? historyItem.totalBackspace ?? 0;
     const wrongWordsCount = historyItem.WrongTyped ?? historyItem.wrongTyped ?? computedWrongWords;
     const wordsLeftCount = historyItem.WordLeft ?? historyItem.wordLeft ?? computedWordsLeft;
@@ -3923,10 +4073,8 @@ if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${hist
     const capitalErrorCount = historyItem.CapitalError ?? historyItem.capitalError ?? computedCapitalErrors;
     
     // Detailed Punctuation Totals
-    const dbPunctCount = historyItem.PunctuationLeft ?? historyItem.punctuationLeft ?? historyItem.PunctuationError ?? historyItem.punctuationError ?? 0;
-    const totalPunctErrorCount = dbPunctCount > 0 ? dbPunctCount : (computedPunctuationErrors.extra + computedPunctuationErrors.left + computedPunctuationErrors.wrong);
+    const totalPunctErrorCount = computedPunctuationErrors.extra + computedPunctuationErrors.left + computedPunctuationErrors.wrong;
 
-    // 👉 Extract or compute deductions reliably without masking zero values
     const wrongDeduction = historyItem.wrongTypedDeduction ?? (wrongWordsCount * 1.0).toFixed(2);
     const wordLeftDeduction = historyItem.wordLeftDeduction ?? (wordsLeftCount * 1.0).toFixed(2);
     const extraDeduction = historyItem.extraDeduction ?? (extraWordsCount * 0.5).toFixed(2);
@@ -3981,7 +4129,7 @@ if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${hist
             <p style="font-size: 13px; color: var(--text-muted);">Total backspace keypresses</p>
           </div>
           <div class="card" style="border-left: 4px solid var(--danger); padding: 14px;">
-            <h5 style="color: var(--danger); margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Wrong Words: ${wrongWordsCount}</h5>
+            <h5 style="color: var(--danger); margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Spelling Errors: ${wrongWordsCount}</h5>
             <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${wrongDeduction}</strong></p>
           </div>
           <div class="card" style="border-left: 4px solid var(--warning); padding: 14px;">
@@ -4116,7 +4264,7 @@ async function loadAdminData() {
         adminData = res;
         document.getElementById('admin-violation-count').innerText = res.violationCount || 0;
         
-        // --> ADD THIS BLOCK TO LOAD EVALUATION RULES FROM BACKEND <--
+        // --> LOAD EVALUATION RULES FROM BACKEND <--
         if (res.evaluationRulesMap && Object.keys(res.evaluationRulesMap).length > 0) {
           for (var rKey in res.evaluationRulesMap) {
             allEvaluationRules[rKey] = res.evaluationRulesMap[rKey];
@@ -4135,6 +4283,11 @@ async function loadAdminData() {
         renderAdminLeaderboard();
         populateEvalCategoryDropdown();
         loadSelectedEvaluationRulesIntoForm(); // Ensures form populates with the latest rules
+
+        // 👉 Added to ensure evaluation rules table renders right away
+        if (typeof renderAdminEvaluationRulesTable === 'function') {
+          renderAdminEvaluationRulesTable();
+        }
       }
     }
 
@@ -4149,7 +4302,7 @@ async function loadAdminData() {
       }
     }
 
-function renderAdminLeaderboard() {
+    function renderAdminLeaderboard() {
       const container = document.getElementById('admin-leaderboard-container');
       const dateInput = document.getElementById('admin-leaderboard-date');
       if (!container) return;
@@ -4198,85 +4351,81 @@ function renderAdminLeaderboard() {
       container.innerHTML = html;
     }
 
-function renderAdminUsers() {
-  const tbody = document.getElementById('admin-users-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  
-  let users = adminData.users || [];
-  const searchInput = document.getElementById('admin-search-users');
-  const roleFilterSelect = document.getElementById('admin-filter-user-role');
-  const statusFilterSelect = document.getElementById('admin-filter-user-status');
-
-  const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
-  const roleFilter = roleFilterSelect ? roleFilterSelect.value : 'ALL';
-  const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
-
-  // If search text is entered, optionally reset dropdown filters to ALL safely without triggering infinite loops
-  if (search) {
-    if (roleFilterSelect && roleFilterSelect.value !== 'ALL') {
-      roleFilterSelect.value = 'ALL';
-    }
-    if (statusFilterSelect && statusFilterSelect.value !== 'ALL') {
-      statusFilterSelect.value = 'ALL';
-    }
-  }
-
-  const activeRole = roleFilterSelect ? roleFilterSelect.value : 'ALL';
-  const activeStatus = statusFilterSelect ? statusFilterSelect.value : 'ALL';
-
-  // Filter users based on search string
-  if (search) {
-    users = users.filter(u => {
-      const name = String(u.Name || '').toLowerCase();
-      const email = String(u.Email || '').toLowerCase();
-      const mobile = String(u.Mobile || '').toLowerCase();
-      const userId = String(u.UserID || '').toLowerCase();
+    function renderAdminUsers() {
+      const tbody = document.getElementById('admin-users-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
       
-      return name.includes(search) || email.includes(search) || mobile.includes(search) || userId.includes(search);
-    });
-  }
+      let users = adminData.users || [];
+      const searchInput = document.getElementById('admin-search-users');
+      const roleFilterSelect = document.getElementById('admin-filter-user-role');
+      const statusFilterSelect = document.getElementById('admin-filter-user-status');
 
-  // Filter by role if selected
-  if (activeRole !== 'ALL') {
-    users = users.filter(u => String(u.Role || '').toLowerCase() === activeRole.toLowerCase());
-  }
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      const roleFilter = roleFilterSelect ? roleFilterSelect.value : 'ALL';
+      const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
 
-  // Filter by status if selected
-  if (activeStatus !== 'ALL') {
-    users = users.filter(u => String(u.Status || '').toLowerCase() === activeStatus.toLowerCase());
-  }
+      if (search) {
+        if (roleFilterSelect && roleFilterSelect.value !== 'ALL') {
+          roleFilterSelect.value = 'ALL';
+        }
+        if (statusFilterSelect && statusFilterSelect.value !== 'ALL') {
+          statusFilterSelect.value = 'ALL';
+        }
+      }
 
-  if (users.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No users match the search criteria.</td></tr>`;
-    return;
-  }
+      const activeRole = roleFilterSelect ? roleFilterSelect.value : 'ALL';
+      const activeStatus = statusFilterSelect ? statusFilterSelect.value : 'ALL';
 
-  users.forEach(u => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${u.UserID || ''}</td>
-      <td>${u.Name || ''}</td>
-      <td>${u.Email || ''}</td>
-      <td>${u.Mobile || ''}</td>
-      <td>
-        <select onchange="updateUserRole('${u.UserID}', this.value, '${u.Status}')">
-          <option value="user" ${u.Role==='user'?'selected':''}>User</option>
-          <option value="member" ${u.Role==='member'?'selected':''}>Member</option>
-          <option value="admin" ${u.Role==='admin'?'selected':''}>Admin</option>
-        </select>
-      </td>
-      <td>
-        <select onchange="updateUserRole('${u.UserID}', '${u.Role}', this.value)">
-          <option value="active" ${u.Status==='active'?'selected':''}>Active</option>
-          <option value="blocked" ${u.Status==='blocked'?'selected':''}>Blocked</option>
-        </select>
-      </td>
-      <td><button class="btn btn-danger btn-sm" onclick="updateUserRole('${u.UserID}', '${u.Role}', 'blocked')">Block</button></td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+      if (search) {
+        users = users.filter(u => {
+          const name = String(u.Name || '').toLowerCase();
+          const email = String(u.Email || '').toLowerCase();
+          const mobile = String(u.Mobile || '').toLowerCase();
+          const userId = String(u.UserID || '').toLowerCase();
+          
+          return name.includes(search) || email.includes(search) || mobile.includes(search) || userId.includes(search);
+        });
+      }
+
+      if (activeRole !== 'ALL') {
+        users = users.filter(u => String(u.Role || '').toLowerCase() === activeRole.toLowerCase());
+      }
+
+      if (activeStatus !== 'ALL') {
+        users = users.filter(u => String(u.Status || '').toLowerCase() === activeStatus.toLowerCase());
+      }
+
+      if (users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No users match the search criteria.</td></tr>`;
+        return;
+      }
+
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${u.UserID || ''}</td>
+          <td>${u.Name || ''}</td>
+          <td>${u.Email || ''}</td>
+          <td>${u.Mobile || ''}</td>
+          <td>
+            <select onchange="updateUserRole('${u.UserID}', this.value, '${u.Status}')">
+              <option value="user" ${u.Role==='user'?'selected':''}>User</option>
+              <option value="member" ${u.Role==='member'?'selected':''}>Member</option>
+              <option value="admin" ${u.Role==='admin'?'selected':''}>Admin</option>
+            </select>
+          </td>
+          <td>
+            <select onchange="updateUserRole('${u.UserID}', '${u.Role}', this.value)">
+              <option value="active" ${u.Status==='active'?'selected':''}>Active</option>
+              <option value="blocked" ${u.Status==='blocked'?'selected':''}>Blocked</option>
+            </select>
+          </td>
+          <td><button class="btn btn-danger btn-sm" onclick="updateUserRole('${u.UserID}', '${u.Role}', 'blocked')">Block</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
     async function updateUserRole(userId, role, status) {
       const res = await apiCall('updateUserRoleStatus', { targetUserId: userId, newRole: role, newStatus: status });
@@ -5118,26 +5267,6 @@ function openEmbeddedImageModal(imgUrl, title) {
       if (modal) modal.style.display = 'none';
     }
 
-    function adjustCustomImageZoom(amount) {
-      customImageZoomLevel = Math.max(0.5, Math.min(4, customImageZoomLevel + amount));
-      updateImageTransform();
-    }
-
-    function resetCustomImageZoom() {
-      customImageZoomLevel = 1;
-      translateX = 0;
-      translateY = 0;
-      updateImageTransform();
-    }
-
-    function applyImageZoom() {
-      const wrapper = document.getElementById('zoomable-image-wrapper');
-      if (wrapper) {
-        wrapper.style.transform = `scale(${customImageZoomLevel})`;
-      }
-    }
-
-
 let pdfZoomLevel = 1;
 
     async function openPdfModal(pdfUrl, title) {
@@ -5156,6 +5285,9 @@ let pdfZoomLevel = 1;
         }
       }
 
+      // 👉 Wrap direct or external PDF links with Google Docs viewer to force inline embedding on mobile
+      const embeddedViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(resolvedUrl)}&embedded=true`;
+
       pdfZoomLevel = 1;
 
       if (body) {
@@ -5169,7 +5301,7 @@ let pdfZoomLevel = 1;
             <div id="pdf-zoomable-wrapper" style="width: 100%; height: 100%; transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; flex: 1;">
               <!-- Inner container forcing white background on sides/letterboxing -->
               <div style="width: 100%; height: 100%; background: #ffffff !important; color-scheme: light !important; display: flex; align-items: center; justify-content: center; position: relative;">
-                <iframe src="${resolvedUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH" style="width: 100%; height: 100%; border: none; background: #ffffff !important; color-scheme: light !important;" allowfullscreen></iframe>
+                <iframe src="${embeddedViewerUrl}" style="width: 100%; height: 100%; border: none; background: #ffffff !important; color-scheme: light !important;" allowfullscreen></iframe>
               </div>
             </div>
           </div>
@@ -5214,8 +5346,7 @@ let pdfZoomLevel = 1;
       if (wrapper) wrapper.style.transform = `scale(1)`;
     }
 
-
-function cancelStenoTest() {
+    function cancelStenoTest() {
       if (testTimerInterval) clearInterval(testTimerInterval);
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
@@ -5254,11 +5385,11 @@ function cancelStenoTest() {
 
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
 
-      // 1. Backspace restriction rule
-      if (event.key === 'Backspace') {
+      // 1. Backspace & Delete restriction rule
+      if (event.key === 'Backspace' || event.key === 'Delete') {
         if (rules.backspaceMode === 'off') {
           event.preventDefault();
-          showToast('Backspace is disabled for this test/subtab under admin rules.');
+          showToast('Backspace/Delete is disabled for this test/subtab under admin rules.');
           return;
         } else {
           testBackspaces++;
@@ -5304,137 +5435,138 @@ function cancelStenoTest() {
       }
     }
 
+    let isDraggingImage = false;
+    let startX = 0, startY = 0;
+    let translateX = 0, translateY = 0;
 
+    function initImageDragAndPan() {
+      const wrapper = document.getElementById('zoomable-image-wrapper');
+      if (!wrapper) return;
 
+      wrapper.onmousedown = (e) => {
+        if (customImageZoomLevel <= 1) return;
+        isDraggingImage = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        e.preventDefault();
+      };
 
-let isDraggingImage = false;
-let startX = 0, startY = 0;
-let translateX = 0, translateY = 0;
+      window.addEventListener('mousemove', (e) => {
+        if (!isDraggingImage) return;
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        updateImageTransform();
+      });
 
-function initImageDragAndPan() {
-  const wrapper = document.getElementById('zoomable-image-wrapper');
-  if (!wrapper) return;
+      window.addEventListener('mouseup', () => {
+        isDraggingImage = false;
+      });
 
-  wrapper.onmousedown = (e) => {
-    if (customImageZoomLevel <= 1) return;
-    isDraggingImage = true;
-    startX = e.clientX - translateX;
-    startY = e.clientY - translateY;
-    e.preventDefault();
-  };
+      wrapper.onttouchstart = (e) => {
+        if (customImageZoomLevel <= 1) return;
+        if (e.touches.length === 1) {
+          isDraggingImage = true;
+          startX = e.touches[0].clientX - translateX;
+          startY = e.touches[0].clientY - translateY;
+        }
+      };
 
-  window.addEventListener('mousemove', (e) => {
-    if (!isDraggingImage) return;
-    translateX = e.clientX - startX;
-    translateY = e.clientY - startY;
-    updateImageTransform();
-  });
+      window.addEventListener('touchmove', (e) => {
+        if (!isDraggingImage || e.touches.length !== 1) return;
+        translateX = e.touches[0].clientX - startX;
+        translateY = e.touches[0].clientY - startY;
+        updateImageTransform();
+      });
 
-  window.addEventListener('mouseup', () => {
-    isDraggingImage = false;
-  });
-
-  wrapper.onttouchstart = (e) => {
-    if (customImageZoomLevel <= 1) return;
-    if (e.touches.length === 1) {
-      isDraggingImage = true;
-      startX = e.touches[0].clientX - translateX;
-      startY = e.touches[0].clientY - translateY;
+      window.addEventListener('touchend', () => {
+        isDraggingImage = false;
+      });
     }
-  };
 
-  window.addEventListener('touchmove', (e) => {
-    if (!isDraggingImage || e.touches.length !== 1) return;
-    translateX = e.touches[0].clientX - startX;
-    translateY = e.touches[0].clientY - startY;
-    updateImageTransform();
-  });
+    function updateImageTransform() {
+      const wrapper = document.getElementById('zoomable-image-wrapper');
+      if (wrapper) {
+        wrapper.style.transform = `translate(${translateX}px, ${translateY}px) scale(${customImageZoomLevel})`;
+      }
+    }
 
-  window.addEventListener('touchend', () => {
-    isDraggingImage = false;
-  });
-}
+    function adjustCustomImageZoom(amount) {
+      customImageZoomLevel = Math.max(0.5, Math.min(4, customImageZoomLevel + amount));
+      updateImageTransform();
+    }
 
-function updateImageTransform() {
-  const wrapper = document.getElementById('zoomable-image-wrapper');
-  if (wrapper) {
-    wrapper.style.transform = `translate(${translateX}px, ${translateY}px) scale(${customImageZoomLevel})`;
-  }
-}
+    function resetCustomImageZoom() {
+      customImageZoomLevel = 1;
+      translateX = 0;
+      translateY = 0;
+      updateImageTransform();
+    }
 
-function adjustCustomImageZoom(amount) {
-  customImageZoomLevel = Math.max(0.5, Math.min(4, customImageZoomLevel + amount));
-  updateImageTransform();
-}
+    function renderAdminEvaluationRulesTable() {
+      const container = document.getElementById('admin-eval-rules-table-container');
+      if (!container) return;
 
-function resetCustomImageZoom() {
-  customImageZoomLevel = 1;
-  translateX = 0;
-  translateY = 0;
-  updateImageTransform();
-}
+      const keys = Object.keys(allEvaluationRules || {});
+      if (keys.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No evaluation rules saved yet.</div>`;
+        return;
+      }
 
-function renderAdminEvaluationRulesTable() {
-  const container = document.getElementById('admin-eval-rules-table-container');
-  if (!container) return;
+      let html = `<table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
+        <tr style="background:var(--border);">
+          <th>Rule Key / Subtab</th>
+          <th>Total Marks</th>
+          <th>Passing Marks</th>
+          <th>Passing Accuracy</th>
+          <th>Backspace</th>
+          <th>Actions</th>
+        </tr>`;
 
-  const keys = Object.keys(allEvaluationRules || {});
-  if (keys.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No evaluation rules saved yet.</div>`;
-    return;
-  }
+      keys.forEach(key => {
+        const rule = allEvaluationRules[key];
+        html += `<tr>
+          <td><strong>${key}</strong></td>
+          <td>${rule.totalMarks || 100}</td>
+          <td>${rule.passingMarks || 40}</td>
+          <td>${rule.passingAccuracy || 85}%</td>
+          <td>${(rule.backspaceMode || 'on').toUpperCase()}</td>
+          <td>
+            <button class="btn btn-primary btn-sm" onclick="loadSpecificSavedRule('${key}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteEvaluationRuleByKey('${key}')">Delete</button>
+          </td>
+        </tr>`;
+      });
 
-  let html = `<table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
-    <tr style="background:var(--border);">
-      <th>Rule Key / Subtab</th>
-      <th>Total Marks</th>
-      <th>Passing Marks</th>
-      <th>Passing Accuracy</th>
-      <th>Backspace</th>
-      <th>Actions</th>
-    </tr>`;
+      html += `</table>`;
+      container.innerHTML = html;
+    }
 
-  keys.forEach(key => {
-    const rule = allEvaluationRules[key];
-    html += `<tr>
-      <td><strong>${key}</strong></td>
-      <td>${rule.totalMarks || 100}</td>
-      <td>${rule.passingMarks || 40}</td>
-      <td>${rule.passingAccuracy || 85}%</td>
-      <td>${(rule.backspaceMode || 'on').toUpperCase()}</td>
-      <td>
-        <button class="btn btn-primary btn-sm" onclick="loadSpecificSavedRule('${key}')">Edit</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteEvaluationRuleByKey('${key}')">Delete</button>
-      </td>
-    </tr>`;
-  });
+    async function deleteEvaluationRuleByKey(key) {
+      if (!confirm(`Are you sure you want to delete evaluation rules for [ ${key} ]?`)) return;
+      delete allEvaluationRules[key];
+      localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+      
+      if (typeof populateSavedRulesQuickDropdown === 'function') {
+        populateSavedRulesQuickDropdown();
+      }
+      if (typeof renderAdminEvaluationRulesTable === 'function') {
+        renderAdminEvaluationRulesTable();
+      }
 
-  html += `</table>`;
-  container.innerHTML = html;
-}
+      const res = await apiCall('saveEvaluationRules', {
+        ruleKey: key,
+        ruleJson: ''
+      });
 
-async function deleteEvaluationRuleByKey(key) {
-  if (!confirm(`Are you sure you want to delete evaluation rules for [ ${key} ]?`)) return;
-  delete allEvaluationRules[key];
-  localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-  populateSavedRulesQuickDropdown();
-  renderAdminEvaluationRulesTable();
+      loadSelectedEvaluationRulesIntoForm();
+      if (res.success) {
+        showToast('Evaluation rule deleted and synced successfully.');
+      } else {
+        showToast('Deleted locally, but backend sync failed.');
+      }
+    }
 
-  const res = await apiCall('saveEvaluationRules', {
-    ruleKey: key,
-    ruleJson: ''
-  });
-
-  loadSelectedEvaluationRulesIntoForm();
-  if (res.success) {
-    showToast('Evaluation rule deleted and synced successfully.');
-  } else {
-    showToast('Deleted locally, but backend sync failed.');
-  }
-}
-
-
-function autoCalculateAudioWordsAndStrokes() {
+    function autoCalculateAudioWordsAndStrokes() {
       const text = document.getElementById('adm-upload-audio-passage').value || '';
       const statsElem = document.getElementById('adm-audio-auto-stats');
       if (!statsElem) return;
@@ -5444,9 +5576,71 @@ function autoCalculateAudioWordsAndStrokes() {
       statsElem.innerText = `Auto Count - Words: ${words} | Strokes (Characters): ${strokes}`;
     }
 
+    function activateAllSubtabs(type) {
+      if (type === 'pdf' || type === 'audio') {
+        currentSubtabFilter[type] = 'ALL';
+        const container = document.getElementById(`${type}-subtabs`);
+        if (container) {
+          container.querySelectorAll('.subtab-btn').forEach((btn, idx) => {
+            if (idx === 0) btn.classList.add('active');
+            else btn.classList.remove('active');
+          });
+        }
+        renderMaterialsList(type, 'ALL');
+      } else if (type === 'pitman') {
+        currentSubtabFilter.pitman = 'ALL';
+        const container = document.getElementById('pitman-subtabs');
+        if (container) {
+          container.querySelectorAll('.subtab-btn').forEach((btn, idx) => {
+            if (idx === 0) btn.classList.add('active');
+            else btn.classList.remove('active');
+          });
+        }
+        renderPitmanList('ALL');
+      } else if (type === 'word') {
+        selectedCategoryFilter = 'ALL';
+        selectedAlphabet = 'ALL'; 
+        
+        const catSelect = document.getElementById('words-category-filter');
+        if (catSelect) catSelect.value = 'ALL';
+        
+        const alphabetBar = document.getElementById('alphabet-bar');
+        if (alphabetBar) {
+          alphabetBar.querySelectorAll('.alpha-btn').forEach((btn, idx) => {
+            if (idx === 0) btn.classList.add('active');
+            else btn.classList.remove('active');
+          });
+        }
+        
+        renderWords();
+      }
+    }
+// Robust Event Listener for Exam Hall Sound Toggle
+document.addEventListener("change", async function (event) {
+  if (event.target && event.target.id === "exam-hall-sound-toggle") {
+    const examAudio = document.getElementById("exam-hall-audio");
+    if (!examAudio) return;
+
+    if (event.target.checked) {
+      try {
+        examAudio.currentTime = 0;
+        await examAudio.play();
+        showToast('🔊 Exam hall ambient sound enabled.');
+      } catch (error) {
+        console.error("Audio playback blocked by browser policy:", error);
+        showToast('⚠️ Audio playback blocked. Please click anywhere on the page and try again.');
+        event.target.checked = false;
+      }
+    } else {
+      examAudio.pause();
+      examAudio.currentTime = 0;
+      showToast('🔇 Exam hall ambient sound disabled.');
+    }
+  }
+});
+
+
 
   </script>
 </body>
 </html>
-
-
