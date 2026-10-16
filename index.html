@@ -1421,7 +1421,7 @@
 
 
   <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwFl3cH9Cf5_OzVMjluo3y9aXrulwb6QKE0wBgldIDkwK75hA8VNRbl_nU-3IQNJf_ufQ/exec'; 
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl78VM_WN1YNH8uq2rq2AH1_Ys5O_aWC0tXwqXM9qF9ZCYVNUvT2MhXRffUPIckFMmCQ/exec'; 
 function getLocalDateString() {
       const d = new Date();
       const year = d.getFullYear();
@@ -6074,13 +6074,14 @@ function resetPdfZoom() {
       }
     }
 
-    function handleTestKeyDown(event) {
+function handleTestKeyDown(event) {
       if (isTestPaused) {
         event.preventDefault();
         return;
       }
 
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+      // Safeguard against undefined rules
+      const rules = getEvaluationRulesForTab(activeTestSubtabKey) || {};
 
       // 1. Backspace & Delete restriction rule
       if (event.key === 'Backspace' || event.key === 'Delete') {
@@ -6094,7 +6095,7 @@ function resetPdfZoom() {
       }
 
       // 2. Function keys restriction rule (F1-F12)
-      if (rules.funcKeysMode === 'no' && event.key.startsWith('F') && event.key.length > 1) {
+      if (rules.funcKeysMode === 'no' && event.key && event.key.startsWith('F') && event.key.length > 1) {
         event.preventDefault();
         showToast('Function keys are disabled under exam rules.');
       }
