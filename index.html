@@ -1331,7 +1331,7 @@
 
 
   <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl78VM_WN1YNH8uq2rq2AH1_Ys5O_aWC0tXwqXM9qF9ZCYVNUvT2MhXRffUPIckFMmCQ/exec'; 
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwFl3cH9Cf5_OzVMjluo3y9aXrulwb6QKE0wBgldIDkwK75hA8VNRbl_nU-3IQNJf_ufQ/exec'; 
 function getLocalDateString() {
       const d = new Date();
       const year = d.getFullYear();
@@ -2515,37 +2515,40 @@ function getThumbnailUrl(item) {
       }
     }
 
-    function renderSubtabs(type) {
-      const container = document.getElementById(`${type}-subtabs`);
-      if (!container) return;
-      container.innerHTML = '';
+function renderSubtabs(type) {
+  const container = document.getElementById(`${type}-subtabs`);
+  if (!container) return;
+  container.innerHTML = '';
 
-      const allBtn = document.createElement('button');
-      allBtn.className = 'subtab-btn active';
-      allBtn.innerText = 'All Subtabs';
-      allBtn.onclick = () => {
-        container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
-        allBtn.classList.add('active');
-        currentSubtabFilter[type] = 'ALL';
-        renderMaterialsList(type, 'ALL');
-      };
-      container.appendChild(allBtn);
+  const allBtn = document.createElement('button');
+  allBtn.className = 'subtab-btn active';
+  allBtn.innerText = 'All Subtabs';
+  allBtn.onclick = () => {
+    container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
+    allBtn.classList.add('active');
+    currentSubtabFilter[type] = 'ALL';
+    renderMaterialsList(type, 'ALL');
+  };
+  container.appendChild(allBtn);
 
-      subtabsData.forEach(stb => {
-        const btn = document.createElement('button');
-        btn.className = 'subtab-btn';
-        btn.innerText = stb.SubtabName;
-        btn.onclick = () => {
-          container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentSubtabFilter[type] = stb.SubtabName;
-          renderMaterialsList(type, stb.SubtabName);
-        };
-        container.appendChild(btn);
-      });
+  subtabsData.forEach(stb => {
+    // 🔍 FIX: Ensure subtab belongs to the current material type
+    if (stb.Type && String(stb.Type).toLowerCase().trim() !== String(type).toLowerCase().trim()) return;
 
-      renderMaterialsList(type, 'ALL');
-    }
+    const btn = document.createElement('button');
+    btn.className = 'subtab-btn';
+    btn.innerText = stb.SubtabName;
+    btn.onclick = () => {
+      container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentSubtabFilter[type] = stb.SubtabName;
+      renderMaterialsList(type, stb.SubtabName);
+    };
+    container.appendChild(btn);
+  });
+
+  renderMaterialsList(type, 'ALL');
+}
 
     function renderPitmanSubtabs() {
       const container = document.getElementById('pitman-subtabs');
@@ -2942,213 +2945,109 @@ function renderPitmanList(filterSubtab = 'ALL') {
         return;
       }
 
-      items.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        
-        const photoTarget = item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '' ? item.ThumbnailUrl : DEFAULT_LOGO_URL;
-        const thumbUrl = getUniversalUrl(photoTarget, 'image');
-
-        const adminTimeLimit = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
-
-        card.innerHTML = `
-          <img src="${thumbUrl}" class="card-thumb" style="object-fit:contain;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-          <strong style="margin: 6px 0;">${item.Title}</strong>
-          <span class="subtab-badge">📂 ${item.Subtab || 'General'} | ⏱️ ${adminTimeLimit} Mins</span>
-          <button class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%;" onclick='startPitmanTestById("${item.ID || item.id}")'><i class="fa-solid fa-play"></i> Start Pitman Test</button>
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-function startPitmanTestById(id) {
-      const item = materialsData.find(m => String(m.ID || m.id) === String(id));
-      if (item) {
-        startPitmanTest(item);
-      } else {
-        showToast('Pitman exercise material not found.');
-      }
-    }
-
-    function startPitmanTest(item) {
-      // 👉 Security validation check to enforce membership/admin access restrictions
-      const role = currentUser ? currentUser.role : 'user';
-      const accessLevel = (item.AccessLevel || 'public').toLowerCase();
-
-      if (accessLevel === 'admin' && role !== 'admin') {
-        showToast('Access Denied: Restricted to Administrators.');
-        return;
-      }
-      if (accessLevel === 'member' && role === 'user') {
-        showToast('Access Denied: Restricted to Members only.');
-        return;
-      }
-      if (accessLevel === 'admin' && role === 'member') {
-        showToast('Access Denied: Restricted to Administrators.');
-        return;
-      }
-
-      currentExamName = `Pitman: ${item.Title}`;
-      testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
-      testBackspaces = 0;
-      testStartTime = Date.now();
-      currentReferenceText = item.ContentOrUrl || '';
-      activeTestSubtabKey = item.Subtab ? `pitman_${item.Subtab}` : 'pitman';
-      isTestPaused = false;
-      isTypingTimerStarted = true;
-
-      // 👉 Check if evaluation rules are set; if not, exit and show error message
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (!rules) return;
-
-      document.getElementById('test-modal-title').innerText = currentExamName;
+items.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'card';
       
-      const mainBody = document.getElementById('test-main-body-container');
-      testPhotoZoom = 1;
+      const photoTarget = item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '' ? item.ThumbnailUrl : DEFAULT_LOGO_URL;
+      const thumbUrl = getUniversalUrl(photoTarget, 'image');
 
-      // 👉 Updated to check ThumbnailUrl first (admin upload field), then LogoUrl, then default
-      const photoTarget = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
-        ? item.ThumbnailUrl 
-        : ((item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
-            ? item.LogoUrl 
-            : DEFAULT_LOGO_URL);
+      const adminTimeLimit = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
       
-      const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
+      // 🌟 Extract and sanitize title
+      const displayTitle = item.Title || item.Name || item.Word || '';
+      const safeTitle = displayTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-      mainBody.innerHTML = `
-        <div style="display: flex; gap: 20px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 320px; background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-              <strong style="color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-image"></i> Pitman Outline Photo</strong>
-              <div style="display: flex; gap: 4px;">
-                <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(0.2)">+</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(-0.2)">-</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="resetTestPhotoZoom()">Reset</button>
-              </div>
-            </div>
-            <div style="flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 8px; padding: 10px; min-height: 300px; position: relative;">
-              <div class="global-watermark-layer" style="opacity: 0.25; z-index: 2;"></div>
-              <div id="test-photo-zoom-wrapper" style="transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 1;">
-                <img id="test-pitman-img" src="${pitmanThumbUrl}" style="max-width: 100%; max-height: 500px; object-fit: contain; display: block;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-              </div>
-            </div>
-          </div>
-
-          <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
-                <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
-                <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
-              </div>
-            </div>
-            <textarea id="test-user-input" 
-                      class="form-control" 
-                      spellcheck="false" 
-                      autocorrect="off" 
-                      autocapitalize="off" 
-                      autocomplete="off" 
-                      style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
-                      placeholder="Type dictation here..." 
-                      onkeydown="handleTestKeyDown(event)" 
-                      onpaste="handleTestPaste(event)" 
-                      oncopy="handleTestCopy(event)" 
-                      oncut="handleTestCut(event)"></textarea>
-          </div>
-        </div>
+      card.innerHTML = `
+        <img src="${thumbUrl}" class="card-thumb" style="object-fit:contain;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+        <strong style="margin: 6px 0;">${safeTitle}</strong>
+        <span class="subtab-badge">📂 ${item.Subtab || 'General'} | ⏱️ ${adminTimeLimit} Mins</span>
+        <button class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%;" onclick='startPitmanTestById("${item.ID || item.id}")'><i class="fa-solid fa-play"></i> Start Pitman Test</button>
       `;
+      grid.appendChild(card);
+    });
+  }
 
-      document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
-      document.getElementById('active-test-modal').style.display = 'flex';
-      toggleFullscreen();
-      renderGlobalWatermark();
-      startTestTimer(testDurationMinutes * 60);
+  function startPitmanTestById(id) {
+    const item = materialsData.find(m => String(m.ID || m.id) === String(id));
+    if (item) {
+      startPitmanTest(item);
+    } else {
+      showToast('Pitman exercise material not found.');
+    }
+  }
+
+  function startPitmanTest(item) {
+    // 👉 Security validation check to enforce membership/admin access restrictions
+    const role = currentUser ? currentUser.role : 'user';
+    const accessLevel = (item.AccessLevel || 'public').toLowerCase();
+
+    if (accessLevel === 'admin' && role !== 'admin') {
+      showToast('Access Denied: Restricted to Administrators.');
+      return;
+    }
+    if (accessLevel === 'member' && role === 'user') {
+      showToast('Access Denied: Restricted to Members only.');
+      return;
+    }
+    if (accessLevel === 'admin' && role === 'member') {
+      showToast('Access Denied: Restricted to Administrators.');
+      return;
     }
 
-    function adjustTestPhotoZoom(amount) {
-      testPhotoZoom = Math.max(0.5, Math.min(4, testPhotoZoom + amount));
-      const wrapper = document.getElementById('test-photo-zoom-wrapper');
-      if (wrapper) wrapper.style.transform = `scale(${testPhotoZoom})`;
-    }
+    currentExamName = `Pitman: ${item.Title}`;
+    testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
+    testBackspaces = 0;
+    testStartTime = Date.now();
+    currentReferenceText = item.ContentOrUrl || '';
+    activeTestSubtabKey = item.Subtab ? `pitman_${item.Subtab}` : 'pitman';
+    isTestPaused = false;
+    isTypingTimerStarted = true;
 
-    function resetTestPhotoZoom() {
-      testPhotoZoom = 1;
-      const wrapper = document.getElementById('test-photo-zoom-wrapper');
-      if (wrapper) wrapper.style.transform = `scale(1)`;
-    }
+    // 👉 Check if evaluation rules are set; if not, exit and show error message
+    const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+    if (!rules) return;
 
-    function startAudioDictationTestById(id) {
-      const item = materialsData.find(m => String(m.ID || m.id) === String(id));
-      if (item) {
-        startAudioDictationTest(item);
-      } else {
-        showToast('Material not found.');
-      }
-    }
+    document.getElementById('test-modal-title').innerText = currentExamName;
+    
+    const mainBody = document.getElementById('test-main-body-container');
+    testPhotoZoom = 1;
 
-    function startAudioDictationTest(item) {
-      // 👉 Security validation check to prevent unauthorized access
-      const role = currentUser ? currentUser.role : 'user';
-      const accessLevel = (item.AccessLevel || 'public').toLowerCase();
+    // 👉 Updated to check ThumbnailUrl first (admin upload field), then LogoUrl, then default
+    const photoTarget = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
+      ? item.ThumbnailUrl 
+      : ((item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
+          ? item.LogoUrl 
+          : DEFAULT_LOGO_URL);
+    
+    const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
 
-      if (accessLevel === 'admin' && role !== 'admin') {
-        showToast('Access Denied: Restricted to Administrators.');
-        return;
-      }
-      if (accessLevel === 'member' && role === 'user') {
-        showToast('Access Denied: Restricted to Members only.');
-        return;
-      }
-      if (accessLevel === 'admin' && role === 'member') {
-        showToast('Access Denied: Restricted to Administrators.');
-        return;
-      }
-
-      const displayTitle = item.Title || item.Name || item.Word || 'Audio Transcription';
-      currentExamName = `Audio Transcription: ${displayTitle}`;
-      testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
-      testBackspaces = 0;
-      testStartTime = 0;
-      
-      currentReferenceText = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && !item.ThumbnailUrl.startsWith('http')) ? item.ThumbnailUrl : (item.ContentOrUrl || '');
-      activeTestSubtabKey = item.Subtab ? `audio_${item.Subtab}` : 'audio';
-      isTestPaused = false;
-      isTypingTimerStarted = false;
-
-      // 👉 Check if evaluation rules are set; if not, exit and show error message
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (!rules) return;
-
-      const finalAudioUrl = getUniversalUrl(item.ContentOrUrl, 'audio');
-
-      document.getElementById('test-modal-title').innerText = currentExamName;
-      
-      const initialTotalSeconds = testDurationMinutes * 60;
-      const initMins = Math.floor(initialTotalSeconds / 60);
-      const initSecs = initialTotalSeconds % 60;
-      const timerElem = document.getElementById('test-timer');
-      if (timerElem) {
-        timerElem.innerText = `${String(initMins).padStart(2, '0')}:${String(initSecs).padStart(2, '0')}`;
-      }
-      
-      const mainBody = document.getElementById('test-main-body-container');
-      
-      mainBody.innerHTML = `
-        <audio id="active-bg-audio" autoplay style="display: none;">
-          <source src="${finalAudioUrl}" type="audio/mpeg">
-          <source src="${finalAudioUrl}" type="audio/mp3">
-          <source src="${finalAudioUrl}" type="audio/wav">
-          <source src="${finalAudioUrl}" type="audio/ogg">
-        </audio>
-
-        <div style="width: 100%; max-width: 900px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-          <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
-            <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
-            <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
+    mainBody.innerHTML = `
+      <div style="display: flex; gap: 20px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 320px; background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
+            <strong style="color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-image"></i> Pitman Outline Photo</strong>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(0.2)">+</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(-0.2)">-</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="resetTestPhotoZoom()">Reset</button>
+            </div>
           </div>
-          <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
+          <div style="flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 8px; padding: 10px; min-height: 300px; position: relative;">
+            <div class="global-watermark-layer" style="opacity: 0.25; z-index: 2;"></div>
+            <div id="test-photo-zoom-wrapper" style="transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 1;">
+              <img id="test-pitman-img" src="${pitmanThumbUrl}" style="max-width: 100%; max-height: 500px; object-fit: contain; display: block;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+            </div>
+          </div>
         </div>
 
-        <div style="width: 100%; max-width: 900px; flex: 1; display: flex; flex-direction: column;">
+        <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
+              <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
+              <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
+            </div>
+          </div>
           <textarea id="test-user-input" 
                     class="form-control" 
                     spellcheck="false" 
@@ -3156,424 +3055,560 @@ function startPitmanTestById(id) {
                     autocapitalize="off" 
                     autocomplete="off" 
                     style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
-                    placeholder="Listen to audio dictation and type here..." 
-                    oninput="handleAudioTypingInput()" 
+                    placeholder="Type dictation here..." 
                     onkeydown="handleTestKeyDown(event)" 
                     onpaste="handleTestPaste(event)" 
                     oncopy="handleTestCopy(event)" 
                     oncut="handleTestCut(event)"></textarea>
         </div>
-      `;
+      </div>
+    `;
 
-      document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
-      document.getElementById('active-test-modal').style.display = 'flex';
-      toggleFullscreen();
+    document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
+    document.getElementById('active-test-modal').style.display = 'flex';
+    toggleFullscreen();
+    renderGlobalWatermark();
+    startTestTimer(testDurationMinutes * 60);
+  }
+
+  function adjustTestPhotoZoom(amount) {
+    testPhotoZoom = Math.max(0.5, Math.min(4, testPhotoZoom + amount));
+    const wrapper = document.getElementById('test-photo-zoom-wrapper');
+    if (wrapper) wrapper.style.transform = `scale(${testPhotoZoom})`;
+  }
+
+  function resetTestPhotoZoom() {
+    testPhotoZoom = 1;
+    const wrapper = document.getElementById('test-photo-zoom-wrapper');
+    if (wrapper) wrapper.style.transform = `scale(1)`;
+  }
+
+  function startAudioDictationTestById(id) {
+    const item = materialsData.find(m => String(m.ID || m.id) === String(id));
+    if (item) {
+      startAudioDictationTest(item);
+    } else {
+      showToast('Material not found.');
+    }
+  }
+
+  function startAudioDictationTest(item) {
+    // 👉 Security validation check to prevent unauthorized access
+    const role = currentUser ? currentUser.role : 'user';
+    const accessLevel = (item.AccessLevel || 'public').toLowerCase();
+
+    if (accessLevel === 'admin' && role !== 'admin') {
+      showToast('Access Denied: Restricted to Administrators.');
+      return;
+    }
+    if (accessLevel === 'member' && role === 'user') {
+      showToast('Access Denied: Restricted to Members only.');
+      return;
+    }
+    if (accessLevel === 'admin' && role === 'member') {
+      showToast('Access Denied: Restricted to Administrators.');
+      return;
     }
 
-function buildAlphabetBar() {
-      const bar = document.getElementById('alphabet-bar');
-      if (!bar) return;
-      bar.innerHTML = '';
+    const displayTitle = item.Title || item.Name || item.Word || 'Audio Transcription';
+    currentExamName = `Audio Transcription: ${displayTitle}`;
+    testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
+    testBackspaces = 0;
+    testStartTime = 0;
+    
+    currentReferenceText = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && !item.ThumbnailUrl.startsWith('http')) ? item.ThumbnailUrl : (item.ContentOrUrl || '');
+    activeTestSubtabKey = item.Subtab ? `audio_${item.Subtab}` : 'audio';
+    isTestPaused = false;
+    isTypingTimerStarted = false;
 
-      const alphabets = ['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
-      alphabets.forEach(let => {
-        const btn = document.createElement('button');
-        btn.className = `alpha-btn ${selectedAlphabet === let ? 'active' : ''}`;
-        btn.innerText = let;
-        btn.onclick = () => {
-          selectedAlphabet = let;
-          document.querySelectorAll('.alpha-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          renderWords();
-        };
-        bar.appendChild(btn);
-      });
+    // 👉 Check if evaluation rules are set; if not, exit and show error message
+    const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+    if (!rules) return;
+
+    const finalAudioUrl = getUniversalUrl(item.ContentOrUrl, 'audio');
+
+    document.getElementById('test-modal-title').innerText = currentExamName;
+    
+    const initialTotalSeconds = testDurationMinutes * 60;
+    const initMins = Math.floor(initialTotalSeconds / 60);
+    const initSecs = initialTotalSeconds % 60;
+    const timerElem = document.getElementById('test-timer');
+    if (timerElem) {
+      timerElem.innerText = `${String(initMins).padStart(2, '0')}:${String(initSecs).padStart(2, '0')}`;
+    }
+    
+    const mainBody = document.getElementById('test-main-body-container');
+    
+    mainBody.innerHTML = `
+      <audio id="active-bg-audio" autoplay style="display: none;">
+        <source src="${finalAudioUrl}" type="audio/mpeg">
+        <source src="${finalAudioUrl}" type="audio/mp3">
+        <source src="${finalAudioUrl}" type="audio/wav">
+        <source src="${finalAudioUrl}" type="audio/ogg">
+      </audio>
+
+      <div style="width: 100%; max-width: 900px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
+          <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
+          <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
+      </div>
+
+      <div style="width: 100%; max-width: 900px; flex: 1; display: flex; flex-direction: column;">
+        <textarea id="test-user-input" 
+                  class="form-control" 
+                  spellcheck="false" 
+                  autocorrect="off" 
+                  autocapitalize="off" 
+                  autocomplete="off" 
+                  style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                  placeholder="Listen to audio dictation and type here..." 
+                  oninput="handleAudioTypingInput()" 
+                  onkeydown="handleTestKeyDown(event)" 
+                  onpaste="handleTestPaste(event)" 
+                  oncopy="handleTestCopy(event)" 
+                  oncut="handleTestCut(event)"></textarea>
+      </div>
+    `;
+
+    document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
+    document.getElementById('active-test-modal').style.display = 'flex';
+    toggleFullscreen();
+  }
+
+  function buildAlphabetBar() {
+    const bar = document.getElementById('alphabet-bar');
+    if (!bar) return;
+    bar.innerHTML = '';
+
+    const alphabets = ['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
+    alphabets.forEach(let => {
+      const btn = document.createElement('button');
+      btn.className = `alpha-btn ${selectedAlphabet === let ? 'active' : ''}`;
+      btn.innerText = let;
+      btn.onclick = () => {
+        selectedAlphabet = let;
+        document.querySelectorAll('.alpha-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderWords();
+      };
+      bar.appendChild(btn);
+    });
+  }
+
+  function populateWordsCategoryDropdown() {
+    const select = document.getElementById('words-category-filter');
+    if (!select) return;
+
+    const categories = [...new Set(materialsData.filter(m => (m.Type || '').toLowerCase() === 'word').map(m => m.Category || 'General'))].filter(Boolean);
+    
+    select.innerHTML = '<option value="ALL">All Categories</option>';
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.innerText = cat;
+      select.appendChild(opt);
+    });
+    select.value = selectedCategoryFilter;
+  }
+
+function renderWords() {
+    const grid = document.getElementById('words-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const searchInput = document.getElementById('words-search');
+    const catSelect = document.getElementById('words-category-filter');
+    
+    const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    selectedCategoryFilter = catSelect ? catSelect.value : 'ALL';
+
+    let words = materialsData.filter(m => (m.Type || '').toLowerCase() === 'word');
+
+    if (selectedAlphabet && selectedAlphabet !== 'ALL') {
+      words = words.filter(w => (w.Title || w.Word || '').trim().toUpperCase().startsWith(selectedAlphabet));
     }
 
-    function populateWordsCategoryDropdown() {
-      const select = document.getElementById('words-category-filter');
-      if (!select) return;
-
-      const categories = [...new Set(materialsData.filter(m => (m.Type || '').toLowerCase() === 'word').map(m => m.Category || 'General'))].filter(Boolean);
-      
-      select.innerHTML = '<option value="ALL">All Categories</option>';
-      categories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.innerText = cat;
-        select.appendChild(opt);
-      });
-      select.value = selectedCategoryFilter;
+    if (selectedCategoryFilter && selectedCategoryFilter !== 'ALL') {
+      words = words.filter(w => (w.Category || 'General').toLowerCase() === selectedCategoryFilter.toLowerCase());
     }
 
-    function renderWords() {
-      const grid = document.getElementById('words-grid');
-      if (!grid) return;
-      grid.innerHTML = '';
+    if (search) {
+      words = words.filter(w => (w.Title || w.Word || '').trim().toLowerCase().includes(search));
+    }
 
-      const searchInput = document.getElementById('words-search');
-      const catSelect = document.getElementById('words-category-filter');
-      
-      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
-      selectedCategoryFilter = catSelect ? catSelect.value : 'ALL';
+    if (words.length === 0) {
+      grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No words found matching criteria.</div>';
+      return;
+    }
 
-      let words = materialsData.filter(m => (m.Type || '').toLowerCase() === 'word');
+    const role = currentUser ? currentUser.role : 'user';
 
-      if (selectedAlphabet && selectedAlphabet !== 'ALL') {
-        words = words.filter(w => (w.Title || w.Word || '').trim().toUpperCase().startsWith(selectedAlphabet));
+    words.forEach((w, index) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.position = 'relative';
+
+      const displayTitle = w.Title || w.Word || '';
+      const safeTitle = displayTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      const accessLevel = (w.AccessLevel || 'public').toLowerCase();
+
+      let canView = false;
+      if (role === 'admin') {
+        canView = true;
+      } else if (accessLevel === 'public') {
+        canView = true;
+      } else if (accessLevel === 'user') {
+        canView = (role === 'user' || role === 'member' || role === 'admin');
+      } else if (accessLevel === 'member') {
+        canView = (role === 'member' || role === 'admin');
+      } else if (accessLevel === 'admin') {
+        canView = (role === 'admin');
       }
 
-      if (selectedCategoryFilter && selectedCategoryFilter !== 'ALL') {
-        words = words.filter(w => (w.Category || 'General').toLowerCase() === selectedCategoryFilter.toLowerCase());
-      }
+      // 👉 Distinct Thumbnail vs Full Image Mapping with fallback
+      const thumbTarget = (w.ThumbnailUrl && w.ThumbnailUrl !== '-' && w.ThumbnailUrl.trim() !== '') ? w.ThumbnailUrl : (w.ContentOrUrl || '');
+      const fullTarget = (w.ContentOrUrl && w.ContentOrUrl !== '-' && w.ContentOrUrl.trim() !== '') ? w.ContentOrUrl : thumbTarget;
 
-      if (search) {
-        words = words.filter(w => (w.Title || w.Word || '').trim().toLowerCase().includes(search));
-      }
+      const thumbUrl = getUniversalUrl(thumbTarget, 'image') || DEFAULT_LOGO_URL;
+      const fullContentUrl = getUniversalUrl(fullTarget, 'image') || DEFAULT_LOGO_URL;
 
-      if (words.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No words found matching criteria.</div>';
-        return;
-      }
-
-      const role = currentUser ? currentUser.role : 'user';
-
-      words.forEach((w, index) => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.position = 'relative';
-
-        const displayTitle = w.Title || w.Word || '';
-        const accessLevel = (w.AccessLevel || 'public').toLowerCase();
-
-        let canView = false;
-        if (role === 'admin') {
-          canView = true;
-        } else if (accessLevel === 'public') {
-          canView = true;
-        } else if (accessLevel === 'user') {
-          canView = (role === 'user' || role === 'member' || role === 'admin');
-        } else if (accessLevel === 'member') {
-          canView = (role === 'member' || role === 'admin');
-        } else if (accessLevel === 'admin') {
-          canView = (role === 'admin');
-        }
-
-        const thumbUrl = getUniversalUrl(w.ThumbnailUrl || w.ContentOrUrl || '', 'image') || DEFAULT_LOGO_URL;
-        const fullContentUrl = getUniversalUrl(w.ContentOrUrl || w.ThumbnailUrl || '', 'image') || DEFAULT_LOGO_URL;
-
-        let actionHtml = '';
-        if (canView) {
-          actionHtml = `<img src="${thumbUrl}" class="card-thumb" style="object-fit:contain; margin-top:8px; position: relative; z-index: 1; cursor: pointer;" onerror="this.src='${DEFAULT_LOGO_URL}'" onclick="openEmbeddedImageModal('${fullContentUrl}', 'Sl. No. ${index + 1} - ${displayTitle}')">`;
-        } else {
-          actionHtml = `
-            <div style="position: relative; margin-top:8px; height: 110px; border-radius: 8px; overflow: hidden; cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
-              <img src="${thumbUrl}" style="width: 100%; height: 100%; object-fit: contain; filter: blur(6px); opacity: 0.7;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-              <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
-                <span style="color: #fff; font-weight: 700; font-size: 12px; background: rgba(239,68,68,0.85); padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
-                  <i class="fa-solid fa-lock"></i> Access Denied
-                </span>
-              </div>
-            </div>
-          `;
-        }
-
-        card.innerHTML = `
-          <div style="font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 2px; position: relative; z-index: 1;">Sl. No. ${index + 1}</div>
-          <strong style="font-size: 15px; margin-bottom: 6px; display: block; position: relative; z-index: 1; color: var(--secondary);">${displayTitle}</strong>
-          <span class="subtab-badge" style="position:relative; z-index:1;">📁 ${w.Category || 'General'}</span>
-          ${actionHtml}
+      let actionHtml = '';
+      if (canView) {
+        actionHtml = `
+          <div style="position: relative; margin-top:8px; height: 120px; border-radius: 8px; overflow: hidden; background: #fff; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;">
+            <img src="${thumbUrl}" class="card-thumb" style="width: 100%; height: 100%; object-fit: contain; cursor: pointer; display: block;" onerror="this.onerror=null; this.src='${DEFAULT_LOGO_URL}';" onclick="openEmbeddedImageModal('${fullContentUrl}', 'Sl. No. ${index + 1} - ${safeTitle}')">
+          </div>
         `;
-        grid.appendChild(card);
+      } else {
+        actionHtml = `
+          <div style="position: relative; margin-top:8px; height: 120px; border-radius: 8px; overflow: hidden; cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+            <img src="${thumbUrl}" style="width: 100%; height: 100%; object-fit: contain; filter: blur(6px); opacity: 0.7;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
+              <span style="color: #fff; font-weight: 700; font-size: 12px; background: rgba(239,68,68,0.85); padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+                <i class="fa-solid fa-lock"></i> Access Denied
+              </span>
+            </div>
+          </div>
+        `;
+      }
+
+      card.innerHTML = `
+        <div style="font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 2px; position: relative; z-index: 1;">Sl. No. ${index + 1}</div>
+        <strong style="font-size: 15px; margin-bottom: 6px; display: block; position: relative; z-index: 1; color: var(--secondary);">${safeTitle}</strong>
+        <span class="subtab-badge" style="position:relative; z-index:1;">📁 ${w.Category || 'General'}</span>
+        ${actionHtml}
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+// Single retained instance of renderMaterialsList (Updated with robust normalization)
+  function renderMaterialsList(type, filterSubtab) {
+    const grid = document.getElementById(`${type}-grid`);
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    const normalizedTargetType = String(type || '').toLowerCase().trim();
+
+    // 👉 Normalize Type matching to prevent casing and spacing mismatches
+    let items = materialsData.filter(m => {
+      const itemType = String(m.Type || '').toLowerCase().trim();
+      return itemType === normalizedTargetType;
+    });
+
+    const searchInput = document.getElementById(`${type}-search-input`);
+    const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    // 👉 Normalize Subtab matching case-insensitively and trimming whitespace
+    if (filterSubtab && filterSubtab !== 'ALL' && !searchQuery) {
+      const normalizedFilterSubtab = String(filterSubtab).toLowerCase().trim();
+      items = items.filter(m => {
+        const itemSubtab = String(m.Subtab || '').toLowerCase().trim();
+        return itemSubtab === normalizedFilterSubtab;
       });
     }
 
-    // Single retained instance of renderMaterialsList
-    function renderMaterialsList(type, filterSubtab) {
-      const grid = document.getElementById(`${type}-grid`);
-      if (!grid) return;
-      grid.innerHTML = '';
+    if (searchQuery) {
+      items = items.filter(m => 
+        (m.Title || '').toLowerCase().includes(searchQuery) ||
+        (m.Category || '').toLowerCase().includes(searchQuery) ||
+        (m.Subtab || '').toLowerCase().includes(searchQuery)
+      );
+    }
 
-      let items = materialsData.filter(m => (m.Type || '').toLowerCase() === type.toLowerCase());
+    if (items.length === 0) {
+      grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No materials found.</div>`;
+      return;
+    }
 
-      const searchInput = document.getElementById(`${type}-search-input`);
-      const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    items.forEach(item => {
+      const role = currentUser ? currentUser.role : 'user';
+      const accessLevel = (item.AccessLevel || 'public').toLowerCase();
 
-      if (filterSubtab !== 'ALL' && !searchQuery) {
-        items = items.filter(m => m.Subtab === filterSubtab);
+      let canView = false;
+      let canDownload = false;
+
+      if (role === 'admin') {
+        canView = true;
+        canDownload = true;
+      } else if (accessLevel === 'public') {
+        canView = true;
+        canDownload = true;
+      } else if (accessLevel === 'user') {
+        canView = true;
+        canDownload = false;
+      } else if (accessLevel === 'member') {
+        canView = (role === 'member' || role === 'admin');
+        canDownload = false;
+      } else if (accessLevel === 'admin') {
+        canView = (role === 'admin');
+        canDownload = (role === 'admin');
       }
 
-      if (searchQuery) {
-        items = items.filter(m => 
-          (m.Title || '').toLowerCase().includes(searchQuery) ||
-          (m.Category || '').toLowerCase().includes(searchQuery) ||
-          (m.Subtab || '').toLowerCase().includes(searchQuery)
-        );
+      const materialType = (item.Type || '').toLowerCase();
+      if (['audio', 'typingtest', 'pitman'].includes(materialType)) {
+        canDownload = false;
       }
 
-      if (items.length === 0) {
-        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No materials found.</div>`;
-        return;
-      }
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.position = 'relative';
 
-      items.forEach(item => {
-        const role = currentUser ? currentUser.role : 'user';
-        const accessLevel = (item.AccessLevel || 'public').toLowerCase();
+      const defaultThumb = getThumbnailUrl(item);
+      
+      // 🌟 Extract and sanitize title here
+      const displayTitle = item.Title || item.Name || item.Word || '';
+      const safeTitle = displayTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
-        let canView = false;
-        let canDownload = false;
+      let actionButtonsHtml = '';
+      let thumbHtml = '';
 
-        if (role === 'admin') {
-          canView = true;
-          canDownload = true;
-        } else if (accessLevel === 'public') {
-          canView = true;
-          canDownload = true;
-        } else if (accessLevel === 'user') {
-          canView = true;
-          canDownload = false;
-        } else if (accessLevel === 'member') {
-          canView = (role === 'member' || role === 'admin');
-          canDownload = false;
-        } else if (accessLevel === 'admin') {
-          canView = (role === 'admin');
-          canDownload = (role === 'admin');
-        }
-
-        const materialType = (item.Type || '').toLowerCase();
-        if (['audio', 'typingtest', 'pitman'].includes(materialType)) {
-          canDownload = false;
-        }
-
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.style.position = 'relative';
-
-        const defaultThumb = getThumbnailUrl(item);
+      if (canView) {
+        thumbHtml = `
+          <div style="position: relative; margin-bottom: 10px; height: 110px; border-radius: 8px; overflow: hidden; background: #fff; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;">
+            <img src="${defaultThumb}" class="card-thumb" style="width: 100%; height: 100%; object-fit: contain; display: block;" onerror="this.onerror=null; this.src='${DEFAULT_LOGO_URL}'">
+          </div>
+        `;
         
-        let actionButtonsHtml = '';
-        let thumbHtml = '';
-
-        if (canView) {
-          thumbHtml = `<img src="${defaultThumb}" class="card-thumb" style="object-fit:contain; position:relative; z-index:1;" onerror="this.src='${DEFAULT_LOGO_URL}'">`;
-          
-          if (type === 'audio') {
-            actionButtonsHtml = `
-              <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; position:relative; z-index:1;">
-                <button class="btn btn-primary btn-sm" style="width:100%;" onclick="openUniversalMediaViewer('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-play"></i> Play Dictation</button>
-                <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="startAudioDictationTestById('${item.ID || item.id}')">
-                  <i class="fa-solid fa-headphones"></i> Start Audio Test
-                </button>
-              </div>
-            `;
-          } else {
-            actionButtonsHtml = `
-              <div style="margin-top:8px; display:flex; gap:4px; position:relative; z-index:1;">
-                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="viewItem('${type}', '${item.ContentOrUrl}', '${item.Title}', '${accessLevel}')">View</button>
-                ${canDownload ? `<button class="btn btn-secondary btn-sm" onclick="downloadItem('${item.ContentOrUrl}', '${item.Title}')"><i class="fa-solid fa-download"></i> Download</button>` : ''}
-              </div>
-            `;
-          }
-        } else {
-          thumbHtml = `
-            <div style="position: relative; margin-bottom: 10px; height: 110px; border-radius: 8px; overflow: hidden; cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
-              <img src="${defaultThumb}" style="width: 100%; height: 100%; object-fit: contain; filter: blur(6px); opacity: 0.7;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-              <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
-                <span style="color: #fff; font-weight: 700; font-size: 12px; background: rgba(239,68,68,0.85); padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
-                  <i class="fa-solid fa-lock"></i> Access Denied
-                </span>
-              </div>
-            </div>
-          `;
-
+        if (materialType === 'audio') {
           actionButtonsHtml = `
-            <div style="margin-top:8px; position:relative; z-index:1;">
-              <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
-                <i class="fa-solid fa-lock"></i> Access Denied
+            <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px; position:relative; z-index:1;">
+              <button class="btn btn-primary btn-sm" style="width:100%;" onclick="openUniversalMediaViewer('${item.ContentOrUrl}', '${safeTitle}')"><i class="fa-solid fa-play"></i> Play Dictation</button>
+              <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="startAudioDictationTestById('${item.ID || item.id}')">
+                <i class="fa-solid fa-headphones"></i> Start Audio Test
               </button>
             </div>
           `;
+        } else {
+          actionButtonsHtml = `
+            <div style="margin-top:8px; display:flex; gap:4px; position:relative; z-index:1;">
+              <button class="btn btn-primary btn-sm" style="flex:1;" onclick="viewItem('${type}', '${item.ContentOrUrl}', '${safeTitle}', '${accessLevel}')">View</button>
+              ${canDownload ? `<button class="btn btn-secondary btn-sm" onclick="downloadItem('${item.ContentOrUrl}', '${safeTitle}')"><i class="fa-solid fa-download"></i> Download</button>` : ''}
+            </div>
+          `;
         }
-
-        card.innerHTML = `
-          ${thumbHtml}
-          <strong style="position:relative; z-index:1;">${item.Title || item.Name || item.Word || ''}</strong>
-          <span class="subtab-badge" style="position:relative; z-index:1;">📂 ${item.Subtab || item.Category || 'General'}</span>
-          ${actionButtonsHtml}
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    function viewItem(type, url, title, accessLevel = 'public') {
-      const role = currentUser ? currentUser.role : 'user';
-      const normalizedAccess = (accessLevel || 'public').toLowerCase();
-
-      if (normalizedAccess === 'admin' && role !== 'admin') {
-        showToast('Access Denied: Restricted to Administrators.');
-        return;
-      }
-      if (normalizedAccess === 'member' && role === 'user') {
-        showToast('Access Denied: Restricted to Members only.');
-        return;
-      }
-      if (normalizedAccess === 'admin' && role === 'member') {
-        showToast('Access Denied: Restricted to Administrators.');
-        return;
-      }
-
-      apiCall('logActivity', { userId: currentUser.userId, userName: currentUser.name, activityType: 'VIEW_MATERIAL', details: title });
-      
-      const finalUrl = getUniversalUrl(url, type);
-
-      if (type.toLowerCase() === 'pdf') {
-        openPdfModal(finalUrl, title);
       } else {
-        window.open(finalUrl, '_blank', 'noopener,noreferrer');
+        thumbHtml = `
+          <div style="position: relative; margin-bottom: 10px; height: 110px; border-radius: 8px; overflow: hidden; cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+            <img src="${defaultThumb}" style="width: 100%; height: 100%; object-fit: contain; filter: blur(6px); opacity: 0.7;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
+              <span style="color: #fff; font-weight: 700; font-size: 12px; background: rgba(239,68,68,0.85); padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+                <i class="fa-solid fa-lock"></i> Access Denied
+              </span>
+            </div>
+          </div>
+        `;
+
+        actionButtonsHtml = `
+          <div style="margin-top:8px; position:relative; z-index:1;">
+            <button class="btn btn-secondary btn-sm" style="width:100%; background: var(--border); color: var(--text-muted); cursor: pointer;" onclick="showToast('become a member or admin to unlock it')">
+              <i class="fa-solid fa-lock"></i> Access Denied
+            </button>
+          </div>
+        `;
       }
+
+      card.innerHTML = `
+        ${thumbHtml}
+        <strong style="position:relative; z-index:1;">${safeTitle}</strong>
+        <span class="subtab-badge" style="position:relative; z-index:1;">📂 ${item.Subtab || item.Category || 'General'}</span>
+        ${actionButtonsHtml}
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function viewItem(type, url, title, accessLevel = 'public') {
+    const role = currentUser ? currentUser.role : 'user';
+    const normalizedAccess = (accessLevel || 'public').toLowerCase();
+
+    if (normalizedAccess === 'admin' && role !== 'admin') {
+      showToast('Access Denied: Restricted to Administrators.');
+      return;
+    }
+    if (normalizedAccess === 'member' && role === 'user') {
+      showToast('Access Denied: Restricted to Members only.');
+      return;
+    }
+    if (normalizedAccess === 'admin' && role === 'member') {
+      showToast('Access Denied: Restricted to Administrators.');
+      return;
     }
 
-    async function downloadItem(url, title) {
-      if (currentUser) {
-        apiCall('logActivity', { userId: currentUser.userId, userName: currentUser.name, activityType: 'DOWNLOAD_MATERIAL', details: title });
-      }
+    apiCall('logActivity', { userId: currentUser.userId, userName: currentUser.name, activityType: 'VIEW_MATERIAL', details: title });
+    
+    const finalUrl = getUniversalUrl(url, type);
 
-      const fileUrl = getUniversalUrl(url, 'download');
-
-      showLoader(true);
-      try {
-        let directPdfUrl = fileUrl;
-        if (fileUrl.includes('drive.google.com')) {
-          const fileId = fileUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1] || fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1];
-          if (fileId) directPdfUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-        }
-
-        const existingPdfBytes = await fetch(directPdfUrl).then(res => res.arrayBuffer());
-        const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
-        const helveticaFont = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
-
-        const pages = pdfDoc.getPages();
-        const watermarkText = getWatermarkText();
-
-        pages.forEach(page => {
-          const { width, height } = page.getSize();
-          
-          const fontSize = 14;
-          const textWidth = helveticaFont.widthOfTextAtSize(watermarkText, fontSize);
-          
-          page.drawText(watermarkText, {
-            x: (width - textWidth) / 2,
-            y: height - 20,
-            size: fontSize,
-            font: helveticaFont,
-            color: PDFLib.rgb(1, 0, 0),
-            opacity: 1.0
-          });
-
-          page.drawText(watermarkText, {
-            x: width / 2 - textWidth,
-            y: height / 2,
-            size: 24,
-            font: helveticaFont,
-            color: PDFLib.rgb(1, 0, 0),
-            opacity: 0.12,
-            rotate: PDFLib.degrees(-35)
-          });
-        });
-
-        const pdfBytes = await pdfDoc.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_Watermarked.pdf`;
-        link.click();
-        showLoader(false);
-        showToast('Watermarked file downloaded successfully.');
-      } catch (e) {
-        showLoader(false);
-        window.open(fileUrl, '_blank');
-      }
-    }
-
-    function getUniversalUrl(url, type = 'default') {
-      if (!url || url.trim() === '' || url.trim() === '-') return DEFAULT_LOGO_URL;
-      let processedUrl = url.trim();
-
-      if (processedUrl.includes('youtube.com') || processedUrl.includes('youtu.be')) {
-        let videoId = '';
-        if (processedUrl.includes('watch?v=')) {
-          videoId = processedUrl.split('watch?v=')[1]?.split('&')[0];
-        } else if (processedUrl.includes('youtu.be/')) {
-          videoId = processedUrl.split('youtu.be/')[1]?.split('?')[0];
-        } else if (processedUrl.includes('embed/')) {
-          videoId = processedUrl.split('embed/')[1]?.split('?')[0];
-        } else if (processedUrl.includes('shorts/')) {
-          videoId = processedUrl.split('shorts/')[1]?.split('?')[0];
-        }
-        if (videoId) {
-          if (type === 'image') {
-            return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-          }
-          if (type === 'audio') {
-            return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-          }
-          return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
-        }
-      }
-
-      if (processedUrl.includes('drive.google.com') || processedUrl.includes('docs.google.com')) {
-        const match = processedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || processedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-        if (match && match[1]) {
-          const fileId = match[1];
-          if (type === 'image' || type === 'zoom') {
-            return `https://lh3.googleusercontent.com/d/${fileId}=s1600`;
-          }
-          if (type === 'download') {
-            return `https://drive.google.com/uc?export=download&id=${fileId}`;
-          }
-          if (type === 'audio') {
-            return `https://drive.google.com/uc?export=download&id=${fileId}`;
-          }
-          return `https://drive.google.com/file/d/${fileId}/preview`;
-        }
-      }
-
-      if (processedUrl.includes('github.com')) {
-        if (processedUrl.includes('/blob/')) {
-          processedUrl = processedUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
-        }
-      }
-
-      return processedUrl;
-    }
-
-    function openMediaModal(type, url, title) {
-      const finalUrl = getUniversalUrl(url, type);
+    if (type.toLowerCase() === 'pdf') {
+      openPdfModal(finalUrl, title);
+    } else {
       window.open(finalUrl, '_blank', 'noopener,noreferrer');
     }
+  }
 
-    function openZoomModal(imgUrl, title) {
-      const finalImgUrl = getUniversalUrl(imgUrl, 'image');
-      window.open(finalImgUrl, '_blank', 'noopener,noreferrer');
+  async function downloadItem(url, title) {
+    if (currentUser) {
+      apiCall('logActivity', { userId: currentUser.userId, userName: currentUser.name, activityType: 'DOWNLOAD_MATERIAL', details: title });
     }
 
-    function closeModal() {
-      const modal = document.getElementById('reader-modal');
-      if (modal) modal.style.display = 'none';
-      
-      // 👉 Exit fullscreen mode automatically when closing the reader modal
-      if (document.fullscreenElement && document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+    const fileUrl = getUniversalUrl(url, 'download');
+
+    showLoader(true);
+    try {
+      let directPdfUrl = fileUrl;
+      if (fileUrl.includes('drive.google.com')) {
+        const fileId = fileUrl.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1] || fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1];
+        if (fileId) directPdfUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+      }
+
+      const existingPdfBytes = await fetch(directPdfUrl).then(res => res.arrayBuffer());
+      const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
+      const helveticaFont = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+
+      const pages = pdfDoc.getPages();
+      const watermarkText = getWatermarkText();
+
+      pages.forEach(page => {
+        const { width, height } = page.getSize();
+        
+        const fontSize = 14;
+        const textWidth = helveticaFont.widthOfTextAtSize(watermarkText, fontSize);
+        
+        page.drawText(watermarkText, {
+          x: (width - textWidth) / 2,
+          y: height - 20,
+          size: fontSize,
+          font: helveticaFont,
+          color: PDFLib.rgb(1, 0, 0),
+          opacity: 1.0
+        });
+
+        page.drawText(watermarkText, {
+          x: width / 2 - textWidth,
+          y: height / 2,
+          size: 24,
+          font: helveticaFont,
+          color: PDFLib.rgb(1, 0, 0),
+          opacity: 0.12,
+          rotate: PDFLib.degrees(-35)
+        });
+      });
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}_Watermarked.pdf`;
+      link.click();
+      showLoader(false);
+      showToast('Watermarked file downloaded successfully.');
+    } catch (e) {
+      showLoader(false);
+      window.open(fileUrl, '_blank');
+    }
+  }
+
+  function getUniversalUrl(url, type = 'default') {
+    if (!url || url.trim() === '' || url.trim() === '-') return DEFAULT_LOGO_URL;
+    let processedUrl = url.trim();
+
+    if (processedUrl.includes('youtube.com') || processedUrl.includes('youtu.be')) {
+      let videoId = '';
+      if (processedUrl.includes('watch?v=')) {
+        videoId = processedUrl.split('watch?v=')[1]?.split('&')[0];
+      } else if (processedUrl.includes('youtu.be/')) {
+        videoId = processedUrl.split('youtu.be/')[1]?.split('?')[0];
+      } else if (processedUrl.includes('embed/')) {
+        videoId = processedUrl.split('embed/')[1]?.split('?')[0];
+      } else if (processedUrl.includes('shorts/')) {
+        videoId = processedUrl.split('shorts/')[1]?.split('?')[0];
+      }
+      if (videoId) {
+        if (type === 'image') {
+          return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+        }
+        if (type === 'audio') {
+          return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+        }
+        return `https://www.youtube.com/embed/${videoId}?autoplay=1`;
       }
     }
 
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else {
-        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    if (processedUrl.includes('drive.google.com') || processedUrl.includes('docs.google.com')) {
+      const match = processedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || processedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        const fileId = match[1];
+        if (type === 'image' || type === 'zoom') {
+          return `https://lh3.googleusercontent.com/d/${fileId}=s1600`;
+        }
+        if (type === 'download') {
+          return `https://drive.google.com/uc?export=download&id=${fileId}`;
+        }
+        if (type === 'audio') {
+          return `https://drive.google.com/uc?export=download&id=${fileId}`;
+        }
+        return `https://drive.google.com/file/d/${fileId}/preview`;
       }
     }
+
+    if (processedUrl.includes('github.com')) {
+      if (processedUrl.includes('/blob/')) {
+        processedUrl = processedUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
+      }
+    }
+
+    return processedUrl;
+  }
+
+  function openMediaModal(type, url, title) {
+    const finalUrl = getUniversalUrl(url, type);
+    window.open(finalUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  function openZoomModal(imgUrl, title) {
+    const finalImgUrl = getUniversalUrl(imgUrl, 'image');
+    window.open(finalImgUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('reader-modal');
+    if (modal) modal.style.display = 'none';
+    
+    // 👉 Exit fullscreen mode automatically when closing the reader modal
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    }
+  }
 
     let timerWarningTriggered = false;
 
@@ -5255,8 +5290,8 @@ function openEmbeddedImageModal(imgUrl, title) {
       customImageZoomLevel = 1;
       translateX = 0;
       translateY = 0;
-      applyImageZoom();
-      initImageDragAndPan(); // 👉 Initialize drag and pan listener when opening image modal
+      updateImageTransform(); // 👉 FIXED: Changed from applyImageZoom() to updateImageTransform()
+      initImageDragAndPan(); // Initialize drag and pan listener when opening image modal
 
       if (modal) modal.style.display = 'flex';
       renderGlobalWatermark();
@@ -5269,82 +5304,87 @@ function openEmbeddedImageModal(imgUrl, title) {
 
 let pdfZoomLevel = 1;
 
-    async function openPdfModal(pdfUrl, title) {
-      const modal = document.getElementById('reader-modal');
-      const body = document.getElementById('modal-viewport');
-      const titleEl = document.getElementById('modal-title');
-      
-      if (titleEl) titleEl.innerText = title || 'PDF Viewer';
-      
-      let resolvedUrl = getUniversalUrl(pdfUrl, 'pdf');
+async function openPdfModal(pdfUrl, title) {
+  const modal = document.getElementById('reader-modal');
+  const body = document.getElementById('modal-viewport');
+  const titleEl = document.getElementById('modal-title');
+  
+  if (titleEl) titleEl.innerText = title || 'PDF Viewer';
+  
+  let resolvedUrl = getUniversalUrl(pdfUrl, 'pdf');
+  let finalEmbedUrl = '';
 
-      if (resolvedUrl.includes('drive.google.com') || resolvedUrl.includes('docs.google.com')) {
-        const fileIdMatch = resolvedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || resolvedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-        if (fileIdMatch && fileIdMatch[1]) {
-          resolvedUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
-        }
-      }
+  // Check if it's a Google Drive or Google Docs URL
+  if (resolvedUrl.includes('drive.google.com') || resolvedUrl.includes('docs.google.com')) {
+    const fileIdMatch = resolvedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || resolvedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (fileIdMatch && fileIdMatch[1]) {
+      // Use direct Google Drive preview link for reliable rendering
+      finalEmbedUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+    } else {
+      finalEmbedUrl = resolvedUrl;
+    }
+  } else {
+    // For external/direct PDF links, use Google Docs viewer to force inline embedding on mobile & desktop
+    finalEmbedUrl = `https://docs.google.com/gview?url=${encodeURIComponent(resolvedUrl)}&embedded=true`;
+  }
 
-      // 👉 Wrap direct or external PDF links with Google Docs viewer to force inline embedding on mobile
-      const embeddedViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(resolvedUrl)}&embedded=true`;
+  pdfZoomLevel = 1;
 
-      pdfZoomLevel = 1;
-
-      if (body) {
-        body.innerHTML = `
-          <div class="watermark-text-container" style="position: relative; width: 100vw; height: calc(100vh - 50px); background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
-            <div class="global-watermark-layer" style="opacity: 0.16; z-index: 10; pointer-events: none;"></div>
-            <!-- Blocking banner covering the top-right pop-out/open-in-new-tab buttons inside Google Drive viewer -->
-            <div style="position: absolute; top: 0; right: 0; width: 180px; height: 65px; z-index: 25; pointer-events: auto; background: #ffffff;"></div>
-            
-            <!-- Zoomable wrapper for PDF content -->
-            <div id="pdf-zoomable-wrapper" style="width: 100%; height: 100%; transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; flex: 1;">
-              <!-- Inner container forcing white background on sides/letterboxing -->
-              <div style="width: 100%; height: 100%; background: #ffffff !important; color-scheme: light !important; display: flex; align-items: center; justify-content: center; position: relative;">
-                <iframe src="${embeddedViewerUrl}" style="width: 100%; height: 100%; border: none; background: #ffffff !important; color-scheme: light !important;" allowfullscreen></iframe>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bottom Zoom Controls Bar -->
-          <div style="background: #ffffff; border-top: 1px solid var(--border); padding: 10px; display: flex; gap: 12px; justify-content: center; align-items: center; z-index: 30; width: 100%;">
-            <button class="btn btn-secondary btn-sm" onclick="adjustPdfZoom(0.2)"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In</button>
-            <button class="btn btn-secondary btn-sm" onclick="adjustPdfZoom(-0.2)"><i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out</button>
-            <button class="btn btn-secondary btn-sm" onclick="resetPdfZoom()"><i class="fa-solid fa-rotate"></i> Reset Zoom</button>
-          </div>
-        `;
-      }
-
-      if (modal) {
-        modal.style.display = 'flex';
-        modal.style.background = '#ffffff'; 
-        modal.style.setProperty('background-color', '#ffffff', 'important');
-        modal.style.setProperty('color-scheme', 'light', 'important');
+  if (body) {
+    body.innerHTML = `
+      <div class="watermark-text-container" style="position: relative; width: 100vw; height: calc(100vh - 50px); background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+        <div class="global-watermark-layer" style="opacity: 0.16; z-index: 10; pointer-events: none;"></div>
+        <!-- Blocking banner covering the top-right pop-out/open-in-new-tab buttons inside Google Drive viewer -->
+        <div style="position: absolute; top: 0; right: 0; width: 180px; height: 65px; z-index: 25; pointer-events: auto; background: #ffffff;"></div>
         
-        const modalContentContainer = document.getElementById('modal-watermark-container');
-        if (modalContentContainer) {
-          modalContentContainer.style.background = '#ffffff';
-          modalContentContainer.style.setProperty('background-color', '#ffffff', 'important');
-        }
+        <!-- Zoomable wrapper for PDF content -->
+        <div id="pdf-zoomable-wrapper" style="width: 100%; height: 100%; transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; flex: 1;">
+          <!-- Inner container forcing white background on sides/letterboxing -->
+          <div style="width: 100%; height: 100%; background: #ffffff !important; color-scheme: light !important; display: flex; align-items: center; justify-content: center; position: relative;">
+            <iframe src="${finalEmbedUrl}" style="width: 100%; height: 100%; border: none; background: #ffffff !important; color-scheme: light !important;" allowfullscreen></iframe>
+          </div>
+        </div>
+      </div>
 
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        }
-      }
-      renderGlobalWatermark();
+      <!-- Bottom Zoom Controls Bar -->
+      <div style="background: #ffffff; border-top: 1px solid var(--border); padding: 10px; display: flex; gap: 12px; justify-content: center; align-items: center; z-index: 30; width: 100%;">
+        <button class="btn btn-secondary btn-sm" onclick="adjustPdfZoom(0.2)"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In</button>
+        <button class="btn btn-secondary btn-sm" onclick="adjustPdfZoom(-0.2)"><i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetPdfZoom()"><i class="fa-solid fa-rotate"></i> Reset Zoom</button>
+      </div>
+    `;
+  }
+
+  if (modal) {
+    modal.style.display = 'flex';
+    modal.style.background = '#ffffff'; 
+    modal.style.setProperty('background-color', '#ffffff', 'important');
+    modal.style.setProperty('color-scheme', 'light', 'important');
+    
+    const modalContentContainer = document.getElementById('modal-watermark-container');
+    if (modalContentContainer) {
+      modalContentContainer.style.background = '#ffffff';
+      modalContentContainer.style.setProperty('background-color', '#ffffff', 'important');
     }
 
-    function adjustPdfZoom(amount) {
-      pdfZoomLevel = Math.max(0.5, Math.min(4, pdfZoomLevel + amount));
-      const wrapper = document.getElementById('pdf-zoomable-wrapper');
-      if (wrapper) wrapper.style.transform = `scale(${pdfZoomLevel})`;
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
     }
+  }
+  renderGlobalWatermark();
+}
 
-    function resetPdfZoom() {
-      pdfZoomLevel = 1;
-      const wrapper = document.getElementById('pdf-zoomable-wrapper');
-      if (wrapper) wrapper.style.transform = `scale(1)`;
-    }
+function adjustPdfZoom(amount) {
+  pdfZoomLevel = Math.max(0.5, Math.min(4, pdfZoomLevel + amount));
+  const wrapper = document.getElementById('pdf-zoomable-wrapper');
+  if (wrapper) wrapper.style.transform = `scale(${pdfZoomLevel})`;
+}
+
+function resetPdfZoom() {
+  pdfZoomLevel = 1;
+  const wrapper = document.getElementById('pdf-zoomable-wrapper');
+  if (wrapper) wrapper.style.transform = `scale(1)`;
+}
 
     function cancelStenoTest() {
       if (testTimerInterval) clearInterval(testTimerInterval);
