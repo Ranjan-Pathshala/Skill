@@ -178,23 +178,28 @@
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: visible; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 2px 8px var(--shadow); }
     .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px var(--shadow); }
     
-    /* Unified Card Thumbnail Styling */
+    /* Unified Card Thumbnail Styling for complete fit */
     .card-thumb { 
       width: 100%; 
       height: 120px; 
-      object-fit: contain; /* Ensures complete picture/thumbnail is shown without cropping */
+      object-fit: contain; 
+      object-position: center;
       border-radius: 8px; 
       margin-bottom: 10px; 
-      background: var(--border); 
+      background: var(--background); 
       display: block;
     }
 
     .video-grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
     .video-card { padding: 12px; }
     .video-card .card-thumb { 
-      height: 95px; 
-      object-fit: contain; /* Ensures complete picture/thumbnail is shown without cropping */
-      background: var(--border); /* Adds clean background padding if aspect ratios differ */
+      width: 100%;
+      height: 110px; 
+      object-fit: contain; 
+      object-position: center;
+      background: var(--background); 
+      border-radius: 6px;
+      margin-bottom: 8px;
     }
 
     .stat-card {
@@ -485,7 +490,7 @@
 
         <div class="stat-card" style="border-left-color: #8b5cf6;">
           <div>
-            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">TYPING TESTS UPLOADED</span>
+            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">TYPING TESTS </span>
             <h2 id="stat-typing-uploaded" style="font-size: 24px; font-weight: 800; color: var(--secondary); margin-top: 2px;">0</h2>
           </div>
           <div class="stat-icon" style="background: rgba(139,92,246,0.1); color: #8b5cf6;"><i class="fa-solid fa-keyboard"></i></div>
@@ -493,7 +498,7 @@
 
         <div class="stat-card" style="border-left-color: #f59e0b;">
           <div>
-            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">PITMAN EXERCISES UPLOADED</span>
+            <span style="color: var(--text-muted); font-size: 12px; font-weight: 600;">PITMAN EXERCISES </span>
             <h2 id="stat-pitman-uploaded" style="font-size: 24px; font-weight: 800; color: var(--secondary); margin-top: 2px;">0</h2>
           </div>
           <div class="stat-icon" style="background: rgba(245,158,11,0.1); color: #f59e0b;"><i class="fa-solid fa-book-open"></i></div>
@@ -507,12 +512,12 @@
         </h4>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
           <div style="background: var(--surface); padding: 14px; border-radius: 8px; border: 1px solid var(--border);">
-            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">TYPING / BOOK TEST #1</div>
-            <div id="dash-rank-typing" style="font-weight: 800; font-size: 15px; color: var(--primary);">Loading top rank...</div>
+            <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">TYPING / PITMAN BOOK TEST #1</div>
+            <div id="dash-rank-typing" style="font-weight: 800; font-size: 15px; color: var(--primary);">Loading Top Ranker's Name...</div>
           </div>
           <div style="background: var(--surface); padding: 14px; border-radius: 8px; border: 1px solid var(--border);">
             <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">AUDIO DICTATION TEST #1</div>
-            <div id="dash-rank-audio" style="font-weight: 800; font-size: 15px; color: #10b981;">Loading top rank...</div>
+            <div id="dash-rank-audio" style="font-weight: 800; font-size: 15px; color: #10b981;">Loading Top Ranker's Name...</div>
           </div>
         </div>
       </div>
@@ -679,19 +684,30 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
       <h4>My Test & Practice History</h4>
       <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-        <select id="history-type-filter" class="form-control" onchange="loadTestHistory()" style="max-width: 200px;">
+        <!-- 👉 Search bar with fallback to ALL history on input -->
+        <input type="text" id="history-search-input" class="form-control" placeholder="🔍 Search history..." oninput="currentHistoryPage = 1; document.getElementById('history-type-filter').value='ALL'; renderTestHistoryTable();" style="max-width: 220px;">
+        
+        <select id="history-type-filter" class="form-control" onchange="currentHistoryPage = 1; renderTestHistoryTable()" style="max-width: 200px;">
           <option value="ALL" selected>🌐 All History</option>
           <option value="typing">⌨️ Typing Test Only</option>
           <option value="pitman">📖 Pitman</option>
           <option value="audio">🔉 Audio Transcription</option>
         </select>
         <label style="display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">
-          <input type="checkbox" id="toggle-time-used" onchange="loadTestHistory()"> Toggle Time-Used Speed View
+          <input type="checkbox" id="toggle-time-used" onchange="renderTestHistoryTable()"> Toggle Time-Used Speed View
         </label>
       </div>
     </div>
+    
     <div id="test-history-container" class="watermark-text-container" style="margin-top: 10px; overflow-x: auto;">
       <p style="color: var(--text-muted);">Loading test history...</p>
+    </div>
+
+    <!-- 👉 Pagination controls bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+      <button class="btn btn-secondary btn-sm" onclick="paginateHistory(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+      <span id="history-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+      <button class="btn btn-secondary btn-sm" onclick="paginateHistory(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
     </div>
   </div>
 </section>
@@ -1371,22 +1387,22 @@
           </span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <button class="btn btn-sm btn-danger" style="border-radius: 20px; font-weight: 700; font-size: 12px; padding: 5px 12px;" onclick="cancelStenoTest()"><i class="fa-solid fa-xmark"></i> Cancel / Exit</button>
-          <button class="btn btn-sm btn-secondary" style="border-radius: 20px; font-weight: 700; font-size: 12px; padding: 5px 12px;" onclick="toggleFullscreen()"><i class="fa-solid fa-expand"></i> Tools</button>
+          <button class="btn btn-sm btn-danger" style="border-radius: 20px; font-weight: 700; font-size: 12px; padding: 5px 12px;" onclick="cancelStenoTest()"><i class="fa-solid fa-xmark"></i> Cancel Test </button>
+          <button class="btn btn-sm btn-secondary" style="border-radius: 20px; font-weight: 700; font-size: 12px; padding: 5px 12px;" onclick="toggleFullscreen()"><i class="fa-solid fa-expand"></i> Full Screen</button>
           <div style="background: var(--border); padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; white-space: nowrap;">
             TIME LEFT: <span id="test-timer" style="color: var(--primary); font-weight: 900;">--:--</span>
           </div>
         </div>
       </div>
 
-      <!-- Main Test Content Body (Scrollable & Flexible) -->
-      <div class="modal-body watermark-text-container" id="test-main-body-container" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 16px; flex: 1; padding: 16px; overflow-y: auto; min-height: 0;">
+<!-- Main Test Content Body (Scrollable & Flexible) -->
+      <div class="modal-body watermark-text-container" id="test-main-body-container" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; flex: 1; padding: 12px; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch;">
       </div>
 
-      <!-- Footer Controls for Test (Pinned at Bottom) -->
-      <div style="background: var(--surface); border-top: 1px solid var(--border); padding: 10px 16px; display: flex; gap: 10px; justify-content: center; align-items: center; z-index: 10; flex-shrink: 0;">
-        <button class="btn btn-primary" style="padding: 10px 20px; border-radius: 20px; font-weight: 700; flex: 1; max-width: 200px;" onclick="submitStenoTest()">Submit Test</button>
-        <button id="test-pause-btn" class="btn btn-secondary" style="padding: 10px 16px; border-radius: 20px; font-weight: 700; background: var(--surface); flex: 1; max-width: 160px;" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
+      <!-- Footer Controls for Test (Pinned at Bottom with Mobile Flex Wrap support) -->
+      <div style="background: var(--surface); border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px; justify-content: space-between; align-items: center; z-index: 10; flex-shrink: 0; width: 100%;">
+        <button class="btn btn-primary" style="padding: 10px 14px; border-radius: 20px; font-weight: 700; flex: 1; font-size: 13px;" onclick="submitStenoTest()">Submit Test</button>
+        <button id="test-pause-btn" class="btn btn-secondary" style="padding: 10px 14px; border-radius: 20px; font-weight: 700; background: var(--surface); flex: 1; font-size: 13px; border: 1px solid var(--border);" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
       </div>
 
     </div>
@@ -1394,9 +1410,9 @@
 
   <footer>
     <div class="footer-left">
-      <span>Total Registered Users: <strong id="footer-total-users" style="color: var(--primary);">0</strong></span>
+      <span>Total Users: <strong id="footer-total-users" style="color: var(--primary);">0</strong></span>
       <span style="opacity: 0.4;">|</span>
-      <span>Total Visits: <strong id="footer-total-visits" style="color: var(--primary);">0</strong></span>
+      <span>Total Visitsers: <strong id="footer-total-visits" style="color: var(--primary);">0</strong></span>
     </div>
     <div class="footer-right">
       &copy; 2026-27 Ranjan Pathshala Skill Platform. All Rights Reserved.
@@ -1405,7 +1421,7 @@
 
 
   <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl78VM_WN1YNH8uq2rq2AH1_Ys5O_aWC0tXwqXM9qF9ZCYVNUvT2MhXRffUPIckFMmCQ/exec'; 
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwFl3cH9Cf5_OzVMjluo3y9aXrulwb6QKE0wBgldIDkwK75hA8VNRbl_nU-3IQNJf_ufQ/exec'; 
 function getLocalDateString() {
       const d = new Date();
       const year = d.getFullYear();
@@ -1435,6 +1451,11 @@ let globalData = { announcements: [], homework: [], stats: [], banner: [], mater
 let materialsData = [];
 let subtabsData = [];
 let adminData = { users: [], logs: [], feedback: [], materials: [], subtabs: [], history: [] };
+// 👉 Pagination & caching globals
+const HISTORY_PER_PAGE = 30;
+let currentHistoryPage = 1;
+let allTestHistoryList = [];
+
 
 // 👉 Add these lines here:
 const ADMIN_FEEDBACK_PER_PAGE = 30;
@@ -1577,252 +1598,271 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
 async function initApp() {
-      // 1. Load evaluation rules instantly from localStorage first (Zero latency)
-      const localRules = localStorage.getItem('steno_all_eval_rules');
-      if (localRules) {
-        try {
-          allEvaluationRules = JSON.parse(localRules);
-        } catch (e) {}
-      }
+  // 1. Load evaluation rules instantly from localStorage first (Zero latency)
+  const localRules = localStorage.getItem('steno_all_eval_rules');
+  if (localRules) {
+    try {
+      allEvaluationRules = JSON.parse(localRules);
+    } catch (e) {}
+  }
 
-      if (currentUser && currentUser.token) {
-        // 2. Render UI and navigate instantly using cached state
-        setupAuthenticatedUI();
-        navigateTo('dashboard', false);
-        
-        // 3. Run session verification and rule fetching silently in the background
-        Promise.all([
-          verifyUserSession(),
-          apiCall('getEvaluationRules', {}, true), // silent: true prevents the loader from showing
-          apiCall('getDashboardData', {}, true)
-        ]).then(([sessionRes, ruleRes, dashRes]) => {
-          if (ruleRes && ruleRes.success && ruleRes.rulesMap) {
-            allEvaluationRules = ruleRes.rulesMap;
-            localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-          }
-          if (dashRes && dashRes.success) {
-            globalData = dashRes;
-            // Refresh dashboard components with fresh data quietly
-            if (typeof renderAnnouncements === 'function') renderAnnouncements();
-            if (typeof renderHomework === 'function') renderHomework();
-          }
-        });
-      } else {
-        renderAuthView();
+  if (currentUser && currentUser.token) {
+    // 2. Render UI and navigate instantly using cached state
+    setupAuthenticatedUI();
+    navigateTo('dashboard', false);
+    
+    // 3. Run session verification, rule fetching, dashboard data, and all materials pre-loading silently in the background
+    Promise.all([
+      verifyUserSession(),
+      apiCall('getEvaluationRules', {}, true), // silent: true prevents the loader from showing
+      apiCall('getDashboardData', {}, true),
+      apiCall('getMaterials', { type: 'word' }, true),
+      apiCall('getMaterials', { type: 'pdf' }, true),
+      apiCall('getMaterials', { type: 'audio' }, true),
+      apiCall('getMaterials', { type: 'pitman' }, true),
+      apiCall('getMaterials', { type: 'typingtest' }, true)
+    ]).then(([sessionRes, ruleRes, dashRes, wordRes, pdfRes, audioRes, pitmanRes, typingRes]) => {
+      if (ruleRes && ruleRes.success && ruleRes.rulesMap) {
+        allEvaluationRules = ruleRes.rulesMap;
+        localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
       }
-    }
-
-    async function fetchPublicFooterStats() {
-      // Fetch public stats silently so it never triggers the loading spinner
-      const res = await apiCall('getPublicStats', {}, true);
-      if (res.success && res.stats) {
-        const userElement = document.getElementById('footer-total-users');
-        const visitElement = document.getElementById('footer-total-visits');
-        if (userElement) userElement.textContent = res.stats.totalUsers || 0;
-        if (visitElement) visitElement.textContent = res.stats.totalVisits || 0;
+      if (dashRes && dashRes.success) {
+        globalData = dashRes;
+        // Refresh dashboard components with fresh data quietly
+        if (typeof renderAnnouncements === 'function') renderAnnouncements();
+        if (typeof renderHomework === 'function') renderHomework();
       }
-    }
-
-    async function verifyUserSession() {
-      if (!currentUser) return;
-      // Pass true for 'silent' so background session checks don't flash the loader
-      const res = await apiCall('login', {
-        identifier: currentUser.email || currentUser.mobile,
-        password: currentUser.password
-      }, true);
       
-      if (res.success) {
-        currentUser = { ...res.user, password: currentUser.password };
-        localStorage.setItem('steno_user', JSON.stringify(currentUser));
-        setupAuthenticatedUI();
-      } else {
-        showToast(res.message || 'Session expired. Please log in again.');
-        executeLogout();
+      // 👉 Populate global materials cache for instant tab and exam switching
+      materialsData = [
+        ...(wordRes && wordRes.success ? wordRes.materials || [] : []),
+        ...(pdfRes && pdfRes.success ? pdfRes.materials || [] : []),
+        ...(audioRes && audioRes.success ? audioRes.materials || [] : []),
+        ...(pitmanRes && pitmanRes.success ? pitmanRes.materials || [] : []),
+        ...(typingRes && typingRes.success ? typingRes.materials || [] : [])
+      ];
+
+      // Cache subtabs if returned from typing test response
+      if (typingRes && typingRes.subtabs) {
+        subtabsData = typingRes.subtabs;
       }
-    }
+    });
+  } else {
+    renderAuthView();
+  }
+}
+
+async function fetchPublicFooterStats() {
+  // Fetch public stats silently so it never triggers the loading spinner
+  const res = await apiCall('getPublicStats', {}, true);
+  if (res.success && res.stats) {
+    const userElement = document.getElementById('footer-total-users');
+    const visitElement = document.getElementById('footer-total-visits');
+    if (userElement) userElement.textContent = res.stats.totalUsers || 0;
+    if (visitElement) visitElement.textContent = res.stats.totalVisits || 0;
+  }
+}
+
+async function verifyUserSession() {
+  if (!currentUser) return;
+  // Pass true for 'silent' so background session checks don't flash the loader
+  const res = await apiCall('login', {
+    identifier: currentUser.email || currentUser.mobile,
+    password: currentUser.password
+  }, true);
+  
+  if (res.success) {
+    currentUser = { ...res.user, password: currentUser.password };
+    localStorage.setItem('steno_user', JSON.stringify(currentUser));
+    setupAuthenticatedUI();
+  } else {
+    showToast(res.message || 'Session expired. Please log in again.');
+    executeLogout();
+  }
+}
 
 async function apiCall(action, payload = {}, silent = false, retries = 3, delay = 1500) {
-      if (!silent) showLoader(true);
-      try {
-        const response = await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: action, payload: payload })
-        });
-        const result = await response.json();
-        
-        // Auto-retry if the server is busy/timed out and retries remain
-        if (!result.success && result.message && (result.message.includes('Server busy') || result.message.includes('busy')) && retries > 0) {
-          if (!silent) showLoader(false);
-          await new Promise(resolve => setTimeout(resolve, delay + Math.random() * 1000));
-          return apiCall(action, payload, silent, retries - 1, delay * 1.5);
-        }
-
-        if (!silent) showLoader(false);
-        return result;
-      } catch (err) {
-        if (!silent) showLoader(false);
-        if (retries > 0) {
-          await new Promise(resolve => setTimeout(resolve, delay));
-          return apiCall(action, payload, silent, retries - 1, delay * 1.5);
-        }
-        showToast('Connection to server failed. Working with cached data.');
-        return { success: false, message: 'Server offline' };
-      }
+  if (!silent) showLoader(true);
+  try {
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: action, payload: payload })
+    });
+    const result = await response.json();
+    
+    // Auto-retry if the server is busy/timed out and retries remain
+    if (!result.success && result.message && (result.message.includes('Server busy') || result.message.includes('busy')) && retries > 0) {
+      if (!silent) showLoader(false);
+      await new Promise(resolve => setTimeout(resolve, delay + Math.random() * 1000));
+      return apiCall(action, payload, silent, retries - 1, delay * 1.5);
     }
 
-    function showLoader(show) {
-      const loader = document.getElementById('global-loader');
-      if (loader) loader.style.display = show ? 'flex' : 'none';
+    if (!silent) showLoader(false);
+    return result;
+  } catch (err) {
+    if (!silent) showLoader(false);
+    if (retries > 0) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return apiCall(action, payload, silent, retries - 1, delay * 1.5);
     }
+    showToast('Connection to server failed. Working with cached data.');
+    return { success: false, message: 'Server offline' };
+  }
+}
 
-    function showToast(msg) {
-      const toast = document.getElementById('center-toast');
-      if (!toast) return;
-      toast.innerText = msg;
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 3500);
-    }
+function showLoader(show) {
+  const loader = document.getElementById('global-loader');
+  if (loader) loader.style.display = show ? 'flex' : 'none';
+}
 
-    function injectClearIconsToInputs() {
-      const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="url"], input[type="date"]');
-      inputs.forEach(input => {
-        if (!input.id || input.dataset.clearInjected) return;
-        input.dataset.clearInjected = "true";
+function showToast(msg) {
+  const toast = document.getElementById('center-toast');
+  if (!toast) return;
+  toast.innerText = msg;
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 3500);
+}
 
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'position: relative; display: flex; align-items: center; width: 100%;';
-        input.parentNode.insertBefore(wrapper, input);
-        wrapper.appendChild(input);
+function injectClearIconsToInputs() {
+  const inputs = document.querySelectorAll('input[type="text"], input[type="email"], input[type="url"], input[type="date"]');
+  inputs.forEach(input => {
+    if (!input.id || input.dataset.clearInjected) return;
+    input.dataset.clearInjected = "true";
 
-        input.style.paddingRight = '28px';
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position: relative; display: flex; align-items: center; width: 100%;';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
 
-        const clearBtn = document.createElement('span');
-        clearBtn.id = `clear-${input.id}`;
-        clearBtn.innerHTML = '&times;';
-        clearBtn.style.cssText = 'position: absolute; right: 8px; cursor: pointer; color: #94a3b8; font-weight: bold; font-size: 16px; display: none; user-select: none; z-index: 5;';
-        
-        clearBtn.onclick = () => {
-          input.value = '';
-          clearBtn.style.display = 'none';
-          input.dispatchEvent(new Event('input'));
-          input.dispatchEvent(new Event('change'));
-        };
-        wrapper.appendChild(clearBtn);
+    input.style.paddingRight = '28px';
 
-        input.addEventListener('input', () => {
-          clearBtn.style.display = input.value ? 'inline' : 'none';
-        });
-      });
-    }
+    const clearBtn = document.createElement('span');
+    clearBtn.id = `clear-${input.id}`;
+    clearBtn.innerHTML = '&times;';
+    clearBtn.style.cssText = 'position: absolute; right: 8px; cursor: pointer; color: #94a3b8; font-weight: bold; font-size: 16px; display: none; user-select: none; z-index: 5;';
+    
+    clearBtn.onclick = () => {
+      input.value = '';
+      clearBtn.style.display = 'none';
+      input.dispatchEvent(new Event('input'));
+      input.dispatchEvent(new Event('change'));
+    };
+    wrapper.appendChild(clearBtn);
 
-    function populateEvalCategoryDropdown() {
-      const select = document.getElementById('eval-category-select');
-      if (!select) return;
-      
-      const currentVal = select.value;
-      select.innerHTML = `
-        <option value="typingtest">⌨️ Typing Test Exam Rule</option>
-        <option value="pitman">📖 Pitman Evaluation Rule</option>
-        <option value="audio">🔉 Audio Dictation Subtab Rule</option>
-      `;
-      
-      if (currentVal && currentVal !== 'default') {
-        select.value = currentVal;
-      } else {
-        select.selectedIndex = 0;
-      }
+    input.addEventListener('input', () => {
+      clearBtn.style.display = input.value ? 'inline' : 'none';
+    });
+  });
+}
+
+function populateEvalCategoryDropdown() {
+  const select = document.getElementById('eval-category-select');
+  if (!select) return;
+  
+  const currentVal = select.value;
+  select.innerHTML = `
+    <option value="typingtest">⌨️ Typing Test Exam Rule</option>
+    <option value="pitman">📖 Pitman Evaluation Rule</option>
+    <option value="audio">🔉 Audio Dictation Subtab Rule</option>
+  `;
+  
+  if (currentVal && currentVal !== 'default') {
+    select.value = currentVal;
+  } else {
+    select.selectedIndex = 0;
+  }
+  handleEvalCategoryChange();
+  populateSavedRulesQuickDropdown(); // Refresh saved rules list
+}
+
+// Populates the quick dropdown with all currently saved rules in localStorage
+function populateSavedRulesQuickDropdown() {
+  const quickSelect = document.getElementById('saved-rules-quick-select');
+  if (!quickSelect) return;
+
+  quickSelect.innerHTML = '<option value="" disabled selected>-- Select a Saved Rule to Edit/View --</option>';
+  
+  const keys = Object.keys(allEvaluationRules || {});
+  if (keys.length === 0) {
+    quickSelect.innerHTML = '<option value="" disabled selected>No saved rules found</option>';
+    return;
+  }
+
+  keys.forEach(key => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.innerText = `Rule Key: [ ${key} ]`;
+    quickSelect.appendChild(opt);
+  });
+}
+
+// Loads a selected saved rule directly into the form for editing
+function loadSpecificSavedRule(ruleKey) {
+  if (!ruleKey || !allEvaluationRules[ruleKey]) return;
+
+  if (ruleKey.includes('_')) {
+    const parts = ruleKey.split('_');
+    const cat = parts[0];
+    const catSelect = document.getElementById('eval-category-select');
+    if (catSelect) {
+      catSelect.value = cat;
       handleEvalCategoryChange();
-      populateSavedRulesQuickDropdown(); // Refresh saved rules list
-    }
-
-    // Populates the quick dropdown with all currently saved rules in localStorage
-    function populateSavedRulesQuickDropdown() {
-      const quickSelect = document.getElementById('saved-rules-quick-select');
-      if (!quickSelect) return;
-
-      quickSelect.innerHTML = '<option value="" disabled selected>-- Select a Saved Rule to Edit/View --</option>';
       
-      const keys = Object.keys(allEvaluationRules || {});
-      if (keys.length === 0) {
-        quickSelect.innerHTML = '<option value="" disabled selected>No saved rules found</option>';
-        return;
-      }
+      setTimeout(() => {
+        const subtabSelect = document.getElementById('eval-subtab-select');
+        if (subtabSelect) subtabSelect.value = ruleKey;
+        loadSelectedEvaluationRulesIntoForm();
+      }, 50);
+    }
+  } else {
+    const catSelect = document.getElementById('eval-category-select');
+    if (catSelect) {
+      catSelect.value = ruleKey;
+      handleEvalCategoryChange();
+    }
+  }
+  loadSelectedEvaluationRulesIntoForm();
+  showToast(`Loaded rule for: ${ruleKey} ready for editing.`);
+}
 
-      keys.forEach(key => {
+function handleEvalCategoryChange() {
+  const catSelect = document.getElementById('eval-category-select');
+  const subtabGroup = document.getElementById('group-eval-subtab');
+  const subtabSelect = document.getElementById('eval-subtab-select');
+  if (!catSelect || !subtabGroup || !subtabSelect) return;
+
+  const cat = catSelect.value;
+  if (cat === 'audio' || cat === 'typingtest' || cat === 'pdf' || cat === 'pitman') {
+    subtabGroup.style.display = 'block';
+    subtabSelect.innerHTML = '';
+    const targetSubtabs = (adminData.subtabs || []).filter(stb => (stb.Type || '').toLowerCase() === cat.toLowerCase());
+    if (targetSubtabs.length === 0) {
+      subtabSelect.innerHTML = '<option value="" disabled selected>No subtabs available</option>';
+    } else {
+      targetSubtabs.forEach(stb => {
         const opt = document.createElement('option');
-        opt.value = key;
-        opt.innerText = `Rule Key: [ ${key} ]`;
-        quickSelect.appendChild(opt);
+        opt.value = `${cat}_${stb.SubtabName}`;
+        opt.innerText = stb.SubtabName;
+        subtabSelect.appendChild(opt);
       });
     }
+  } else {
+    subtabGroup.style.display = 'none';
+  }
+  loadSelectedEvaluationRulesIntoForm();
+}
 
-    // Loads a selected saved rule directly into the form for editing
-    function loadSpecificSavedRule(ruleKey) {
-      if (!ruleKey || !allEvaluationRules[ruleKey]) return;
-
-      if (ruleKey.includes('_')) {
-        const parts = ruleKey.split('_');
-        const cat = parts[0];
-        const catSelect = document.getElementById('eval-category-select');
-        if (catSelect) {
-          catSelect.value = cat;
-          handleEvalCategoryChange();
-          
-          setTimeout(() => {
-            const subtabSelect = document.getElementById('eval-subtab-select');
-            if (subtabSelect) subtabSelect.value = ruleKey;
-            loadSelectedEvaluationRulesIntoForm();
-          }, 50);
-        }
-      } else {
-        const catSelect = document.getElementById('eval-category-select');
-        if (catSelect) {
-          catSelect.value = ruleKey;
-          handleEvalCategoryChange();
-        }
-      }
-      loadSelectedEvaluationRulesIntoForm();
-      showToast(`Loaded rule for: ${ruleKey} ready for editing.`);
-    }
-
-    function handleEvalCategoryChange() {
-      const catSelect = document.getElementById('eval-category-select');
-      const subtabGroup = document.getElementById('group-eval-subtab');
-      const subtabSelect = document.getElementById('eval-subtab-select');
-      if (!catSelect || !subtabGroup || !subtabSelect) return;
-
-      const cat = catSelect.value;
-      if (cat === 'audio' || cat === 'typingtest' || cat === 'pdf' || cat === 'pitman') {
-        subtabGroup.style.display = 'block';
-        subtabSelect.innerHTML = '';
-        const targetSubtabs = (adminData.subtabs || []).filter(stb => (stb.Type || '').toLowerCase() === cat.toLowerCase());
-        if (targetSubtabs.length === 0) {
-          subtabSelect.innerHTML = '<option value="" disabled selected>No subtabs available</option>';
-        } else {
-          targetSubtabs.forEach(stb => {
-            const opt = document.createElement('option');
-            opt.value = `${cat}_${stb.SubtabName}`;
-            opt.innerText = stb.SubtabName;
-            subtabSelect.appendChild(opt);
-          });
-        }
-      } else {
-        subtabGroup.style.display = 'none';
-      }
-      loadSelectedEvaluationRulesIntoForm();
-    }
-
-    function getSelectedEvalKey() {
-      const catSelect = document.getElementById('eval-category-select');
-      if (!catSelect) return '';
-      const cat = catSelect.value;
-      if (cat === 'audio' || cat === 'typingtest' || cat === 'pdf' || cat === 'pitman') {
-        const subtabSelect = document.getElementById('eval-subtab-select');
-        return subtabSelect && subtabSelect.value ? subtabSelect.value : cat;
-      }
-      return cat;
-    }
+function getSelectedEvalKey() {
+  const catSelect = document.getElementById('eval-category-select');
+  if (!catSelect) return '';
+  const cat = catSelect.value;
+  if (cat === 'audio' || cat === 'typingtest' || cat === 'pdf' || cat === 'pitman') {
+    const subtabSelect = document.getElementById('eval-subtab-select');
+    return subtabSelect && subtabSelect.value ? subtabSelect.value : cat;
+  }
+  return cat;
+}
 
 function getEvaluationRulesForTab(subtabKey) {
       if (!subtabKey) return allEvaluationRules['default'] || defaultEvaluationRule;
@@ -2022,21 +2062,39 @@ function navigateTo(tabName, pushHistory = true) {
   const targetView = document.getElementById(`view-${tabName}`);
   if (targetView) targetView.style.display = 'block';
 
+  // 👉 Silent background logging (won't trigger the global loading spinner)
   apiCall('logActivity', {
     userId: currentUser.userId,
     userName: currentUser.name,
     activityType: 'TAB_SWITCH',
     details: 'Navigated to ' + tabName
-  });
+  }, true);
 
-  if (tabName === 'dashboard') loadDashboardData();
-  if (tabName === 'words') loadMaterials('word');
-  if (tabName === 'pdf') loadMaterials('pdf');
-  if (tabName === 'audio') loadMaterials('audio');
-  if (tabName === 'pitman') loadMaterials('pitman');
-  if (tabName === 'typingtest') loadMaterials('typingtest'); // 👉 Loads materials and initializes wizard
-  if (tabName === 'test') loadTestHistory();
-  if (tabName === 'feedback') loadUserFeedback();
+  // 👉 Smart caching checks: only fetch from server if local data is empty
+  if (tabName === 'dashboard') {
+    if (!window.globalData || !window.globalData.announcements) loadDashboardData();
+  }
+  if (tabName === 'words') {
+    if (!window.materialsData || !materialsData.some(m => m.type === 'word')) loadMaterials('word');
+  }
+  if (tabName === 'pdf') {
+    if (!window.materialsData || !materialsData.some(m => m.type === 'pdf')) loadMaterials('pdf');
+  }
+  if (tabName === 'audio') {
+    if (!window.materialsData || !materialsData.some(m => m.type === 'audio')) loadMaterials('audio');
+  }
+  if (tabName === 'pitman') {
+    if (!window.materialsData || !materialsData.some(m => m.type === 'pitman')) loadMaterials('pitman');
+  }
+  if (tabName === 'typingtest') {
+    if (!window.materialsData || materialsData.length === 0) loadMaterials('typingtest');
+  }
+  if (tabName === 'test') {
+    if (!window.allTestHistoryList || allTestHistoryList.length === 0) loadTestHistory();
+  }
+  if (tabName === 'feedback') {
+    loadUserFeedback();
+  }
   if (tabName === 'admin') {
     loadAdminData();
     populateEvalCategoryDropdown();
@@ -2051,37 +2109,37 @@ function navigateTo(tabName, pushHistory = true) {
   }
 }
 
-    function renderAuthView() {
-      const navTabs = document.getElementById('main-nav-tabs');
-      const headerControls = document.getElementById('header-user-controls');
-      if (navTabs) navTabs.style.display = 'none';
-      if (headerControls) headerControls.style.display = 'none';
-      
-      document.querySelectorAll('.app-view').forEach(view => view.style.display = 'none');
-      const authView = document.getElementById('view-auth');
-      if (authView) authView.style.display = 'block';
-    }
+function renderAuthView() {
+  const navTabs = document.getElementById('main-nav-tabs');
+  const headerControls = document.getElementById('header-user-controls');
+  if (navTabs) navTabs.style.display = 'none';
+  if (headerControls) headerControls.style.display = 'none';
+  
+  document.querySelectorAll('.app-view').forEach(view => view.style.display = 'none');
+  const authView = document.getElementById('view-auth');
+  if (authView) authView.style.display = 'block';
+}
 
-    function switchAuthTab(type) {
-      document.getElementById('form-login').style.display = type === 'login' ? 'block' : 'none';
-      document.getElementById('form-signup').style.display = type === 'signup' ? 'block' : 'none';
-      document.getElementById('form-forget').style.display = type === 'forget' ? 'block' : 'none';
+function switchAuthTab(type) {
+  document.getElementById('form-login').style.display = type === 'login' ? 'block' : 'none';
+  document.getElementById('form-signup').style.display = type === 'signup' ? 'block' : 'none';
+  document.getElementById('form-forget').style.display = type === 'forget' ? 'block' : 'none';
 
-      document.getElementById('btn-show-login').classList.toggle('active', type === 'login');
-      document.getElementById('btn-show-signup').classList.toggle('active', type === 'signup');
-    }
+  document.getElementById('btn-show-login').classList.toggle('active', type === 'login');
+  document.getElementById('btn-show-signup').classList.toggle('active', type === 'signup');
+}
 
-    function togglePasswordVisibility(fieldId, iconElem) {
-      const field = document.getElementById(fieldId);
-      if (!field) return;
-      if (field.type === 'password') {
-        field.type = 'text';
-        if (iconElem) iconElem.classList.replace('fa-eye', 'fa-eye-slash');
-      } else {
-        field.type = 'password';
-        if (iconElem) iconElem.classList.replace('fa-eye-slash', 'fa-eye');
-      }
-    }
+function togglePasswordVisibility(fieldId, iconElem) {
+  const field = document.getElementById(fieldId);
+  if (!field) return;
+  if (field.type === 'password') {
+    field.type = 'text';
+    if (iconElem) iconElem.classList.replace('fa-eye', 'fa-eye-slash');
+  } else {
+    field.type = 'password';
+    if (iconElem) iconElem.classList.replace('fa-eye-slash', 'fa-eye');
+  }
+}
 
     async function handleSignupSubmit() {
       const name = document.getElementById('signup-name').value;
@@ -2285,7 +2343,7 @@ function renderUserDashboardLeaderboards() {
           typingRankElem.innerHTML = `🥇 <strong>${top.UserName || 'User'}</strong> — ${cleanExamName} <br><span style="font-size:12px; color:var(--text-muted);">Accuracy: ${top.AccuracyPercentage}% | Speed: ${top.NetSpeed || 0} WPM</span>`;
         }
       } else {
-        if (typingRankElem) typingRankElem.innerText = 'No typing/book test records for today yet.';
+        if (typingRankElem) typingRankElem.innerText = 'No Typing / Pitman Book Test Records For Today Yet.';
       }
 
       if (audioTests.length > 0) {
@@ -2309,7 +2367,7 @@ function renderUserDashboardLeaderboards() {
           audioRankElem.innerHTML = `🥇 <strong>${top.UserName || 'User'}</strong> — ${cleanExamName} <br><span style="font-size:12px; color:var(--text-muted);">Accuracy: ${top.AccuracyPercentage}% | Speed: ${top.NetSpeed || 0} WPM</span>`;
         }
       } else {
-        if (audioRankElem) audioRankElem.innerText = 'No audio dictation records for today yet.';
+        if (audioRankElem) audioRankElem.innerText = 'No Audio Dictation Records For Today Yet.';
       }
     }
 
@@ -2535,7 +2593,7 @@ function renderHomework() {
 
     card.innerHTML = `
       <div style="font-size:12px; font-weight:800; color:var(--primary); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-        <i class="fa-solid fa-calendar-day"></i> DUE DATE: ${dateKey} (${dayHomeworks.length} task${dayHomeworks.length > 1 ? 's' : ''})
+        <i class="fa-solid fa-calendar-day"></i> DUE DATE: ${dateKey} (${dayHomeworks.length} Task${dayHomeworks.length > 1 ? 's' : ''})
       </div>
       ${hwContentHtml}
     `;
@@ -2569,7 +2627,7 @@ function getThumbnailUrl(item) {
       return DEFAULT_LOGO_URL;
     }
 
-    function renderVideoReferences() {
+function renderVideoReferences() {
       const grid = document.getElementById('video-grid');
       if (!grid) return;
       grid.innerHTML = '';
@@ -2586,7 +2644,9 @@ function getThumbnailUrl(item) {
         const thumbUrl = getThumbnailUrl(vid);
 
         card.innerHTML = `
-          <img src="${thumbUrl}" class="card-thumb" style="object-fit:cover;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+          <div style="width: 100%; height: 110px; background: var(--background); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; border: 1px solid var(--border);">
+            <img src="${thumbUrl}" class="card-thumb" style="width: 100%; height: 100%; object-fit: contain; object-position: center; margin-bottom: 0;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+          </div>
           <strong style="color:var(--secondary); font-size:13px; margin: 6px 0; display: block; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${vid.Title || ''}</strong>
           <button class="btn btn-primary btn-sm" style="margin-top:auto; width: 100%; font-size: 11px; padding: 4px 8px;" onclick="openReferenceVideoModal('${vid.ContentOrUrl || ''}', '${vid.Title || ''}')"><i class="fa-solid fa-play"></i> Watch</button>
         `;
@@ -3027,40 +3087,45 @@ function onTypingPassageSelected() {
     }
 
 function renderPitmanList(filterSubtab = 'ALL') {
-      const grid = document.getElementById('pitman-grid');
-      if (!grid) return;
-      grid.innerHTML = '';
+    const grid = document.getElementById('pitman-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
 
-      let items = materialsData.filter(m => (m.Type || '').toLowerCase() === 'pitman');
-      const searchInput = document.getElementById('pitman-search-input');
-      const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    let items = materialsData.filter(m => (m.Type || '').toLowerCase() === 'pitman');
+    const searchInput = document.getElementById('pitman-search-input');
+    const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-      if (filterSubtab !== 'ALL' && !searchQuery) {
-        items = items.filter(m => m.Subtab === filterSubtab);
-      }
+    if (filterSubtab !== 'ALL' && !searchQuery) {
+      items = items.filter(m => m.Subtab === filterSubtab);
+    }
 
-      if (searchQuery) {
-        items = items.filter(m => 
-          (m.Title || '').toLowerCase().includes(searchQuery) ||
-          (m.Subtab || '').toLowerCase().includes(searchQuery)
-        );
-      }
+    if (searchQuery) {
+      items = items.filter(m => 
+        (m.Title || '').toLowerCase().includes(searchQuery) ||
+        (m.Subtab || '').toLowerCase().includes(searchQuery)
+      );
+    }
 
-      if (items.length === 0) {
-        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No Pitman exercises available.</div>`;
-        return;
-      }
+    if (items.length === 0) {
+      grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No Pitman exercises available.</div>`;
+      return;
+    }
 
-items.forEach(item => {
+    items.forEach(item => {
       const card = document.createElement('div');
       card.className = 'card';
       
-      const photoTarget = item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '' ? item.ThumbnailUrl : DEFAULT_LOGO_URL;
-      const thumbUrl = getUniversalUrl(photoTarget, 'image');
+      // 👉 Prioritize LogoUrl first for card view, falling back to ThumbnailUrl, then default
+      const logoTarget = (item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
+        ? item.LogoUrl 
+        : ((item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
+            ? item.ThumbnailUrl 
+            : DEFAULT_LOGO_URL);
+      
+      const thumbUrl = getUniversalUrl(logoTarget, 'image');
 
       const adminTimeLimit = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
       
-      // 🌟 Extract and sanitize title
       const displayTitle = item.Title || item.Name || item.Word || '';
       const safeTitle = displayTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
@@ -3074,7 +3139,7 @@ items.forEach(item => {
     });
   }
 
-  function startPitmanTestById(id) {
+function startPitmanTestById(id) {
     const item = materialsData.find(m => String(m.ID || m.id) === String(id));
     if (item) {
       startPitmanTest(item);
@@ -3117,6 +3182,8 @@ items.forEach(item => {
     document.getElementById('test-modal-title').innerText = currentExamName;
     
     const mainBody = document.getElementById('test-main-body-container');
+    
+    // 👉 Reset zoom state completely on fresh test launch
     testPhotoZoom = 1;
 
     // 👉 Updated to check ThumbnailUrl first (admin upload field), then LogoUrl, then default
@@ -3172,8 +3239,16 @@ items.forEach(item => {
 
     document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
     document.getElementById('active-test-modal').style.display = 'flex';
-    toggleFullscreen();
-    renderGlobalWatermark();
+    
+    // Ensure fullscreen toggles safely if supported
+    if (typeof toggleFullscreen === 'function' && !document.fullscreenElement) {
+      toggleFullscreen();
+    }
+    
+    if (typeof renderGlobalWatermark === 'function') {
+      renderGlobalWatermark();
+    }
+    
     startTestTimer(testDurationMinutes * 60);
   }
 
@@ -4004,107 +4079,212 @@ function loadTestHistory() {
   const container = document.getElementById('test-history-container');
   if (!container || !currentUser) return;
 
+  // 👉 Immediate fallback to globalData.history so search works instantly on tab load
+  if (globalData && globalData.history && globalData.history.length > 0) {
+    allTestHistoryList = globalData.history;
+    renderTestHistoryTable();
+  }
+
   apiCall('getTestHistory', { userId: currentUser.userId }).then(res => {
-    if (!res.success || !res.historyList || res.historyList.length === 0) {
+    if (res.success && res.historyList && res.historyList.length > 0) {
+      allTestHistoryList = res.historyList;
+      renderTestHistoryTable();
+    } else if (!allTestHistoryList || allTestHistoryList.length === 0) {
       container.innerHTML = '<p style="color: var(--text-muted);">No test or practice history recorded yet.</p>';
+      const pageIndicator = document.getElementById('history-page-indicator');
+      if (pageIndicator) pageIndicator.innerText = `Page 1 of 1 (0 entries)`;
       return;
     }
-
-    const filterType = document.getElementById('history-type-filter')?.value || 'ALL';
-    const useTimeToggle = document.getElementById('toggle-time-used')?.checked || false;
-
-    let historyList = res.historyList;
-    if (filterType === 'typing') {
-      historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('typing'));
-    } else if (filterType === 'pitman') {
-      historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('pitman'));
-    } else if (filterType === 'audio') {
-      historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('audio'));
-    }
-
-    if (historyList.length === 0) {
-      container.innerHTML = `<p style="color: var(--text-muted);">No history found for filter: ${filterType}.</p>`;
-      return;
-    }
-
-    cachedTestHistory = historyList;
-
-    let html = `
-      <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
-        <tr style="background: var(--border);">
-          <th>Date / Time</th>
-          <th>Exam / Exercise</th>
-          <th>${useTimeToggle ? 'Time Used' : 'Gross Spd (Admin Time)'}</th>
-          <th>${useTimeToggle ? 'Speed View (User Time)' : 'Net Spd (Admin Time)'}</th>
-          <th>Accuracy</th>
-          <th>Marks Obtained</th>
-          <th>Time Submitted</th>
-          <th>Status</th>
-          <th>Action</th>
-        </tr>
-    `;
-
-    historyList.forEach((h, index) => {
-      const localDateDisplay = formatLocalDate(h.Date || h.date);
-      const submittedTimestamp = h.submissionTime || h.submissionTimeFormatted || h.TimeUsed || '-';
-      const accuracy = parseFloat(h.AccuracyPercentage || h.accuracyPercentage || 0);
-      
-      const marks = h.MarksObtained || h.marksObtained || h.Marks || h.marks || '-';
-      const totalMarks = h.TotalMarks || h.totalMarks || 100;
-      const status = h.Status || h.status || 'FAILED';
-      const examName = h.ExamName || h.examName || '-';
-
-      // 1. Extract Admin Allotted Time in minutes (e.g., "5 Mins" -> 5)
-      let adminMinutes = 5;
-      const timeDurStr = String(h.TimeDuration || h.timeDuration || '5').toLowerCase();
-      const durMatch = timeDurStr.match(/([\d.]+)/);
-      if (durMatch && durMatch[1]) adminMinutes = parseFloat(durMatch[1]);
-      if (!adminMinutes || adminMinutes <= 0) adminMinutes = 5;
-
-      // 2. Extract User Time Taken in minutes (e.g., "1.50 mins" -> 1.50)
-      let userMinutes = adminMinutes;
-      const timeTakenStr = String(h.TimeTaken || h.timeTaken || h.TimeUsed || h.timeUsed || '').toLowerCase();
-      const takenMatch = timeTakenStr.match(/([\d.]+)/);
-      if (takenMatch && takenMatch[1]) userMinutes = parseFloat(takenMatch[1]);
-      if (!userMinutes || userMinutes <= 0) userMinutes = 0.01;
-
-      const totalTyped = parseFloat(h.TotalTypedWords || h.totalTypedWords || h.TotalWord || h.totalWord || 0);
-      const matchingWords = Math.round(parseFloat(h.NetSpeed || h.netSpeed || 0) * userMinutes) || Math.round((accuracy / 100) * (totalTyped || 100));
-
-      // Speed calculated with ADMIN ALLOTTED TIME (Toggle OFF)
-      const adminGross = Math.round(totalTyped / adminMinutes);
-      const adminNet = Math.round(matchingWords / adminMinutes);
-
-      // Speed calculated with USER TIME TAKEN (Toggle ON)
-      const userGross = Math.round(totalTyped / userMinutes);
-      const userNet = Math.round(matchingWords / userMinutes);
-
-      let col3Content = `${adminGross} WPM`;
-      let col4Content = `${adminNet} WPM`;
-
-      if (useTimeToggle) {
-        col3Content = `<span style="color: var(--primary); font-weight: 700;">${timeTakenStr || (userMinutes + ' mins')}</span>`;
-        col4Content = `Gross: ${userGross} | Net: ${userNet} WPM`;
-      }
-
-      html += `
-        <tr>
-          <td>${localDateDisplay}</td>
-          <td>${examName}</td>
-          <td>${col3Content}</td>
-          <td>${col4Content}</td>
-          <td>${accuracy}%</td>
-          <td>${marks} / ${totalMarks}</td>
-          <td>${submittedTimestamp}</td>
-          <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
-          <td><button class="btn btn-sm btn-primary" onclick="openTestComparison(${index})">View Material & Typed</button></td>
-        </tr>
-      `;
-    });
-
-    html += `</table>`;
-    container.innerHTML = html;
   });
+}
+
+function renderTestHistoryTable() {
+  const container = document.getElementById('test-history-container');
+  if (!container) return;
+
+  const useTimeToggle = document.getElementById('toggle-time-used')?.checked || false;
+  const searchInput = document.getElementById('history-search-input');
+  const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const filterSelect = document.getElementById('history-type-filter');
+
+  // 👉 Automatic fallback to "ALL History" tab if user types in the search bar
+  if (searchQuery && filterSelect) {
+    filterSelect.value = 'ALL';
+  }
+
+  const currentFilter = filterSelect ? filterSelect.value : 'ALL';
+  let historyList = [...allTestHistoryList];
+
+  // Apply dropdown type filtering
+  if (currentFilter === 'typing') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('typing'));
+  } else if (currentFilter === 'pitman') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('pitman'));
+  } else if (currentFilter === 'audio') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('audio'));
+  }
+
+  // 👉 Apply search query filtering (Includes both raw and formatted dates)
+  if (searchQuery) {
+    historyList = historyList.filter(h => {
+      const exam = (h.ExamName || h.examName || '').toLowerCase();
+      const user = (h.UserName || h.userName || '').toLowerCase();
+      const status = (h.Status || h.status || '').toLowerCase();
+      const rawDate = (h.Date || h.date || '');
+      const formattedDate = formatLocalDate(rawDate).toLowerCase();
+
+      return exam.includes(searchQuery) ||
+             user.includes(searchQuery) ||
+             status.includes(searchQuery) ||
+             rawDate.toLowerCase().includes(searchQuery) ||
+             formattedDate.includes(searchQuery);
+    });
+  }
+
+  if (historyList.length === 0) {
+    container.innerHTML = `<p style="color: var(--text-muted);">No history found matching your criteria.</p>`;
+    const pageIndicator = document.getElementById('history-page-indicator');
+    if (pageIndicator) pageIndicator.innerText = `Page 1 of 1 (0 entries)`;
+    return;
+  }
+
+  cachedTestHistory = historyList;
+
+  // --- 👉 PAGINATION SETUP (30 items per page) ---
+  const totalPages = Math.ceil(historyList.length / HISTORY_PER_PAGE) || 1;
+  if (typeof currentHistoryPage === 'undefined') currentHistoryPage = 1;
+  if (currentHistoryPage > totalPages) currentHistoryPage = totalPages;
+  if (currentHistoryPage < 1) currentHistoryPage = 1;
+
+  const startIndex = (currentHistoryPage - 1) * HISTORY_PER_PAGE;
+  const paginatedList = historyList.slice(startIndex, startIndex + HISTORY_PER_PAGE);
+
+  const pageIndicator = document.getElementById('history-page-indicator');
+  if (pageIndicator) {
+    pageIndicator.innerText = `Page ${currentHistoryPage} of ${totalPages} (${historyList.length} total entries)`;
+  }
+
+  let html = `
+    <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
+      <tr style="background: var(--border);">
+        <th>Date / Time</th>
+        <th>Exam / Exercise</th>
+        <th>${useTimeToggle ? 'Time Used' : 'Gross Spd (Admin Time)'}</th>
+        <th>${useTimeToggle ? 'Speed View (User Time)' : 'Net Spd (Admin Time)'}</th>
+        <th>Accuracy</th>
+        <th>Marks Obtained</th>
+        <th>Time Submitted</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+  `;
+
+  paginatedList.forEach((h, index) => {
+    // 👉 Map local page index to the true global index for view comparisons
+    const globalIndex = startIndex + index;
+    const localDateDisplay = formatLocalDate(h.Date || h.date);
+    const submittedTimestamp = h.submissionTime || h.submissionTimeFormatted || h.TimeUsed || '-';
+    const accuracy = parseFloat(h.AccuracyPercentage || h.accuracyPercentage || 0);
+    
+    const marks = h.MarksObtained || h.marksObtained || h.Marks || h.marks || '-';
+    const totalMarks = h.TotalMarks || h.totalMarks || 100;
+    const status = h.Status || h.status || 'FAILED';
+    const examName = h.ExamName || h.examName || '-';
+
+    // 1. Extract Admin Allotted Time in minutes (e.g., "5 Mins" -> 5)
+    let adminMinutes = 5;
+    const timeDurStr = String(h.TimeDuration || h.timeDuration || '5').toLowerCase();
+    const durMatch = timeDurStr.match(/([\d.]+)/);
+    if (durMatch && durMatch[1]) adminMinutes = parseFloat(durMatch[1]);
+    if (!adminMinutes || adminMinutes <= 0) adminMinutes = 5;
+
+    // 2. Extract User Time Taken in minutes (e.g., "1.50 mins" -> 1.50)
+    let userMinutes = adminMinutes;
+    const timeTakenStr = String(h.TimeTaken || h.timeTaken || h.TimeUsed || h.timeUsed || '').toLowerCase();
+    const takenMatch = timeTakenStr.match(/([\d.]+)/);
+    if (takenMatch && takenMatch[1]) userMinutes = parseFloat(takenMatch[1]);
+    if (!userMinutes || userMinutes <= 0) userMinutes = 0.01;
+
+    const totalTyped = parseFloat(h.TotalTypedWords || h.totalTypedWords || h.TotalWord || h.totalWord || 0);
+    const matchingWords = Math.round(parseFloat(h.NetSpeed || h.netSpeed || 0) * userMinutes) || Math.round((accuracy / 100) * (totalTyped || 100));
+
+    // Speed calculated with ADMIN ALLOTTED TIME (Toggle OFF)
+    const adminGross = Math.round(totalTyped / adminMinutes);
+    const adminNet = Math.round(matchingWords / adminMinutes);
+
+    // Speed calculated with USER TIME TAKEN (Toggle ON)
+    const userGross = Math.round(totalTyped / userMinutes);
+    const userNet = Math.round(matchingWords / userMinutes);
+
+    let col3Content = `${adminGross} WPM`;
+    let col4Content = `${adminNet} WPM`;
+
+    if (useTimeToggle) {
+      col3Content = `<span style="color: var(--primary); font-weight: 700;">${timeTakenStr || (userMinutes + ' mins')}</span>`;
+      col4Content = `Gross: ${userGross} | Net: ${userNet} WPM`;
+    }
+
+    html += `
+      <tr>
+        <td>${localDateDisplay}</td>
+        <td>${examName}</td>
+        <td>${col3Content}</td>
+        <td>${col4Content}</td>
+        <td>${accuracy}%</td>
+        <td>${marks} / ${totalMarks}</td>
+        <td>${submittedTimestamp}</td>
+        <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
+        <td><button class="btn btn-sm btn-primary" onclick="openTestComparison(${globalIndex})">View Material & Typed</button></td>
+      </tr>
+    `;
+  });
+
+  html += `</table>`;
+  container.innerHTML = html;
+}
+
+// 👉 Pagination button handler function
+function paginateHistory(direction) {
+  const searchInput = document.getElementById('history-search-input');
+  const filterSelect = document.getElementById('history-type-filter');
+  
+  const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const currentFilter = filterSelect ? filterSelect.value : 'ALL';
+  let historyList = [...allTestHistoryList];
+
+  if (currentFilter === 'typing') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('typing'));
+  } else if (currentFilter === 'pitman') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('pitman'));
+  } else if (currentFilter === 'audio') {
+    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('audio'));
+  }
+
+  // 👉 Apply search query filtering (Includes both raw and formatted dates)
+  if (search) {
+    historyList = historyList.filter(h => {
+      const exam = (h.ExamName || h.examName || '').toLowerCase();
+      const user = (h.UserName || h.userName || '').toLowerCase();
+      const status = (h.Status || h.status || '').toLowerCase();
+      const rawDate = (h.Date || h.date || '');
+      const formattedDate = formatLocalDate(rawDate).toLowerCase();
+
+      return exam.includes(search) ||
+             user.includes(search) ||
+             status.includes(search) ||
+             rawDate.toLowerCase().includes(search) ||
+             formattedDate.includes(search);
+    });
+  }
+
+  const totalPages = Math.ceil(historyList.length / HISTORY_PER_PAGE) || 1;
+
+  if (direction === 1 && currentHistoryPage < totalPages) {
+    currentHistoryPage++;
+  } else if (direction === -1 && currentHistoryPage > 1) {
+    currentHistoryPage--;
+  }
+  renderTestHistoryTable();
 }
 
 function openTestComparison(indexOrItem) {
@@ -4361,9 +4541,30 @@ function toggleModalSpeedView() {
 
   if (!historyItem) return;
 
-  const gross = historyItem.GrossSpeed || historyItem.grossSpeed || 0;
-  const net = historyItem.NetSpeed || historyItem.netSpeed || 0;
-  const timeTakenVal = historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || '-';
+  const adminGross = historyItem.GrossSpeed || historyItem.grossSpeed || 0;
+  const adminNet = historyItem.NetSpeed || historyItem.netSpeed || 0;
+
+  // 1. Extract Admin Allotted Time in minutes
+  let adminMinutes = 5;
+  const timeDurStr = String(historyItem.TimeDuration || historyItem.timeDuration || '5').toLowerCase();
+  const durMatch = timeDurStr.match(/([\d.]+)/);
+  if (durMatch && durMatch[1]) adminMinutes = parseFloat(durMatch[1]);
+  if (!adminMinutes || adminMinutes <= 0) adminMinutes = 5;
+
+  // 2. Extract User Time Taken in minutes
+  let userMinutes = adminMinutes;
+  const timeTakenStr = String(historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || '').toLowerCase();
+  const takenMatch = timeTakenStr.match(/([\d.]+)/);
+  if (takenMatch && takenMatch[1]) userMinutes = parseFloat(takenMatch[1]);
+  if (!userMinutes || userMinutes <= 0) userMinutes = 0.01;
+
+  const totalTyped = parseFloat(historyItem.TotalTypedWords || historyItem.totalTypedWords || historyItem.TotalWord || historyItem.totalWord || 0);
+  const accuracy = parseFloat(historyItem.AccuracyPercentage || historyItem.accuracyPercentage || 0);
+  const matchingWords = Math.round(adminNet * userMinutes) || Math.round((accuracy / 100) * (totalTyped || 100));
+
+  // Compute User Time-Based Speeds
+  const userGross = Math.round(totalTyped / userMinutes);
+  const userNet = Math.round(matchingWords / userMinutes);
 
   const grid = document.getElementById('modal-summary-metrics-grid');
   if (!grid) return;
@@ -4371,12 +4572,12 @@ function toggleModalSpeedView() {
   const items = grid.children;
   if (items.length >= 12) {
     items[10].innerHTML = isChecked 
-      ? `<strong>Time-Used View:</strong> <span style="color: var(--primary); font-weight: 700;">${timeTakenVal}</span>` 
-      : `<strong>Gross Speed:</strong> ${gross} WPM`;
+      ? `<strong>User Gross Speed:</strong> ${userGross} WPM` 
+      : `<strong>Gross Speed:</strong> ${adminGross} WPM`;
       
     items[11].innerHTML = isChecked 
-      ? `<strong>Speed Breakup:</strong> Gross ${gross} | Net ${net}` 
-      : `<strong>Net Speed:</strong> ${net} WPM`;
+      ? `<strong>User Net Speed:</strong> ${userNet} WPM` 
+      : `<strong>Net Speed:</strong> ${adminNet} WPM`;
   }
 }
 
@@ -5779,8 +5980,9 @@ async function openPdfModal(pdfUrl, title) {
       finalEmbedUrl = resolvedUrl;
     }
   } else {
-    // For external/direct PDF links, use Google Docs viewer to force inline embedding on mobile & desktop
-    finalEmbedUrl = `https://docs.google.com/gview?url=${encodeURIComponent(resolvedUrl)}&embedded=true`;
+    // 👉 For all other external/direct PDF links (including ssc.gov.in), use Mozilla PDF.js viewer 
+    // This renders cleanly inside mobile & desktop browsers without triggering forced downloads or server blocks.
+    finalEmbedUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(resolvedUrl)}`;
   }
 
   pdfZoomLevel = 1;
