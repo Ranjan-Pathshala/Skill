@@ -177,11 +177,25 @@
 .grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: visible; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 2px 8px var(--shadow); }
     .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px var(--shadow); }
-    .card-thumb { width: 100%; height: 110px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; background: var(--border); }
+    
+    /* Unified Card Thumbnail Styling */
+    .card-thumb { 
+      width: 100%; 
+      height: 120px; 
+      object-fit: contain; /* Ensures complete picture/thumbnail is shown without cropping */
+      border-radius: 8px; 
+      margin-bottom: 10px; 
+      background: var(--border); 
+      display: block;
+    }
 
     .video-grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
     .video-card { padding: 12px; }
-    .video-card .card-thumb { height: 95px; }
+    .video-card .card-thumb { 
+      height: 95px; 
+      object-fit: contain; /* Ensures complete picture/thumbnail is shown without cropping */
+      background: var(--border); /* Adds clean background padding if aspect ratios differ */
+    }
 
     .stat-card {
       background: var(--surface);
@@ -650,7 +664,7 @@
         <h5 style="margin-bottom: 8px; color: var(--secondary);">📋 Exam Details & Evaluation Rules</h5>
         <div id="typing-rules-summary" style="font-size: 13px; line-height: 1.6; display: flex; flex-direction: column; gap: 4px;"></div>
       </div>
-      <button class="btn btn-primary" style="width: 100%;" onclick="startConfiguredTypingExam()">Next / Start Exam</button>
+      <button class="btn btn-primary" style="width: 100%;" onclick="startConfiguredTypingExam()"> Start Exam </button>
     </div>
 
     <div style="margin-top: 15px; display: flex; justify-content: flex-start;">
@@ -836,7 +850,7 @@
           <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
             <h4> Existing Materials </h4>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <input type="text" id="admin-search-materials" class="form-control" placeholder="Search material..." oninput="currentAdminMaterialPage = 1; renderAdminMaterialsTable();" style="max-width: 220px;">
+              <input type="text" id="admin-search-materials" class="form-control" placeholder="Search material..." oninput="currentAdminMaterialPage = 1; document.getElementById('admin-filter-material-type').value='ALL'; renderAdminMaterialsTable();" style="max-width: 220px;">
               <select id="admin-filter-material-type" class="form-control" onchange="currentAdminMaterialPage = 1; renderAdminMaterialsTable();" style="max-width: 180px;">
                 <option value="ALL">All Types</option>
                 <option value="pdf">PDF</option>
@@ -861,18 +875,21 @@
         </div>
       </div>
 
-      <!-- Admin Users Tab -->
+<!-- Admin Users Tab -->
       <div id="admin-sub-users" class="admin-tab-body" style="display: none;">
         <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; align-items: center; justify-content: space-between;">
-          <input type="text" id="admin-search-users" class="form-control" placeholder="Search user by name, email, mobile..." oninput="renderAdminUsers()" style="max-width: 280px;">
+          <!-- 👉 Added currentAdminUserPage = 1 on input -->
+          <input type="text" id="admin-search-users" class="form-control" placeholder="Search user by name, email, mobile..." oninput="currentAdminUserPage = 1; document.getElementById('admin-filter-user-role').value='ALL'; document.getElementById('admin-filter-user-status').value='ALL'; renderAdminUsers()" style="max-width: 280px;">
           <div style="display: flex; gap: 8px;">
-            <select id="admin-filter-user-role" class="form-control" onchange="renderAdminUsers()" style="width: 140px;">
+            <!-- 👉 Added currentAdminUserPage = 1 on change -->
+            <select id="admin-filter-user-role" class="form-control" onchange="currentAdminUserPage = 1; renderAdminUsers()" style="width: 140px;">
               <option value="ALL">All Roles</option>
               <option value="user">User</option>
               <option value="member">Member</option>
               <option value="admin">Admin</option>
             </select>
-            <select id="admin-filter-user-status" class="form-control" onchange="renderAdminUsers()" style="width: 140px;">
+            <!-- 👉 Added currentAdminUserPage = 1 on change -->
+            <select id="admin-filter-user-status" class="form-control" onchange="currentAdminUserPage = 1; renderAdminUsers()" style="width: 140px;">
               <option value="ALL">All Statuses</option>
               <option value="active">Active</option>
               <option value="blocked">Blocked</option>
@@ -888,6 +905,13 @@
             </thead>
             <tbody id="admin-users-tbody"></tbody>
           </table>
+        </div>
+
+        <!-- 👉 ADD THIS: Pagination Controls Bar (30 items per page) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+          <button class="btn btn-secondary btn-sm" onclick="paginateAdminUsers(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+          <span id="admin-users-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+          <button class="btn btn-secondary btn-sm" onclick="paginateAdminUsers(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
         </div>
       </div>
 
@@ -913,7 +937,7 @@
         </div>
       </div>
 
-      <!-- Admin Subtab Tab -->
+<!-- Admin Subtab Tab -->
       <div id="admin-sub-subtabs" class="admin-tab-body" style="display: none;">
         <div class="card" style="max-width: 450px;">
           <h4>Create New Subtab</h4>
@@ -938,9 +962,33 @@
             </div>
           </form>
         </div>
+        
         <div style="margin-top: 20px;">
-          <h4>Existing Subtabs</h4>
+          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <h4>Existing Subtabs</h4>
+            
+            <!-- 👉 Search Bar and Type Filter Controls -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <input type="text" id="admin-search-subtabs" class="form-control" placeholder="Search subtab name..." oninput="currentAdminSubtabPage = 1; renderAdminSubtabsTable();" style="max-width: 220px;">
+              
+              <select id="admin-filter-subtab-type" class="form-control" onchange="currentAdminSubtabPage = 1; renderAdminSubtabsTable();" style="max-width: 180px;">
+                <option value="ALL">All Types</option>
+                <option value="pdf">PDF</option>
+                <option value="audio">Audio</option>
+                <option value="pitman">Pitman Book</option>
+                <option value="typingtest">Typing Test</option>
+              </select>
+            </div>
+          </div>
+
           <div id="admin-subtabs-table-container"></div>
+          
+          <!-- 👉 Pagination Controls Bar (30 items per page) -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+            <button class="btn btn-secondary btn-sm" onclick="paginateAdminSubtabs(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+            <span id="admin-subtabs-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+            <button class="btn btn-secondary btn-sm" onclick="paginateAdminSubtabs(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+          </div>
         </div>
       </div>
 
@@ -1189,18 +1237,36 @@
         </div>
       </div>
 
-      <!-- Admin Leaderboard Tab (Datewise Complete Leaderboard)[cite: 1] -->
+<!-- Admin Leaderboard Tab (Datewise Complete Leaderboard with Search, Filter & Pagination) -->
       <div id="admin-sub-leaderboard" class="admin-tab-body" style="display: none;">
         <div class="card">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
             <h4>🏆 Admin Datewise Complete Leaderboard</h4>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <label style="font-weight: 600; font-size: 13px;">Select Date:</label>
-              <input type="date" id="admin-leaderboard-date" class="form-control" onchange="renderAdminLeaderboard()" style="max-width: 180px;">
+            
+            <!-- 👉 Search Bar, Filter & Date Selector Controls -->
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <input type="text" id="admin-search-leaderboard" class="form-control" placeholder="Search user or exam..." oninput="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 200px;">
+              
+              <select id="admin-filter-leaderboard-status" class="form-control" onchange="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 140px;">
+                <option value="ALL">All Statuses</option>
+                <option value="PASSED">Passed Only</option>
+                <option value="FAILED">Failed Only</option>
+              </select>
+
+              <label style="font-weight: 600; font-size: 13px;">Date:</label>
+              <input type="date" id="admin-leaderboard-date" class="form-control" onchange="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 160px;">
             </div>
           </div>
+
           <div id="admin-leaderboard-container" style="overflow-x: auto;">
             <p style="color: var(--text-muted);">Loading leaderboard data...</p>
+          </div>
+
+          <!-- 👉 Pagination Controls Bar (30 items per page) -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+            <button class="btn btn-secondary btn-sm" onclick="paginateAdminLeaderboard(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+            <span id="admin-leaderboard-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+            <button class="btn btn-secondary btn-sm" onclick="paginateAdminLeaderboard(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
           </div>
         </div>
       </div>
@@ -1208,13 +1274,14 @@
 <!-- Admin Feedback Tab -->
 <div id="admin-sub-feedback-admin" class="admin-tab-body" style="display: none;">
   <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px;">
-    <input type="text" id="admin-search-feedback" class="form-control" placeholder="Search feedback by user, message..." oninput="renderAdminFeedback()" style="max-width: 280px;">
-    <select id="admin-filter-feedback-status" class="form-control" onchange="renderAdminFeedback()" style="max-width: 180px;">
+    <input type="text" id="admin-search-feedback" class="form-control" placeholder="Search feedback by user, message..." oninput="currentAdminFeedbackPage = 1; renderAdminFeedback()" style="max-width: 280px;">
+    <select id="admin-filter-feedback-status" class="form-control" onchange="currentAdminFeedbackPage = 1; renderAdminFeedback()" style="max-width: 180px;">
       <option value="ALL">All Statuses</option>
       <option value="replied">Replied</option>
       <option value="pending">Pending Reply</option>
     </select>
   </div>
+  
   <div style="overflow-x: auto;">
     <table style="width: 100%; border-collapse: collapse; font-size: 12px;" border="1" borderColor="var(--border)" cellpadding="8">
       <thead>
@@ -1224,6 +1291,13 @@
       </thead>
       <tbody id="admin-feedback-tbody"></tbody>
     </table>
+  </div>
+
+  <!-- 👉 Pagination Controls Bar (30 items per page) -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+    <button class="btn btn-secondary btn-sm" onclick="paginateAdminFeedback(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+    <span id="admin-feedback-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+    <button class="btn btn-secondary btn-sm" onclick="paginateAdminFeedback(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
   </div>
 </div>
 </section>
@@ -1356,11 +1430,23 @@ function getLocalDateString() {
 
 
 let currentUser = JSON.parse(localStorage.getItem('steno_user')) || null;
-    let activeTab = 'dashboard';
-    let globalData = { announcements: [], homework: [], stats: {}, banner: [], materials: [], history: [] };
-    let materialsData = [];
-    let subtabsData = [];
-    let adminData = { users: [], logs: [], feedback: [], materials: [], subtabs: [], history: [] };
+let activeTab = 'dashboard';
+let globalData = { announcements: [], homework: [], stats: [], banner: [], materials: [], history: [] };
+let materialsData = [];
+let subtabsData = [];
+let adminData = { users: [], logs: [], feedback: [], materials: [], subtabs: [], history: [] };
+
+// 👉 Add these lines here:
+const ADMIN_FEEDBACK_PER_PAGE = 30;
+let currentAdminFeedbackPage = 1;
+
+// 👉 Add these two lines for Leaderboard Pagination:
+const ADMIN_LEADERBOARD_PER_PAGE = 30;
+let currentAdminLeaderboardPage = 1;
+
+const ADMIN_USERS_PER_PAGE = 30;
+let currentAdminUserPage = 1;
+
 
     // Default Comprehensive Evaluation Rules
     const defaultEvaluationRule = {
@@ -1491,26 +1577,44 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
 async function initApp() {
-      // Fetch evaluation rules from backend on app startup so all users have them
-      const ruleRes = await apiCall('getEvaluationRules', {});
-      if (ruleRes.success && ruleRes.rulesMap) {
-        for (var rKey in ruleRes.rulesMap) {
-          allEvaluationRules[rKey] = ruleRes.rulesMap[rKey];
-        }
-        localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+      // 1. Load evaluation rules instantly from localStorage first (Zero latency)
+      const localRules = localStorage.getItem('steno_all_eval_rules');
+      if (localRules) {
+        try {
+          allEvaluationRules = JSON.parse(localRules);
+        } catch (e) {}
       }
 
       if (currentUser && currentUser.token) {
+        // 2. Render UI and navigate instantly using cached state
         setupAuthenticatedUI();
         navigateTo('dashboard', false);
-        await verifyUserSession();
+        
+        // 3. Run session verification and rule fetching silently in the background
+        Promise.all([
+          verifyUserSession(),
+          apiCall('getEvaluationRules', {}, true), // silent: true prevents the loader from showing
+          apiCall('getDashboardData', {}, true)
+        ]).then(([sessionRes, ruleRes, dashRes]) => {
+          if (ruleRes && ruleRes.success && ruleRes.rulesMap) {
+            allEvaluationRules = ruleRes.rulesMap;
+            localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+          }
+          if (dashRes && dashRes.success) {
+            globalData = dashRes;
+            // Refresh dashboard components with fresh data quietly
+            if (typeof renderAnnouncements === 'function') renderAnnouncements();
+            if (typeof renderHomework === 'function') renderHomework();
+          }
+        });
       } else {
         renderAuthView();
       }
     }
 
     async function fetchPublicFooterStats() {
-      const res = await apiCall('getPublicStats', {});
+      // Fetch public stats silently so it never triggers the loading spinner
+      const res = await apiCall('getPublicStats', {}, true);
       if (res.success && res.stats) {
         const userElement = document.getElementById('footer-total-users');
         const visitElement = document.getElementById('footer-total-visits');
@@ -1521,10 +1625,12 @@ async function initApp() {
 
     async function verifyUserSession() {
       if (!currentUser) return;
+      // Pass true for 'silent' so background session checks don't flash the loader
       const res = await apiCall('login', {
         identifier: currentUser.email || currentUser.mobile,
         password: currentUser.password
-      });
+      }, true);
+      
       if (res.success) {
         currentUser = { ...res.user, password: currentUser.password };
         localStorage.setItem('steno_user', JSON.stringify(currentUser));
@@ -1535,8 +1641,8 @@ async function initApp() {
       }
     }
 
-    async function apiCall(action, payload = {}, retries = 3, delay = 2000) {
-      showLoader(true);
+async function apiCall(action, payload = {}, silent = false, retries = 3, delay = 1500) {
+      if (!silent) showLoader(true);
       try {
         const response = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
@@ -1547,20 +1653,20 @@ async function initApp() {
         
         // Auto-retry if the server is busy/timed out and retries remain
         if (!result.success && result.message && (result.message.includes('Server busy') || result.message.includes('busy')) && retries > 0) {
-          showLoader(false);
+          if (!silent) showLoader(false);
           await new Promise(resolve => setTimeout(resolve, delay + Math.random() * 1000));
-          return apiCall(action, payload, retries - 1, delay * 1.5);
+          return apiCall(action, payload, silent, retries - 1, delay * 1.5);
         }
 
-        showLoader(false);
+        if (!silent) showLoader(false);
         return result;
       } catch (err) {
-        showLoader(false);
+        if (!silent) showLoader(false);
         if (retries > 0) {
           await new Promise(resolve => setTimeout(resolve, delay));
-          return apiCall(action, payload, retries - 1, delay * 1.5);
+          return apiCall(action, payload, silent, retries - 1, delay * 1.5);
         }
-        showToast('Connection to server failed. Please check internet connection.');
+        showToast('Connection to server failed. Working with cached data.');
         return { success: false, message: 'Server offline' };
       }
     }
@@ -1610,7 +1716,7 @@ async function initApp() {
       });
     }
 
-function populateEvalCategoryDropdown() {
+    function populateEvalCategoryDropdown() {
       const select = document.getElementById('eval-category-select');
       if (!select) return;
       
@@ -1630,7 +1736,7 @@ function populateEvalCategoryDropdown() {
       populateSavedRulesQuickDropdown(); // Refresh saved rules list
     }
 
-    // 👉 NEW: Populates the quick dropdown with all currently saved rules in localStorage
+    // Populates the quick dropdown with all currently saved rules in localStorage
     function populateSavedRulesQuickDropdown() {
       const quickSelect = document.getElementById('saved-rules-quick-select');
       if (!quickSelect) return;
@@ -1651,7 +1757,7 @@ function populateEvalCategoryDropdown() {
       });
     }
 
-    // 👉 NEW: Loads a selected saved rule directly into the form for editing
+    // Loads a selected saved rule directly into the form for editing
     function loadSpecificSavedRule(ruleKey) {
       if (!ruleKey || !allEvaluationRules[ruleKey]) return;
 
@@ -3894,101 +4000,139 @@ async function submitStenoTest() {
 
 let cachedTestHistory = []; // 👉 Global cache variable for history items
 
-async function loadTestHistory() {
+function loadTestHistory() {
   const container = document.getElementById('test-history-container');
   if (!container || !currentUser) return;
 
-  const res = await apiCall('getTestHistory', { userId: currentUser.userId });
-  if (!res.success || !res.historyList || res.historyList.length === 0) {
-    container.innerHTML = '<p style="color: var(--text-muted);">No test or practice history recorded yet.</p>';
-    return;
-  }
+  apiCall('getTestHistory', { userId: currentUser.userId }).then(res => {
+    if (!res.success || !res.historyList || res.historyList.length === 0) {
+      container.innerHTML = '<p style="color: var(--text-muted);">No test or practice history recorded yet.</p>';
+      return;
+    }
 
-  const filterType = document.getElementById('history-type-filter')?.value || 'ALL';
-  const useTimeToggle = document.getElementById('toggle-time-used')?.checked || false;
+    const filterType = document.getElementById('history-type-filter')?.value || 'ALL';
+    const useTimeToggle = document.getElementById('toggle-time-used')?.checked || false;
 
-  let historyList = res.historyList;
-  if (filterType === 'typing') {
-    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('typing'));
-  } else if (filterType === 'pitman') {
-    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('pitman'));
-  } else if (filterType === 'audio') {
-    historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('audio'));
-  }
+    let historyList = res.historyList;
+    if (filterType === 'typing') {
+      historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('typing'));
+    } else if (filterType === 'pitman') {
+      historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('pitman'));
+    } else if (filterType === 'audio') {
+      historyList = historyList.filter(h => (h.ExamName || h.examName || '').toLowerCase().includes('audio'));
+    }
 
-  if (historyList.length === 0) {
-    container.innerHTML = `<p style="color: var(--text-muted);">No history found for filter: ${filterType}.</p>`;
-    return;
-  }
+    if (historyList.length === 0) {
+      container.innerHTML = `<p style="color: var(--text-muted);">No history found for filter: ${filterType}.</p>`;
+      return;
+    }
 
-  // 👉 Cache the fetched history list globally
-  cachedTestHistory = historyList;
+    cachedTestHistory = historyList;
 
-  let html = `
-    <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
-      <tr style="background: var(--border);">
-        <th>Date / Time</th>
-        <th>Exam / Exercise</th>
-        <th>Gross Spd</th>
-        <th>Net Spd</th>
-        <th>Accuracy</th>
-        <th>Marks Obtained</th>
-        <th>Time Submitted</th>
-        <th>Status</th>
-        <th>Action</th>
-      </tr>
-  `;
-
-  historyList.forEach((h, index) => {
-    const localDateDisplay = formatLocalDate(h.Date || h.date);
-    const submittedTimestamp = h.submissionTime || h.submissionTimeFormatted || h.TimeUsed || '-';
-    const displayGross = h.GrossSpeed || h.grossSpeed || 0;
-    const displayNet = h.NetSpeed || h.netSpeed || 0;
-    const accuracy = h.AccuracyPercentage || h.accuracyPercentage || 0;
-    
-    // 👉 Updated to check alternative key variations for marks and total marks
-    const marks = h.MarksObtained || h.marksObtained || h.Marks || h.marks || h.Score || h.score || '-';
-    const totalMarks = h.TotalMarks || h.totalMarks || h.Total || h.total || 100;
-    
-    const status = h.Status || h.status || 'FAILED';
-    const examName = h.ExamName || h.examName || '-';
-
-    html += `
-      <tr>
-        <td>${localDateDisplay}</td>
-        <td>${examName}</td>
-        <td>${displayGross} WPM</td>
-        <td>${displayNet} WPM</td>
-        <td>${accuracy}%</td>
-        <td>${marks} / ${totalMarks}</td>
-        <td>${submittedTimestamp}</td>
-        <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
-        <!-- 👉 Pass the array index safely instead of stringifying the object -->
-        <td><button class="btn btn-sm btn-primary" onclick="openTestComparison(${index})">View Material & Typed</button></td>
-      </tr>
+    let html = `
+      <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
+        <tr style="background: var(--border);">
+          <th>Date / Time</th>
+          <th>Exam / Exercise</th>
+          <th>${useTimeToggle ? 'Time Used' : 'Gross Spd (Admin Time)'}</th>
+          <th>${useTimeToggle ? 'Speed View (User Time)' : 'Net Spd (Admin Time)'}</th>
+          <th>Accuracy</th>
+          <th>Marks Obtained</th>
+          <th>Time Submitted</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
     `;
-  });
 
-  html += `</table>`;
-  container.innerHTML = html;
+    historyList.forEach((h, index) => {
+      const localDateDisplay = formatLocalDate(h.Date || h.date);
+      const submittedTimestamp = h.submissionTime || h.submissionTimeFormatted || h.TimeUsed || '-';
+      const accuracy = parseFloat(h.AccuracyPercentage || h.accuracyPercentage || 0);
+      
+      const marks = h.MarksObtained || h.marksObtained || h.Marks || h.marks || '-';
+      const totalMarks = h.TotalMarks || h.totalMarks || 100;
+      const status = h.Status || h.status || 'FAILED';
+      const examName = h.ExamName || h.examName || '-';
+
+      // 1. Extract Admin Allotted Time in minutes (e.g., "5 Mins" -> 5)
+      let adminMinutes = 5;
+      const timeDurStr = String(h.TimeDuration || h.timeDuration || '5').toLowerCase();
+      const durMatch = timeDurStr.match(/([\d.]+)/);
+      if (durMatch && durMatch[1]) adminMinutes = parseFloat(durMatch[1]);
+      if (!adminMinutes || adminMinutes <= 0) adminMinutes = 5;
+
+      // 2. Extract User Time Taken in minutes (e.g., "1.50 mins" -> 1.50)
+      let userMinutes = adminMinutes;
+      const timeTakenStr = String(h.TimeTaken || h.timeTaken || h.TimeUsed || h.timeUsed || '').toLowerCase();
+      const takenMatch = timeTakenStr.match(/([\d.]+)/);
+      if (takenMatch && takenMatch[1]) userMinutes = parseFloat(takenMatch[1]);
+      if (!userMinutes || userMinutes <= 0) userMinutes = 0.01;
+
+      const totalTyped = parseFloat(h.TotalTypedWords || h.totalTypedWords || h.TotalWord || h.totalWord || 0);
+      const matchingWords = Math.round(parseFloat(h.NetSpeed || h.netSpeed || 0) * userMinutes) || Math.round((accuracy / 100) * (totalTyped || 100));
+
+      // Speed calculated with ADMIN ALLOTTED TIME (Toggle OFF)
+      const adminGross = Math.round(totalTyped / adminMinutes);
+      const adminNet = Math.round(matchingWords / adminMinutes);
+
+      // Speed calculated with USER TIME TAKEN (Toggle ON)
+      const userGross = Math.round(totalTyped / userMinutes);
+      const userNet = Math.round(matchingWords / userMinutes);
+
+      let col3Content = `${adminGross} WPM`;
+      let col4Content = `${adminNet} WPM`;
+
+      if (useTimeToggle) {
+        col3Content = `<span style="color: var(--primary); font-weight: 700;">${timeTakenStr || (userMinutes + ' mins')}</span>`;
+        col4Content = `Gross: ${userGross} | Net: ${userNet} WPM`;
+      }
+
+      html += `
+        <tr>
+          <td>${localDateDisplay}</td>
+          <td>${examName}</td>
+          <td>${col3Content}</td>
+          <td>${col4Content}</td>
+          <td>${accuracy}%</td>
+          <td>${marks} / ${totalMarks}</td>
+          <td>${submittedTimestamp}</td>
+          <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
+          <td><button class="btn btn-sm btn-primary" onclick="openTestComparison(${index})">View Material & Typed</button></td>
+        </tr>
+      `;
+    });
+
+    html += `</table>`;
+    container.innerHTML = html;
+  });
 }
 
 function openTestComparison(indexOrItem) {
-  // 👉 Safely resolve the history item using the index or direct object
-  const historyItem = (typeof indexOrItem === 'object' && indexOrItem !== null) 
+  // 👉 Safely resolve the history item using the index or direct object & cache it globally for toggles
+  window._currentComparisonItem = (typeof indexOrItem === 'object' && indexOrItem !== null) 
     ? indexOrItem 
     : cachedTestHistory[indexOrItem];
+
+  const historyItem = window._currentComparisonItem;
 
   if (!historyItem) {
     showToast('Error loading test comparison details.');
     return;
   }
 
-const modal = document.getElementById('reader-modal');
+  const modal = document.getElementById('reader-modal');
   const body = document.getElementById('modal-viewport');
   const titleEl = document.getElementById('modal-title');
-  if (titleEl) titleEl.innerText = `Detailed Test Comparison (Full Screen): ${historyItem.ExamName || historyItem.examName} (${historyItem.Date || historyItem.date})`;
+  
+  // 👉 Defensive property access supporting both uppercase and lowercase keys
+  const examNameVal = historyItem.ExamName || historyItem.examName || '-';
+  const dateVal = formatLocalDate(historyItem.Date || historyItem.date || historyItem.TypingDate || '');
+  
+  if (titleEl) {
+    titleEl.innerText = `Detailed Test Comparison : ${examNameVal} (${dateVal})`;
+  }
 
+  // 👉 Defensive extraction of reference and user transcription text
   const refText = historyItem.ReferenceText || historyItem.referenceText || '';
   const userText = historyItem.UserTranscription || historyItem.userTranscription || '';
 
@@ -4025,10 +4169,9 @@ const modal = document.getElementById('reader-modal');
   let annotatedUserHtml = [];
   let annotatedRefHtml = [];
 
-  // 👉 Counters to compute live stats directly from the comparison loop
-  let computedWrongWords = 0; // Spelling/Wrong words
-  let computedWordsLeft = 0;   // Omissions
-  let computedExtraWords = 0; // Extra words
+  let computedWrongWords = 0; 
+  let computedWordsLeft = 0;   
+  let computedExtraWords = 0; 
   let computedCapitalErrors = 0;
   let computedPunctuationErrors = { extra: 0, left: 0, wrong: 0 };
 
@@ -4042,7 +4185,6 @@ const modal = document.getElementById('reader-modal');
         computedCapitalErrors++;
       }
 
-      // Check punctuation mismatch on matching words
       if (refT.punct !== userT.punct) {
         if (!refT.punct && userT.punct) computedPunctuationErrors.extra++;
         else if (refT.punct && !userT.punct) computedPunctuationErrors.left++;
@@ -4059,7 +4201,6 @@ const modal = document.getElementById('reader-modal');
       i--;
       j--;
     } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1]) {
-      // 👉 Accurate spelling/wrong word substitution detection
       computedWrongWords++;
       const refT = refTokens[i - 1];
       const userT = userTokens[j - 1];
@@ -4083,7 +4224,7 @@ const modal = document.getElementById('reader-modal');
       annotatedUserHtml.unshift(`<span style="color: var(--danger); font-weight: bold; margin: 0 2px;" title="Word Left / Omission">(Left) <s>${refTokens[i - 1].raw}</s></span>`);
       i--;
     } else {
-      computedWrongWords++; // Spelling error fallback
+      computedWrongWords++; 
       const refT = refTokens[i - 1];
       const userT = userTokens[j - 1];
       if (refT.punct !== userT.punct) computedPunctuationErrors.wrong++;
@@ -4107,7 +4248,6 @@ const modal = document.getElementById('reader-modal');
     const paraNotChangedCount = historyItem.ParaNotChanged ?? historyItem.paraNotChanged ?? 0;
     const capitalErrorCount = historyItem.CapitalError ?? historyItem.capitalError ?? computedCapitalErrors;
     
-    // Detailed Punctuation Totals
     const totalPunctErrorCount = computedPunctuationErrors.extra + computedPunctuationErrors.left + computedPunctuationErrors.wrong;
 
     const wrongDeduction = historyItem.wrongTypedDeduction ?? (wrongWordsCount * 1.0).toFixed(2);
@@ -4117,10 +4257,8 @@ const modal = document.getElementById('reader-modal');
     const capitalDeduction = historyItem.capitalDeduction ?? (capitalErrorCount * 0.25).toFixed(2);
     const punctuationDeduction = historyItem.punctuationDeduction ?? (totalPunctErrorCount * 0.5).toFixed(2);
 
-    const examTitle = historyItem.ExamName || historyItem.examName || '-';
     const passageTitle = historyItem.PassageTitle || historyItem.passageTitle || historyItem.Title || '-';
     const timeDuration = historyItem.TimeDuration || historyItem.timeDuration || '5 Mins';
-    const typingDate = formatLocalDate(historyItem.Date || historyItem.date || historyItem.TypingDate);
     const timeTaken = historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || '-';
     const errorRelaxed = historyItem.ErrorRelaxed || historyItem.errorRelaxed || '5%';
     const penaltyWord = historyItem.PenaltyWord || historyItem.penaltyWord || '1.0';
@@ -4130,14 +4268,19 @@ const modal = document.getElementById('reader-modal');
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 20px; width: 100vw; height: calc(100vh - 50px); max-width: 1400px; margin: 0 auto; overflow-y: auto;">
         
         <div style="background: var(--surface); border: 1px solid var(--border); padding: 18px; border-radius: var(--radius); box-shadow: 0 4px 12px var(--shadow);">
-          <h4 style="margin-bottom: 12px; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Comprehensive Exam Details & Evaluation Summary
-          </h4>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13px;">
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Exam Title:</strong> ${examTitle}</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+            <h4 style="color: var(--secondary); display: flex; align-items: center; gap: 8px; margin: 0;">
+              <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Comprehensive Exam Details & Evaluation Summary :- 
+            </h4>
+            <label style="display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; font-size: 13px; background: var(--border); padding: 6px 12px; border-radius: 20px;">
+              <input type="checkbox" id="modal-toggle-time-used" onchange="toggleModalSpeedView()"> Speed Based on Time Taken 
+            </label>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13px;" id="modal-summary-metrics-grid">
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Exam Title:</strong> ${examNameVal}</div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Passage Title:</strong> ${passageTitle}</div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Time Duration:</strong> ${timeDuration}</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Typing Date:</strong> ${typingDate}</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Typing Date:</strong> ${dateVal}</div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Time Taken:</strong> ${timeTaken}</div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Error Relaxed:</strong> ${errorRelaxed}</div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Penalty Word:</strong> ${penaltyWord}</div>
@@ -4149,7 +4292,6 @@ const modal = document.getElementById('reader-modal');
           </div>
         </div>
 
-        <!-- Material vs User Typed Stats & Breakdown Cards -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
           <div class="card" style="border-left: 4px solid var(--info, #3b82f6); padding: 14px;">
             <h5 style="color: var(--info, #3b82f6); margin-bottom: 6px;"><i class="fa-solid fa-file-lines"></i> Material Stats</h5>
@@ -4194,11 +4336,11 @@ const modal = document.getElementById('reader-modal');
 
         <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
           <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column;">
-            <h4 style="margin-bottom: 6px; color: var(--secondary);">📑 Reference Master Passage (Normal)</h4>
+            <h4 style="margin-bottom: 6px; color: var(--secondary);"> 📑 Master Passage </h4>
             <div class="watermark-text-container" style="background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: 8px; flex: 1; min-height: 250px; overflow-y: auto; line-height: 1.8; font-size: 14px; color: #000000;">${annotatedRefHtml.join(' ')}</div>
           </div>
           <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column;">
-            <h4 style="margin-bottom: 6px; color: var(--secondary);">⌨️ User Typed Transcription</h4>
+            <h4 style="margin-bottom: 6px; color: var(--secondary);"> ⌨️ Your Transcription </h4>
             <div class="watermark-text-container" style="background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: 8px; flex: 1; min-height: 250px; overflow-y: auto; line-height: 1.8; font-size: 14px; font-family: monospace; color: #000000;">${annotatedUserHtml.join(' ')}</div>
           </div>
         </div>
@@ -4209,6 +4351,32 @@ const modal = document.getElementById('reader-modal');
   if (modal) {
     modal.style.display = 'flex';
     toggleFullscreen();
+  }
+}
+
+// 👉 Helper function for toggling speed view inside the modal evaluation summary
+function toggleModalSpeedView() {
+  const isChecked = document.getElementById('modal-toggle-time-used')?.checked || false;
+  const historyItem = window._currentComparisonItem;
+
+  if (!historyItem) return;
+
+  const gross = historyItem.GrossSpeed || historyItem.grossSpeed || 0;
+  const net = historyItem.NetSpeed || historyItem.netSpeed || 0;
+  const timeTakenVal = historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || '-';
+
+  const grid = document.getElementById('modal-summary-metrics-grid');
+  if (!grid) return;
+
+  const items = grid.children;
+  if (items.length >= 12) {
+    items[10].innerHTML = isChecked 
+      ? `<strong>Time-Used View:</strong> <span style="color: var(--primary); font-weight: 700;">${timeTakenVal}</span>` 
+      : `<strong>Gross Speed:</strong> ${gross} WPM`;
+      
+    items[11].innerHTML = isChecked 
+      ? `<strong>Speed Breakup:</strong> Gross ${gross} | Net ${net}` 
+      : `<strong>Net Speed:</strong> ${net} WPM`;
   }
 }
 
@@ -4337,9 +4505,13 @@ async function loadAdminData() {
       }
     }
 
-    function renderAdminLeaderboard() {
+function renderAdminLeaderboard() {
       const container = document.getElementById('admin-leaderboard-container');
+      const pageIndicator = document.getElementById('admin-leaderboard-page-indicator');
       const dateInput = document.getElementById('admin-leaderboard-date');
+      const searchInput = document.getElementById('admin-search-leaderboard');
+      const statusFilterSelect = document.getElementById('admin-filter-leaderboard-status');
+      
       if (!container) return;
 
       if (dateInput && !dateInput.value) {
@@ -4347,17 +4519,53 @@ async function loadAdminData() {
       }
 
       const selectedDate = dateInput ? dateInput.value : getLocalDateString();
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+      // 👉 Automatically change status filter to 'ALL' whenever a search is performed
+      if (search && statusFilterSelect) {
+        statusFilterSelect.value = 'ALL';
+      }
+
+      const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
       const allHistory = adminData.history || globalData.history || [];
       
-      const filtered = allHistory.filter(h => {
+      // 1. Strictly filter results for the selected date only
+      let filtered = allHistory.filter(h => {
         const hDate = formatLocalDate(h.Date || h.date);
         return hDate === selectedDate;
       });
 
+      // 2. Filter by Search Query within that selected date's data
+      if (search) {
+        filtered = filtered.filter(h => {
+          const uName = String(h.UserName || '').toLowerCase();
+          const eName = String(h.ExamName || '').toLowerCase();
+          return uName.includes(search) || eName.includes(search);
+        });
+      }
+
+      // 3. Filter by Status (PASSED / FAILED)
+      if (statusFilter !== 'ALL') {
+        filtered = filtered.filter(h => String(h.Status || '').toUpperCase() === statusFilter.toUpperCase());
+      }
+
+      // Sort descending by Accuracy percentage
       filtered.sort((a, b) => parseFloat(b.AccuracyPercentage || 0) - parseFloat(a.AccuracyPercentage || 0));
 
-      if (filtered.length === 0) {
-        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 20px;">No test submissions found for date: ${selectedDate}</p>`;
+      // 4. Pagination Slicing (30 items per page)
+      const totalPages = Math.ceil(filtered.length / ADMIN_LEADERBOARD_PER_PAGE) || 1;
+      if (currentAdminLeaderboardPage > totalPages) currentAdminLeaderboardPage = totalPages;
+      if (currentAdminLeaderboardPage < 1) currentAdminLeaderboardPage = 1;
+
+      const startIndex = (currentAdminLeaderboardPage - 1) * ADMIN_LEADERBOARD_PER_PAGE;
+      const paginatedList = filtered.slice(startIndex, startIndex + ADMIN_LEADERBOARD_PER_PAGE);
+
+      if (pageIndicator) {
+        pageIndicator.innerText = `Page ${currentAdminLeaderboardPage} of ${totalPages} (${filtered.length} total entries)`;
+      }
+
+      if (paginatedList.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 20px;">No test submissions found matching your criteria for date: ${selectedDate}</p>`;
         return;
       }
 
@@ -4368,10 +4576,11 @@ async function loadAdminData() {
           </tr>
       `;
 
-      filtered.forEach((h, index) => {
+      paginatedList.forEach((h, index) => {
+        const globalRank = startIndex + index + 1;
         html += `
           <tr>
-            <td><strong>#${index + 1}</strong></td>
+            <td><strong>#${globalRank}</strong></td>
             <td>${h.UserName}</td>
             <td>${h.ExamName}</td>
             <td>${h.AccuracyPercentage}%</td>
@@ -4386,8 +4595,37 @@ async function loadAdminData() {
       container.innerHTML = html;
     }
 
+    function paginateAdminLeaderboard(direction) {
+      const dateInput = document.getElementById('admin-leaderboard-date');
+      const searchInput = document.getElementById('admin-search-leaderboard');
+      const statusFilterSelect = document.getElementById('admin-filter-leaderboard-status');
+      
+      const selectedDate = dateInput ? dateInput.value : getLocalDateString();
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
+      const allHistory = adminData.history || globalData.history || [];
+
+      let filtered = allHistory.filter(h => formatLocalDate(h.Date || h.date) === selectedDate);
+      if (search) {
+        filtered = filtered.filter(h => String(h.UserName || '').toLowerCase().includes(search) || String(h.ExamName || '').toLowerCase().includes(search));
+      }
+      if (statusFilter !== 'ALL') {
+        filtered = filtered.filter(h => String(h.Status || '').toUpperCase() === statusFilter.toUpperCase());
+      }
+
+      const totalPages = Math.ceil(filtered.length / ADMIN_LEADERBOARD_PER_PAGE) || 1;
+
+      if (direction === 1 && currentAdminLeaderboardPage < totalPages) {
+        currentAdminLeaderboardPage++;
+      } else if (direction === -1 && currentAdminLeaderboardPage > 1) {
+        currentAdminLeaderboardPage--;
+      }
+      renderAdminLeaderboard();
+    }
+
     function renderAdminUsers() {
       const tbody = document.getElementById('admin-users-tbody');
+      const pageIndicator = document.getElementById('admin-users-page-indicator');
       if (!tbody) return;
       tbody.innerHTML = '';
       
@@ -4397,18 +4635,6 @@ async function loadAdminData() {
       const statusFilterSelect = document.getElementById('admin-filter-user-status');
 
       const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
-      const roleFilter = roleFilterSelect ? roleFilterSelect.value : 'ALL';
-      const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
-
-      if (search) {
-        if (roleFilterSelect && roleFilterSelect.value !== 'ALL') {
-          roleFilterSelect.value = 'ALL';
-        }
-        if (statusFilterSelect && statusFilterSelect.value !== 'ALL') {
-          statusFilterSelect.value = 'ALL';
-        }
-      }
-
       const activeRole = roleFilterSelect ? roleFilterSelect.value : 'ALL';
       const activeStatus = statusFilterSelect ? statusFilterSelect.value : 'ALL';
 
@@ -4418,7 +4644,6 @@ async function loadAdminData() {
           const email = String(u.Email || '').toLowerCase();
           const mobile = String(u.Mobile || '').toLowerCase();
           const userId = String(u.UserID || '').toLowerCase();
-          
           return name.includes(search) || email.includes(search) || mobile.includes(search) || userId.includes(search);
         });
       }
@@ -4431,12 +4656,25 @@ async function loadAdminData() {
         users = users.filter(u => String(u.Status || '').toLowerCase() === activeStatus.toLowerCase());
       }
 
-      if (users.length === 0) {
+      // --- 👉 PAGINATION SETUP (30 items per page) ---
+      const totalPages = Math.ceil(users.length / ADMIN_USERS_PER_PAGE) || 1;
+      if (typeof currentAdminUserPage === 'undefined') currentAdminUserPage = 1;
+      if (currentAdminUserPage > totalPages) currentAdminUserPage = totalPages;
+      if (currentAdminUserPage < 1) currentAdminUserPage = 1;
+
+      const startIndex = (currentAdminUserPage - 1) * ADMIN_USERS_PER_PAGE;
+      const paginatedUsers = users.slice(startIndex, startIndex + ADMIN_USERS_PER_PAGE);
+
+      if (pageIndicator) {
+        pageIndicator.innerText = `Page ${currentAdminUserPage} of ${totalPages} (${users.length} total users)`;
+      }
+
+      if (paginatedUsers.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No users match the search criteria.</td></tr>`;
         return;
       }
 
-      users.forEach(u => {
+      paginatedUsers.forEach(u => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${u.UserID || ''}</td>
@@ -4462,23 +4700,101 @@ async function loadAdminData() {
       });
     }
 
+    // --- 👉 ADD THIS: Pagination Handler Function ---
+    function paginateAdminUsers(direction) {
+      let users = adminData.users || [];
+      const searchInput = document.getElementById('admin-search-users');
+      const roleFilterSelect = document.getElementById('admin-filter-user-role');
+      const statusFilterSelect = document.getElementById('admin-filter-user-status');
+
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      const activeRole = roleFilterSelect ? roleFilterSelect.value : 'ALL';
+      const activeStatus = statusFilterSelect ? statusFilterSelect.value : 'ALL';
+
+      if (search) {
+        users = users.filter(u => 
+          String(u.Name || '').toLowerCase().includes(search) ||
+          String(u.Email || '').toLowerCase().includes(search) ||
+          String(u.Mobile || '').toLowerCase().includes(search) ||
+          String(u.UserID || '').toLowerCase().includes(search)
+        );
+      }
+      if (activeRole !== 'ALL') {
+        users = users.filter(u => String(u.Role || '').toLowerCase() === activeRole.toLowerCase());
+      }
+      if (activeStatus !== 'ALL') {
+        users = users.filter(u => String(u.Status || '').toLowerCase() === activeStatus.toLowerCase());
+      }
+
+      const totalPages = Math.ceil(users.length / ADMIN_USERS_PER_PAGE) || 1;
+
+      if (direction === 1 && currentAdminUserPage < totalPages) {
+        currentAdminUserPage++;
+      } else if (direction === -1 && currentAdminUserPage > 1) {
+        currentAdminUserPage--;
+      }
+      renderAdminUsers();
+    }
+
     async function updateUserRole(userId, role, status) {
       const res = await apiCall('updateUserRoleStatus', { targetUserId: userId, newRole: role, newStatus: status });
       showToast(res.message);
       if (res.success) loadAdminData();
     }
 
+const ADMIN_LOGS_PER_PAGE = 30;
+
     function renderAdminLogs() {
       const tbody = document.getElementById('admin-logs-tbody');
+      const pageIndicator = document.getElementById('logs-page-indicator');
       if (!tbody) return;
       tbody.innerHTML = '';
+      
       const logs = adminData.logs || [];
 
-      logs.slice(0, 20).forEach(l => {
+      // Calculate total pages based on 30 items per page
+      const totalPages = Math.ceil(logs.length / ADMIN_LOGS_PER_PAGE) || 1;
+      if (logsPage > totalPages) logsPage = totalPages;
+      if (logsPage < 1) logsPage = 1;
+
+      if (pageIndicator) {
+        pageIndicator.innerText = `Page ${logsPage} of ${totalPages} (${logs.length} total logs)`;
+      }
+
+      const startIndex = (logsPage - 1) * ADMIN_LOGS_PER_PAGE;
+      const paginatedLogs = logs.slice(startIndex, startIndex + ADMIN_LOGS_PER_PAGE);
+
+      if (paginatedLogs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No security or activity logs recorded yet.</td></tr>`;
+        return;
+      }
+
+      paginatedLogs.forEach(l => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${l.LogID}</td><td>${l.UserName}</td><td>${l.ActivityType}</td><td>${l.Details}</td><td>${new Date(l.Timestamp).toLocaleString()}</td>`;
+        tr.innerHTML = `
+          <td>${l.LogID || ''}</td>
+          <td>${l.UserName || ''}</td>
+          <td>${l.ActivityType || ''}</td>
+          <td>${l.Details || ''}</td>
+          <td>${l.Timestamp ? new Date(l.Timestamp).toLocaleString() : ''}</td>
+        `;
         tbody.appendChild(tr);
       });
+    }
+
+// Handles Next (+1) and Previous (-1) button clicks for Admin Logs
+    function paginateLogs(direction) {
+      const logs = adminData.logs || [];
+      const totalPages = Math.ceil(logs.length / ADMIN_LOGS_PER_PAGE) || 1;
+
+      if (typeof logsPage === 'undefined') logsPage = 1;
+
+      if (direction === 1 && logsPage < totalPages) {
+        logsPage++;
+      } else if (direction === -1 && logsPage > 1) {
+        logsPage--;
+      }
+      renderAdminLogs();
     }
 
 function onFeedbackSearchFocus() {
@@ -4489,7 +4805,7 @@ function onFeedbackSearchFocus() {
       renderAdminFeedback();
     }
 
-    function renderAdminFeedback() {
+function renderAdminFeedback() {
       const tbody = document.getElementById('admin-feedback-tbody');
       if (!tbody) return;
       tbody.innerHTML = '';
@@ -4536,12 +4852,29 @@ function onFeedbackSearchFocus() {
         });
       }
 
-      if (feedbackList.length === 0) {
+      // --- 👉 PAGINATION SETUP (30 items per page) ---
+      const ADMIN_FEEDBACK_PER_PAGE = 30;
+      const totalPages = Math.ceil(feedbackList.length / ADMIN_FEEDBACK_PER_PAGE) || 1;
+      
+      if (typeof currentAdminFeedbackPage === 'undefined') currentAdminFeedbackPage = 1;
+      if (currentAdminFeedbackPage > totalPages) currentAdminFeedbackPage = totalPages;
+      if (currentAdminFeedbackPage < 1) currentAdminFeedbackPage = 1;
+
+      const startIndex = (currentAdminFeedbackPage - 1) * ADMIN_FEEDBACK_PER_PAGE;
+      const paginatedFeedback = feedbackList.slice(startIndex, startIndex + ADMIN_FEEDBACK_PER_PAGE);
+
+      // Update page indicator element if present in HTML
+      const pageIndicator = document.getElementById('admin-feedback-page-indicator');
+      if (pageIndicator) {
+        pageIndicator.innerText = `Page ${currentAdminFeedbackPage} of ${totalPages} (${feedbackList.length} total feedbacks)`;
+      }
+
+      if (paginatedFeedback.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No feedback records found.</td></tr>`;
         return;
       }
 
-      feedbackList.forEach(f => {
+      paginatedFeedback.forEach(f => {
         const feedbackId = f.ID || f.id || '';
         const userName = f.UserName || f.userName || f.user || 'User';
         const category = f.Category || f.category || 'General';
@@ -4565,6 +4898,22 @@ function onFeedbackSearchFocus() {
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    // --- 👉 PAGINATION HANDLER FUNCTION ---
+    function paginateAdminFeedback(direction) {
+      const rawFeedback = adminData ? (adminData.feedback || adminData.feedbackList || []) : [];
+      const ADMIN_FEEDBACK_PER_PAGE = 30;
+      const totalPages = Math.ceil(rawFeedback.length / ADMIN_FEEDBACK_PER_PAGE) || 1;
+
+      if (typeof currentAdminFeedbackPage === 'undefined') currentAdminFeedbackPage = 1;
+
+      if (direction === 1 && currentAdminFeedbackPage < totalPages) {
+        currentAdminFeedbackPage++;
+      } else if (direction === -1 && currentAdminFeedbackPage > 1) {
+        currentAdminFeedbackPage--;
+      }
+      renderAdminFeedback();
     }
 
     async function promptAdminReply(feedbackId) {
@@ -4817,38 +5166,55 @@ let currentAdminMaterialPage = 1;
     function renderAdminMaterialsTable() {
       const container = document.getElementById('admin-materials-table-container');
       const pageIndicator = document.getElementById('admin-materials-page-indicator');
+      const searchInput = document.getElementById('admin-search-materials');
+      const typeFilterSelect = document.getElementById('admin-filter-material-type');
+      
       if (!container) return;
 
-      let materials = adminData.materials || [];
-      const search = (document.getElementById('admin-search-materials')?.value || '').toLowerCase().trim();
-      const typeFilter = document.getElementById('admin-filter-material-type')?.value || 'ALL';
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
+      // 👉 Automatically change type filter to 'ALL' whenever a search is performed
+      if (search && typeFilterSelect) {
+        typeFilterSelect.value = 'ALL';
+      }
+
+      const typeFilter = typeFilterSelect ? typeFilterSelect.value : 'ALL';
+      const allMaterials = adminData.materials || [];
+      
+      let filtered = [];
+
+      // 👉 When search is active, search across ALL materials data
       if (search) {
-        materials = materials.filter(m => 
-          (m.Title || '').toLowerCase().includes(search) ||
-          (m.Subtab || '').toLowerCase().includes(search) ||
-          (m.Category || '').toLowerCase().includes(search) ||
-          (m.ID || '').toString().includes(search)
-        );
+        filtered = allMaterials.filter(m => {
+          const title = String(m.Title || '').toLowerCase();
+          const subtab = String(m.Subtab || '').toLowerCase();
+          const cat = String(m.Category || '').toLowerCase();
+          const id = String(m.ID || '').toLowerCase();
+          return title.includes(search) || subtab.includes(search) || cat.includes(search) || id.includes(search);
+        });
+      } else {
+        filtered = [...allMaterials];
       }
 
+      // Filter by Material Type (PDF, Word, Audio, Pitman, Typing Test, etc.)
       if (typeFilter !== 'ALL') {
-        materials = materials.filter(m => (m.Type || '').toLowerCase() === typeFilter.toLowerCase());
+        filtered = filtered.filter(m => String(m.Type || '').toLowerCase() === typeFilter.toLowerCase());
       }
 
-      const totalPages = Math.ceil(materials.length / ADMIN_MATERIALS_PER_PAGE) || 1;
+      // Pagination Slicing (30 items per page)
+      const totalPages = Math.ceil(filtered.length / ADMIN_MATERIALS_PER_PAGE) || 1;
       if (currentAdminMaterialPage > totalPages) currentAdminMaterialPage = totalPages;
       if (currentAdminMaterialPage < 1) currentAdminMaterialPage = 1;
 
       const startIndex = (currentAdminMaterialPage - 1) * ADMIN_MATERIALS_PER_PAGE;
-      const paginatedMaterials = materials.slice(startIndex, startIndex + ADMIN_MATERIALS_PER_PAGE);
+      const paginatedList = filtered.slice(startIndex, startIndex + ADMIN_MATERIALS_PER_PAGE);
 
       if (pageIndicator) {
-        pageIndicator.innerText = `Page ${currentAdminMaterialPage} of ${totalPages} (${materials.length} total items)`;
+        pageIndicator.innerText = `Page ${currentAdminMaterialPage} of ${totalPages} (${filtered.length} total items)`;
       }
 
-      if (paginatedMaterials.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No matching materials found.</div>`;
+      if (paginatedList.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No matching materials found${search ? ' for search: ' + search : ''}.</div>`;
         return;
       }
 
@@ -4857,7 +5223,7 @@ let currentAdminMaterialPage = 1;
           <th>ID</th><th>Type</th><th>Title / Master Passage</th><th>Subtab / Exam Name</th><th>Time Limit</th><th>Access</th><th>Actions</th>
         </tr>`;
 
-      paginatedMaterials.forEach(m => {
+      paginatedList.forEach(m => {
         html += `<tr>
           <td>${m.ID}</td>
           <td>${m.Type || '-'}</td>
@@ -4877,30 +5243,36 @@ let currentAdminMaterialPage = 1;
     }
 
     function paginateAdminMaterials(direction) {
-      let materials = adminData.materials || [];
-      const search = (document.getElementById('admin-search-materials')?.value || '').toLowerCase().trim();
-      const typeFilter = document.getElementById('admin-filter-material-type')?.value || 'ALL';
+      const searchInput = document.getElementById('admin-search-materials');
+      const typeFilterSelect = document.getElementById('admin-filter-material-type');
+      
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      const typeFilter = typeFilterSelect ? typeFilterSelect.value : 'ALL';
+      const allMaterials = adminData.materials || [];
 
+      let filtered = [];
       if (search) {
-        materials = materials.filter(m => 
-          (m.Title || '').toLowerCase().includes(search) ||
-          (m.Subtab || '').toLowerCase().includes(search) ||
-          (m.Category || '').toLowerCase().includes(search) ||
-          (m.ID || '').toString().includes(search)
+        filtered = allMaterials.filter(m => 
+          String(m.Title || '').toLowerCase().includes(search) ||
+          String(m.Subtab || '').toLowerCase().includes(search) ||
+          String(m.Category || '').toLowerCase().includes(search) ||
+          String(m.ID || '').toLowerCase().includes(search)
         );
-      }
-      if (typeFilter !== 'ALL') {
-        materials = materials.filter(m => (m.Type || '').toLowerCase() === typeFilter.toLowerCase());
+      } else {
+        filtered = [...allMaterials];
       }
 
-      const totalPages = Math.ceil(materials.length / ADMIN_MATERIALS_PER_PAGE) || 1;
+      if (typeFilter !== 'ALL') {
+        filtered = filtered.filter(m => String(m.Type || '').toLowerCase() === typeFilter.toLowerCase());
+      }
+
+      const totalPages = Math.ceil(filtered.length / ADMIN_MATERIALS_PER_PAGE) || 1;
 
       if (direction === 1 && currentAdminMaterialPage < totalPages) {
         currentAdminMaterialPage++;
       } else if (direction === -1 && currentAdminMaterialPage > 1) {
         currentAdminMaterialPage--;
       }
-
       renderAdminMaterialsTable();
     }
 
@@ -4933,15 +5305,66 @@ let currentAdminMaterialPage = 1;
       if (form) form.reset();
       showToast('Subtab form reset.');
     }
+let currentAdminSubtabPage = 1;
+    const ADMIN_SUBTABS_PER_PAGE = 30;
 
     function renderAdminSubtabsTable() {
       const container = document.getElementById('admin-subtabs-table-container');
+      const pageIndicator = document.getElementById('admin-subtabs-page-indicator');
+      const searchInput = document.getElementById('admin-search-subtabs');
+      const typeFilterSelect = document.getElementById('admin-filter-subtab-type');
+      
       if (!container) return;
+
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+      // 👉 Automatically change type filter to 'ALL' whenever a search is performed
+      if (search && typeFilterSelect) {
+        typeFilterSelect.value = 'ALL';
+      }
+
+      const typeFilter = typeFilterSelect ? typeFilterSelect.value : 'ALL';
+      const allSubtabs = adminData.subtabs || [];
+      
+      let filtered = [];
+
+      // 👉 When search is active, search across ALL subtabs data globally
+      if (search) {
+        filtered = allSubtabs.filter(stb => {
+          const name = String(stb.SubtabName || '').toLowerCase();
+          const type = String(stb.Type || '').toLowerCase();
+          return name.includes(search) || type.includes(search);
+        });
+      } else {
+        filtered = [...allSubtabs];
+      }
+
+      // Filter by Material Type
+      if (typeFilter !== 'ALL') {
+        filtered = filtered.filter(stb => String(stb.Type || '').toLowerCase() === typeFilter.toLowerCase());
+      }
+
+      // Pagination Slicing (30 items per page)
+      const totalPages = Math.ceil(filtered.length / ADMIN_SUBTABS_PER_PAGE) || 1;
+      if (currentAdminSubtabPage > totalPages) currentAdminSubtabPage = totalPages;
+      if (currentAdminSubtabPage < 1) currentAdminSubtabPage = 1;
+
+      const startIndex = (currentAdminSubtabPage - 1) * ADMIN_SUBTABS_PER_PAGE;
+      const paginatedList = filtered.slice(startIndex, startIndex + ADMIN_SUBTABS_PER_PAGE);
+
+      if (pageIndicator) {
+        pageIndicator.innerText = `Page ${currentAdminSubtabPage} of ${totalPages} (${filtered.length} total subtabs)`;
+      }
+
+      if (paginatedList.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No matching subtabs found${search ? ' for search: ' + search : ''}.</div>`;
+        return;
+      }
 
       let html = `<table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
         <tr style="background:var(--border);"><th>Type</th><th>Subtab Name</th><th>Actions</th></tr>`;
 
-      (adminData.subtabs || []).forEach((stb) => {
+      paginatedList.forEach((stb) => {
         html += `<tr>
           <td>${stb.Type}</td><td>${stb.SubtabName}</td>
           <td>
@@ -4952,6 +5375,38 @@ let currentAdminMaterialPage = 1;
       });
       html += `</table>`;
       container.innerHTML = html;
+    }
+
+    function paginateAdminSubtabs(direction) {
+      const searchInput = document.getElementById('admin-search-subtabs');
+      const typeFilterSelect = document.getElementById('admin-filter-subtab-type');
+      
+      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      const typeFilter = typeFilterSelect ? typeFilterSelect.value : 'ALL';
+      const allSubtabs = adminData.subtabs || [];
+
+      let filtered = [];
+      if (search) {
+        filtered = allSubtabs.filter(stb => 
+          String(stb.SubtabName || '').toLowerCase().includes(search) ||
+          String(stb.Type || '').toLowerCase().includes(search)
+        );
+      } else {
+        filtered = [...allSubtabs];
+      }
+
+      if (typeFilter !== 'ALL') {
+        filtered = filtered.filter(stb => String(stb.Type || '').toLowerCase() === typeFilter.toLowerCase());
+      }
+
+      const totalPages = Math.ceil(filtered.length / ADMIN_SUBTABS_PER_PAGE) || 1;
+
+      if (direction === 1 && currentAdminSubtabPage < totalPages) {
+        currentAdminSubtabPage++;
+      } else if (direction === -1 && currentAdminSubtabPage > 1) {
+        currentAdminSubtabPage--;
+      }
+      renderAdminSubtabsTable();
     }
 
     async function promptEditSubtab(oldType, oldSubtabName) {
