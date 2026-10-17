@@ -1469,7 +1469,7 @@ const ADMIN_USERS_PER_PAGE = 30;
 let currentAdminUserPage = 1;
 
 
-    // Default Comprehensive Evaluation Rules
+// Default Comprehensive Evaluation Rules
     const defaultEvaluationRule = {
       backspaceMode: 'on',
       totalMarks: 100,
@@ -1477,6 +1477,7 @@ let currentAdminUserPage = 1;
       passingAccuracy: 85,
       defaultTextSize: 15,
       deductPunctuation: 0.5,
+      deductCapital: 0.25,      // 👈 Added: Default deduction for capital letter mistakes
       deductWord: 1.0,
       deductWrong: 1.0,
       deductOmission: 1.0,
@@ -1523,16 +1524,16 @@ let currentAdminUserPage = 1;
     let secondsRemainingGlobal = 0;
     let isTypingTimerStarted = false;
 
-let selectedTypingMedium = null;
-let selectedTypingExam = null;
-let selectedTypingDate = null;
-let selectedTypingPassage = null;
-let currentTypingPassagesCache = []; // 👈 Add it right here with the other global typing variables
+    let selectedTypingMedium = null;
+    let selectedTypingExam = null;
+    let selectedTypingDate = null;
+    let selectedTypingPassage = null;
+    let currentTypingPassagesCache = []; // 👈 Added with the other global typing variables
 
     const SITE_NAME = 'RP Skill';
     const DEFAULT_LOGO_URL = 'https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_';
 
-window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', () => {
       initApp();
       fetchPublicFooterStats();
       injectClearIconsToInputs();
@@ -1968,6 +1969,7 @@ async function saveEvaluationRulesSettings() {
     repeatPassage: document.getElementById('eval-repeat-passage')?.value || 'yes',
     defaultTextSize: getNumVal('eval-default-text-size', 15),
     deductPunctuation: getNumVal('eval-deduct-punctuation', 0.5),
+    deductCapital: getNumVal('eval-deduct-capital', 0.25), // 👉 Added capital deduction support
     deductWord: getNumVal('eval-deduct-word', 1.0),
     deductWrong: getNumVal('eval-deduct-wrong', 1.0),
     deductOmission: getNumVal('eval-deduct-omission', 1.0),
@@ -3866,7 +3868,7 @@ async function submitStenoTest() {
       i--;
       j--;
     } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1]) {
-      // 👉 Accurate spelling/wrong word substitution detection
+      // Accurate spelling/wrong word substitution detection
       wrongTypedCount++;
       if (refTokens[i - 1].punct !== userTokens[j - 1].punct) {
         punctuationWrongCount++;
@@ -3891,15 +3893,14 @@ async function submitStenoTest() {
     }
   }
 
-const matchingWords = dp[m][n];
+  const matchingWords = dp[m][n];
   const accuracyPercentage = Math.max(0, Math.min(100, ((matchingWords / Math.max(totalWordsOriginal, 1)) * 100))).toFixed(2);
   const errorPercentage = (100 - accuracyPercentage).toFixed(2);
   
   const totalPunctuationErrors = punctuationLeftCount + punctuationExtraCount + punctuationWrongCount;
 
-  // 👉 Updated Evaluation Rule Setting
+  // 👉 Updated Evaluation Rule Setting & Custom Deductions
   const totalMarks = rules.totalMarks !== undefined ? parseFloat(rules.totalMarks) : 100;
-  const marksObtained = parseFloat(accuracyPercentage).toFixed(2);
 
   const deductWrong = rules.deductWrong !== undefined ? rules.deductWrong : 1.0;
   const deductOmission = rules.deductOmission !== undefined ? rules.deductOmission : 1.0;
@@ -3930,8 +3931,14 @@ const matchingWords = dp[m][n];
     errorDeductions += (excessError * penaltyValue);
   }
 
+  // Calculate final marks obtained based on total marks minus deductions (bounded between 0 and totalMarks)
+  const marksObtained = Math.max(0, Math.min(totalMarks, totalMarks - errorDeductions)).toFixed(2);
+
   const passingAccuracy = rules.passingAccuracy !== undefined ? rules.passingAccuracy : 85;
-  const isPassed = (parseFloat(accuracyPercentage) >= parseFloat(passingAccuracy)) && meetsMinGrossStroke;
+  const passingMarks = rules.passingMarks !== undefined ? rules.passingMarks : 40;
+  const isPassed = (parseFloat(accuracyPercentage) >= parseFloat(passingAccuracy)) && 
+                   (parseFloat(marksObtained) >= parseFloat(passingMarks)) && 
+                   meetsMinGrossStroke;
 
   const grossSpeed = Math.round(totalTypedWords / durationMins);
   const netSpeed = Math.round(matchingWords / durationMins);
