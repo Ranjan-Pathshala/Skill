@@ -150,13 +150,19 @@
     .auth-tab-btn { flex: 1; padding: 10px; border: none; background: none; font-weight: 700; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent; font-size: 15px; }
     .auth-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-    .form-group { margin-bottom: 14px; position: relative; }
+.form-group { margin-bottom: 14px; position: relative; }
     .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 12px; }
     .required-star { color: var(--danger); }
     .form-control { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; outline: none; background: var(--surface); color: var(--text); transition: 0.2s; }
     .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
     .password-wrapper { position: relative; }
     .password-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); z-index: 10; }
+
+    /* 👉 ADD THIS: Makes the test user box larger by default and lets users resize it vertically */
+    #test-user-input {
+      resize: vertical !important; 
+      min-height: 280px !important;
+    }
 
     .btn { padding: 9px 18px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; justify-content: center; transition: all 0.2s; }
     .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; box-shadow: 0 4px 12px var(--shadow); }
@@ -1380,13 +1386,17 @@
   <div class="modal-backdrop" id="active-test-modal" style="background: rgba(0,0,0,0.95); z-index: 5000;">
     <div class="modal-content" style="max-width: 100vw; width: 100vw; height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; background: var(--background); overflow: hidden;">
       
-      <div class="modal-header" style="background: #ffffff; color: var(--secondary); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; flex-shrink: 0;">
+<div class="modal-header" style="background: #ffffff; color: var(--secondary); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; flex-shrink: 0;">
         <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px;">
           <span style="font-size: 15px; font-weight: 800; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
             <i class="fa-solid fa-feather"></i> <span id="test-modal-title">Stenoshala Shorthand Academy</span>
           </span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <!-- 👉 ADDED: Text size adjustment buttons for this test only -->
+          <button class="btn btn-sm btn-secondary" style="border-radius: 20px; font-weight: 700; font-size: 12px; padding: 5px 10px;" onclick="adjustTestFontSize(2)" title="Increase Text Size"><i class="fa-solid fa-magnifying-glass-plus"></i> +</button>
+          <button class="btn btn-sm btn-secondary" style="border-radius: 20px; font-weight: 700; font-size: 12px; padding: 5px 10px;" onclick="adjustTestFontSize(-2)" title="Decrease Text Size"><i class="fa-solid fa-magnifying-glass-minus"></i> -</button>
+
           <button class="btn btn-sm btn-danger" style="border-radius: 20px; font-weight: 700; font-size: 12px; padding: 5px 12px;" onclick="cancelStenoTest()"><i class="fa-solid fa-xmark"></i> Cancel Test </button>
           <button class="btn btn-sm btn-secondary" style="border-radius: 20px; font-weight: 700; font-size: 12px; padding: 5px 12px;" onclick="toggleFullscreen()"><i class="fa-solid fa-expand"></i> Full Screen</button>
           <div style="background: var(--border); padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 12px; white-space: nowrap;">
@@ -1445,7 +1455,15 @@ function getLocalDateString() {
 
 
 
-let currentUser = JSON.parse(localStorage.getItem('steno_user')) || null;
+let currentUser = null;
+try {
+  const savedUser = localStorage.getItem('steno_user');
+  if (savedUser && savedUser !== 'undefined') {
+    currentUser = JSON.parse(savedUser);
+  }
+} catch (e) {
+  localStorage.removeItem('steno_user');
+}
 let activeTab = 'dashboard';
 let globalData = { announcements: [], homework: [], stats: [], banner: [], materials: [], history: [] };
 let materialsData = [];
@@ -1466,40 +1484,19 @@ const ADMIN_LEADERBOARD_PER_PAGE = 30;
 let currentAdminLeaderboardPage = 1;
 
 const ADMIN_USERS_PER_PAGE = 30;
-let currentAdminUserPage = 1;
-
-
-// Default Comprehensive Evaluation Rules
-    const defaultEvaluationRule = {
-      backspaceMode: 'on',
-      totalMarks: 100,
-      passingMarks: 40,
-      passingAccuracy: 85,
-      defaultTextSize: 15,
-      deductPunctuation: 0.5,
-      deductCapital: 0.25,      // 👈 Added: Default deduction for capital letter mistakes
-      deductWord: 1.0,
-      deductWrong: 1.0,
-      deductOmission: 1.0,
-      deductExtraWord: 0.5,       // 👈 Added: Deduction for extra words typed
-      deductParaNotChanged: 1.0,  // 👈 Added: Deduction for paragraph not changed
-      copyPasteMode: 'yes',
-      funcKeysMode: 'yes',
-      wordCountRule: '1word',
-      autoScrollMode: 'on',
-      highlightMode: 'on',
-      layoutPosition: 'top',
-      initialWords: 0,
-      minTimeSeconds: 0,
-      ignoreErrorPct: 5,
-      penaltyValue: 1.0,
-      minGrossStrokePct: 100,
-      ignoreParagraphChange: 'yes',
-      repeatPassage: 'yes'
-    };
+let currentAdminUserPage = 1
 
    // Remove default fallback objects; start with an empty object
-let allEvaluationRules = JSON.parse(localStorage.getItem('steno_all_eval_rules')) || {}
+let allEvaluationRules = {};
+try {
+  const savedRules = localStorage.getItem('steno_all_eval_rules');
+  if (savedRules && savedRules !== 'undefined') {
+    allEvaluationRules = JSON.parse(savedRules);
+  }
+} catch (e) {
+  localStorage.removeItem('steno_all_eval_rules');
+  allEvaluationRules = {};
+}
 
     let announcementPage = 1;
     let logsPage = 1;
@@ -1861,16 +1858,41 @@ function getSelectedEvalKey() {
   return cat;
 }
 
+// Clean Default Rules with all fields set to 0 or baseline choices
+const defaultEvaluationRule = {
+  timeLimit: 0,
+  backspaceMode: 'on',
+  totalMarks: 0,
+  passingMarks: 0,
+  passingAccuracy: 0,
+  minGrossStrokePct: 0,
+  ignoreParagraphChange: 'yes',
+  repeatPassage: 'yes',
+  defaultTextSize: 15,
+  deductPunctuation: 0,
+  deductCapital: 0,
+  deductWord: 0,
+  deductWrong: 0,
+  deductOmission: 0,
+  deductExtraWord: 0,
+  deductParaNotChanged: 0,
+  copyPasteMode: 'yes',
+  funcKeysMode: 'yes',
+  wordCountRule: '1word',
+  autoScrollMode: 'on',
+  highlightMode: 'on',
+  layoutPosition: 'top',
+  initialWords: 0,
+  minTimeSeconds: 0,
+  ignoreErrorPct: 0,
+  penaltyValue: 0
+};
+
 /**
-     * Strict evaluation rule lookup. Returns null if no rule is explicitly configured 
-     * for the specific subtab/exam, with NO default or category fallback rules.
-     */
-    function getEvaluationRulesForTab(subtabKey) {
-      if (!subtabKey) return null;
-      
-      // Strict lookup: only return if admin explicitly set a rule for this exact subtabKey
-      return allEvaluationRules[subtabKey] || null;
-    }
+ * Strict evaluation rule lookup. Returns rule configuration or base category fallback.
+ */
+function getEvaluationRulesForTab(subtabKey) {
+  if (!subtabKey) return null;
   
   // 1. Check for specific exam/subtab rule (e.g. typingtest_SSC_Exam)
   if (allEvaluationRules[subtabKey]) {
@@ -1883,59 +1905,58 @@ function getSelectedEvalKey() {
     return allEvaluationRules[baseCat];
   }
   
-  // 3. Return null if no rule is set (No default fallback rule for execution)
+  // 3. Return null if no custom rule is saved
   return null;
 }
 
 /**
- * Loads rules into the admin form. 
- * Uses defaultEvaluationRule as a UI fallback ONLY when configuring a new unconfigured tab,
- * ensuring admin input fields are never blank.
+ * Loads rules into the admin form with zero/clean fallbacks if unconfigured.
  */
 function loadSelectedEvaluationRulesIntoForm() {
   const key = getSelectedEvalKey();
   if (!key) return;
 
-  // For the admin form UI, fallback to defaultEvaluationRule if nothing is saved yet
+  // Use defaultEvaluationRule (all zeros) if nothing is saved yet for this tab
   const rules = getEvaluationRulesForTab(key) || defaultEvaluationRule;
 
   if (!rules) {
     return;
   }
 
-  // Updated setVal helper to safely allow zero-bound numbers (0) without falling back
+  // Updated setVal helper to correctly pass 0 or custom set values without overriding with old presets
   const setVal = (id, val, fallback) => {
     const elem = document.getElementById(id);
     if (elem) {
-      elem.value = (val !== undefined && val !== null) ? val : fallback;
+      elem.value = (val !== undefined && val !== null && val !== '') ? val : fallback;
     }
   };
 
-  setVal('eval-time-limit', rules.timeLimit, 5);         // Typing Test Time Limit
+  setVal('eval-time-limit', rules.timeLimit, 0);          
   setVal('eval-backspace-mode', rules.backspaceMode, 'on');
-  setVal('eval-total-marks', rules.totalMarks, 100);
-  setVal('eval-passing-marks', rules.passingMarks, 40);
-  setVal('eval-passing-accuracy', rules.passingAccuracy, 85);
-  setVal('eval-min-gross-stroke-pct', rules.minGrossStrokePct, 100);
+  setVal('eval-total-marks', rules.totalMarks, 0);
+  setVal('eval-passing-marks', rules.passingMarks, 0);
+  setVal('eval-passing-accuracy', rules.passingAccuracy, 0);
+  setVal('eval-min-gross-stroke-pct', rules.minGrossStrokePct, 0);
   setVal('eval-ignore-paragraph-change', rules.ignoreParagraphChange, 'yes');
   setVal('eval-repeat-passage', rules.repeatPassage, 'yes');
   setVal('eval-default-text-size', rules.defaultTextSize, 15);
-  setVal('eval-deduct-punctuation', rules.deductPunctuation, 0.5);
-  setVal('eval-deduct-word', rules.deductWord, 1.0);
-  setVal('eval-deduct-wrong', rules.deductWrong, 1.0);
-  setVal('eval-deduct-omission', rules.deductOmission, 1.0);
-  setVal('eval-deduct-extra-word', rules.deductExtraWord, 0.5);          // Extra Words Deduction
-  setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged, 1.0); // Paragraph Not Changed Deduction
+  setVal('eval-deduct-punctuation', rules.deductPunctuation, 0);
+  setVal('eval-deduct-capital', rules.deductCapital, 0); 
+  setVal('eval-deduct-word', rules.deductWord, 0);
+  setVal('eval-deduct-wrong', rules.deductWrong, 0);
+  setVal('eval-deduct-omission', rules.deductOmission, 0);
+  setVal('eval-deduct-extra-word', rules.deductExtraWord, 0);          
+  setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged, 0); 
   setVal('eval-copypaste-mode', rules.copyPasteMode, 'yes');
   setVal('eval-func-keys-mode', rules.funcKeysMode, 'yes');
   setVal('eval-word-count-rule', rules.wordCountRule, '1word');
   setVal('eval-autoscroll-mode', rules.autoScrollMode, 'on');
   setVal('eval-highlight-mode', rules.highlightMode, 'on');
   setVal('eval-layout-position', rules.layoutPosition, 'top');
-  setVal('eval-initial-words', rules.initialWords, 0);       // Safely allows 0
-  setVal('eval-min-time', rules.minTimeSeconds, 0);          // Safely allows 0
-  setVal('eval-ignore-error-pct', rules.ignoreErrorPct, 5);
-  setVal('eval-penalty-value', rules.penaltyValue, 1.0);
+  setVal('eval-initial-words', rules.initialWords, 0);       
+  setVal('eval-min-time', rules.minTimeSeconds, 0);          
+  setVal('eval-ignore-error-pct', rules.ignoreErrorPct, 0);
+  setVal('eval-penalty-value', rules.penaltyValue, 0);
 }
 
 async function saveEvaluationRulesSettings() {
@@ -1959,22 +1980,22 @@ async function saveEvaluationRulesSettings() {
   };
 
   const ruleData = {
-    timeLimit: getNumVal('eval-time-limit', 5),
+    timeLimit: getNumVal('eval-time-limit', 0),
     backspaceMode: document.getElementById('eval-backspace-mode')?.value || 'on',
-    totalMarks: getNumVal('eval-total-marks', 100),
-    passingMarks: getNumVal('eval-passing-marks', 40),
-    passingAccuracy: getNumVal('eval-passing-accuracy', 85),
-    minGrossStrokePct: getNumVal('eval-min-gross-stroke-pct', 100),
+    totalMarks: getNumVal('eval-total-marks', 0),
+    passingMarks: getNumVal('eval-passing-marks', 0),
+    passingAccuracy: getNumVal('eval-passing-accuracy', 0),
+    minGrossStrokePct: getNumVal('eval-min-gross-stroke-pct', 0),
     ignoreParagraphChange: document.getElementById('eval-ignore-paragraph-change')?.value || 'yes',
     repeatPassage: document.getElementById('eval-repeat-passage')?.value || 'yes',
     defaultTextSize: getNumVal('eval-default-text-size', 15),
-    deductPunctuation: getNumVal('eval-deduct-punctuation', 0.5),
-    deductCapital: getNumVal('eval-deduct-capital', 0.25), // 👉 Added capital deduction support
-    deductWord: getNumVal('eval-deduct-word', 1.0),
-    deductWrong: getNumVal('eval-deduct-wrong', 1.0),
-    deductOmission: getNumVal('eval-deduct-omission', 1.0),
-    deductExtraWord: getNumVal('eval-deduct-extra-word', 0.5),
-    deductParaNotChanged: getNumVal('eval-deduct-para-not-changed', 1.0),
+    deductPunctuation: getNumVal('eval-deduct-punctuation', 0),
+    deductCapital: getNumVal('eval-deduct-capital', 0), 
+    deductWord: getNumVal('eval-deduct-word', 0),
+    deductWrong: getNumVal('eval-deduct-wrong', 0),
+    deductOmission: getNumVal('eval-deduct-omission', 0),
+    deductExtraWord: getNumVal('eval-deduct-extra-word', 0),
+    deductParaNotChanged: getNumVal('eval-deduct-para-not-changed', 0),
     copyPasteMode: document.getElementById('eval-copypaste-mode')?.value || 'yes',
     funcKeysMode: document.getElementById('eval-func-keys-mode')?.value || 'yes',
     wordCountRule: document.getElementById('eval-word-count-rule')?.value || '1word',
@@ -1983,8 +2004,8 @@ async function saveEvaluationRulesSettings() {
     layoutPosition: document.getElementById('eval-layout-position')?.value || 'top',
     initialWords: getNumVal('eval-initial-words', 0),
     minTimeSeconds: getNumVal('eval-min-time', 0),
-    ignoreErrorPct: getNumVal('eval-ignore-error-pct', 5),
-    penaltyValue: getNumVal('eval-penalty-value', 1.0)
+    ignoreErrorPct: getNumVal('eval-ignore-error-pct', 0),
+    penaltyValue: getNumVal('eval-penalty-value', 0)
   };
 
   allEvaluationRules[key] = ruleData;
@@ -3034,14 +3055,14 @@ function startTypingExam(item) {
                 </div>
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
               </div>
-              <!-- 👉 FIX 4: Explicitly disabled spellcheck, autocorrect, autocapitalize, and autocomplete to stop browser error underlining -->
+              <!-- 👉 UPDATED: Changed min-height to 280px and resize to vertical -->
               <textarea id="test-user-input" 
                         class="form-control" 
                         spellcheck="false" 
                         autocorrect="off" 
                         autocapitalize="off" 
                         autocomplete="off" 
-                        style="width: 100%; flex: 1; min-height: 150px; resize: none; font-family: 'Segoe UI', monospace; padding: 14px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                        style="width: 100%; flex: 1; min-height: 280px; resize: vertical; font-family: 'Segoe UI', monospace; padding: 14px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
                         placeholder="Start typing passage here (Timer starts on first keypress)..." 
                         oninput="handleTypingInputProgress()" 
                         onkeydown="handleTestKeyDown(event)" 
@@ -3096,7 +3117,6 @@ function handleTestKeyDown(event) {
     }
 
 // 👉 Pitman Zoom-In, Zoom-Out, and Reset helper functions
-    let testPhotoZoom = 1;
 
     function adjustTestPhotoZoom(amount) {
       testPhotoZoom = Math.max(0.5, Math.min(4, testPhotoZoom + amount));
@@ -3292,13 +3312,14 @@ const cleanPitmanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_
                 <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
               </div>
             </div>
+            <!-- 👉 UPDATED: Changed resize from none to vertical -->
             <textarea id="test-user-input" 
                     class="form-control" 
                     spellcheck="false" 
                     autocorrect="off" 
                     autocapitalize="off" 
                     autocomplete="off" 
-                    style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                    style="width: 100%; flex: 1; min-height: 380px; resize: vertical; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
                     placeholder="Type dictation here..." 
                     onkeydown="handleTestKeyDown(event)" 
                     onpaste="handleTestPaste(event)" 
@@ -3832,7 +3853,7 @@ async function submitStenoTest() {
   const durationMins = Math.max(0.01, timeElapsedSeconds / 60); // Safe duration for speed calculations
   const submissionTimeFormatted = new Date().toLocaleTimeString();
 
-  const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+  const rules = getEvaluationRulesForTab(activeTestSubtabKey) || {};
 
   if (rules.minTimeSeconds && timeElapsedSeconds < rules.minTimeSeconds) {
     showToast(`Warning: Minimum time period required is ${rules.minTimeSeconds} seconds.`);
@@ -3861,10 +3882,14 @@ async function submitStenoTest() {
   const refTokens = refTextEval.split(/\s+/).filter(Boolean).map(parseToken);
   const userTokens = userTextEval.split(/\s+/).filter(Boolean).map(parseToken);
   
-  const totalWordsOriginal = refTokens.length;
-  const totalTypedWords = userTokens.length;
   const totalCharacter = refTextEval.length;
   const totalTypedCharacter = userTextEval.length;
+  const totalTypedWords = userTokens.length;
+
+  // 👉 1. STROKE-TO-WORD RULE: Support 1 word as 1 word OR 5 strokes as 1 word
+  const totalWordsOriginal = (rules.wordCountRule === '5stroke') 
+    ? Math.round(totalCharacter / 5) 
+    : refTokens.length;
 
   const minGrossStrokePct = rules.minGrossStrokePct !== undefined ? rules.minGrossStrokePct : 100;
   const requiredGrossStrokes = Math.round((totalCharacter * minGrossStrokePct) / 100);
@@ -3941,12 +3966,9 @@ async function submitStenoTest() {
   }
 
   const matchingWords = dp[m][n];
-  const accuracyPercentage = Math.max(0, Math.min(100, ((matchingWords / Math.max(totalWordsOriginal, 1)) * 100))).toFixed(2);
-  const errorPercentage = (100 - accuracyPercentage).toFixed(2);
-  
   const totalPunctuationErrors = punctuationLeftCount + punctuationExtraCount + punctuationWrongCount;
 
-  // 👉 Updated Evaluation Rule Setting & Custom Deductions
+  // 👉 Custom Deductions Setup
   const totalMarks = rules.totalMarks !== undefined ? parseFloat(rules.totalMarks) : 100;
 
   const deductWrong = rules.deductWrong !== undefined ? rules.deductWrong : 1.0;
@@ -3970,16 +3992,29 @@ async function submitStenoTest() {
                         parseFloat(extraDeduction) + 
                         parseFloat(paraDeduction);
   
-  const ignorePct = rules.ignoreErrorPct !== undefined ? rules.ignoreErrorPct : 5;
-  const penaltyValue = rules.penaltyValue !== undefined ? rules.penaltyValue : 1.0;
+  // 👉 2. GRACE PERCENTAGE & EXCESS PENALTY LOGIC
+  const ignoreErrorPct = rules.ignoreErrorPct !== undefined ? parseFloat(rules.ignoreErrorPct) : 5;
+  const penaltyValue = rules.penaltyValue !== undefined ? parseFloat(rules.penaltyValue) : 1.0;
 
-  if (parseFloat(errorPercentage) > ignorePct) {
-    const excessError = parseFloat(errorPercentage) - ignorePct;
-    errorDeductions += (excessError * penaltyValue);
+  // Aggregate total error count
+  const totalErrorCount = wrongWordsCount + wordsLeftCount + extraWordsCount + totalPunctuationErrors + capitalErrorCount;
+  
+  // Free allowed error threshold based on percentage of master words
+  const allowedFreeErrors = totalWordsOriginal * (ignoreErrorPct / 100);
+
+  // If mistakes exceed the grace threshold, penalize only the excess mistakes using penaltyValue
+  if (totalErrorCount > allowedFreeErrors) {
+    const excessErrors = totalErrorCount - allowedFreeErrors;
+    errorDeductions += (excessErrors * penaltyValue);
   }
 
-  // Calculate final marks obtained based on total marks minus deductions (bounded between 0 and totalMarks)
-  const marksObtained = Math.max(0, Math.min(totalMarks, totalMarks - errorDeductions)).toFixed(2);
+  // 👉 ACCURACY CALCULATION
+  const calculatedAccuracyScore = Math.max(0, Math.min(totalMarks, totalMarks - errorDeductions));
+  const accuracyPercentage = ((calculatedAccuracyScore / totalMarks) * 100).toFixed(2);
+  const errorPercentage = (100 - parseFloat(accuracyPercentage)).toFixed(2);
+
+  // 👉 MARKS OBTAINED
+  const marksObtained = calculatedAccuracyScore.toFixed(2);
 
   const passingAccuracy = rules.passingAccuracy !== undefined ? rules.passingAccuracy : 85;
   const passingMarks = rules.passingMarks !== undefined ? rules.passingMarks : 40;
@@ -3998,7 +4033,7 @@ async function submitStenoTest() {
     timeDuration: `${testDurationMinutes} Mins`,
     typingDate: getLocalDateString(),
     timeTaken: `${timeUsedMinutes} mins`,
-    errorRelaxed: `${ignorePct}%`,
+    errorRelaxed: `${ignoreErrorPct}%`,
     penaltyWord: `${penaltyValue}`,
     date: getLocalDateString(),
     submissionTime: submissionTimeFormatted,
@@ -4023,12 +4058,13 @@ async function submitStenoTest() {
     extraDeduction: extraDeduction,
     paraNotChanged: paraNotChangedCount,
     paraDeduction: paraDeduction,
-    punctuationLeft: totalPunctuationErrors, // Unified punctuation error tally
+    punctuationLeft: totalPunctuationErrors,
     punctuationDeduction: punctuationDeduction,
     status: isPassed ? 'PASSED' : 'FAILED',
     timeUsed: `${timeUsedMinutes} mins (Submitted at ${submissionTimeFormatted})`,
     userTranscription: typedText,
-    referenceText: referenceText
+    referenceText: referenceText,
+    evaluationRules: rules
   };
 
   // 🛡️ Safety Backup: Store payload in localStorage instantly before network request
@@ -4037,7 +4073,7 @@ async function submitStenoTest() {
   const res = await apiCall('saveTestHistory', payload);
   
   if (res && res.success) {
-    localStorage.removeItem('steno_pending_submission'); // Clear backup on successful save
+    localStorage.removeItem('steno_pending_submission');
     showToast(res.message || 'Test evaluated strictly under admin rules and stored successfully!');
   } else {
     showToast(res.message || 'Server is busy processing many tests. Your work is saved locally.');
@@ -4403,12 +4439,22 @@ function openTestComparison(indexOrItem) {
     
     const totalPunctErrorCount = computedPunctuationErrors.extra + computedPunctuationErrors.left + computedPunctuationErrors.wrong;
 
-    const wrongDeduction = historyItem.wrongTypedDeduction ?? (wrongWordsCount * 1.0).toFixed(2);
-    const wordLeftDeduction = historyItem.wordLeftDeduction ?? (wordsLeftCount * 1.0).toFixed(2);
-    const extraDeduction = historyItem.extraDeduction ?? (extraWordsCount * 0.5).toFixed(2);
-    const paraDeduction = historyItem.paraDeduction ?? (paraNotChangedCount * 1.0).toFixed(2);
-    const capitalDeduction = historyItem.capitalDeduction ?? (capitalErrorCount * 0.25).toFixed(2);
-    const punctuationDeduction = historyItem.punctuationDeduction ?? (totalPunctErrorCount * 0.5).toFixed(2);
+    // 👉 Extract rules saved with this test history, or fallback to current tab rules / defaults
+    const rules = historyItem.evaluationRules || getEvaluationRulesForTab(activeTestSubtabKey) || {
+      deductWrong: 1.0,
+      deductOmission: 1.0,
+      deductExtraWord: 0.5,
+      deductParaNotChanged: 1.0,
+      deductCapital: 0.25,
+      deductPunctuation: 0.5
+    };
+
+    const wrongDeduction = historyItem.wrongTypedDeduction ?? (wrongWordsCount * (rules.deductWrong ?? 1.0)).toFixed(2);
+    const wordLeftDeduction = historyItem.wordLeftDeduction ?? (wordsLeftCount * (rules.deductOmission ?? rules.deductWord ?? 1.0)).toFixed(2);
+    const extraDeduction = historyItem.extraDeduction ?? (extraWordsCount * (rules.deductExtraWord ?? 0.5)).toFixed(2);
+    const paraDeduction = historyItem.paraDeduction ?? (paraNotChangedCount * (rules.deductParaNotChanged ?? 1.0)).toFixed(2);
+    const capitalDeduction = historyItem.capitalDeduction ?? (capitalErrorCount * (rules.deductCapital ?? 0.25)).toFixed(2);
+    const punctuationDeduction = historyItem.punctuationDeduction ?? (totalPunctErrorCount * (rules.deductPunctuation ?? 0.5)).toFixed(2);
 
     const passageTitle = historyItem.PassageTitle || historyItem.passageTitle || historyItem.Title || '-';
     const timeDuration = historyItem.TimeDuration || historyItem.timeDuration || '5 Mins';
@@ -6364,13 +6410,14 @@ const rules = getEvaluationRulesForTab(activeTestSubtabKey);
       </div>
       <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
         <label style="font-weight: 700; color: var(--secondary);">Type Your Transcription:</label>
+        <!-- 👉 UPDATED: Changed min-height to 280px and resize from none to vertical -->
         <textarea id="test-user-input" 
                   class="form-control" 
                   spellcheck="false" 
                   autocorrect="off" 
                   autocapitalize="off" 
                   autocomplete="off" 
-                  style="width: 100%; min-height: 250px; resize: none; font-family: 'Segoe UI', monospace; padding: 16px; border-radius: var(--radius);" 
+                  style="width: 100%; min-height: 280px; resize: vertical; font-family: 'Segoe UI', monospace; padding: 16px; border-radius: var(--radius);" 
                   placeholder="Type transcription here (Timer starts on first keypress)..." 
                   oninput="handleAudioTypingInput()" 
                   onkeydown="handleTestKeyDown(event)" 
@@ -6407,6 +6454,18 @@ function getActiveEvaluationRules(subtabName, categoryType) {
            copyPasteRestricted: true,
            functionKeysRestricted: true
          };
+}
+
+function adjustTestFontSize(amount) {
+  const userInput = document.getElementById('test-user-input');
+  if (!userInput) return;
+  
+  // Get current font size or fallback to 15px
+  let currentSize = parseInt(window.getComputedStyle(userInput).fontSize) || 15;
+  let newSize = Math.max(12, Math.min(32, currentSize + amount)); // Limit between 12px and 32px
+  
+  userInput.style.fontSize = newSize + 'px';
+  showToast(`Text size adjusted to ${newSize}px for this test.`);
 }
 
 
