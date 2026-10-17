@@ -1498,12 +1498,8 @@ let currentAdminUserPage = 1;
       repeatPassage: 'yes'
     };
 
-    let allEvaluationRules = JSON.parse(localStorage.getItem('steno_all_eval_rules')) || {
-      typingtest: { ...defaultEvaluationRule },
-      pitman: { ...defaultEvaluationRule },
-      audio: { ...defaultEvaluationRule },
-      default: { ...defaultEvaluationRule }
-    };
+   // Remove default fallback objects; start with an empty object
+let allEvaluationRules = JSON.parse(localStorage.getItem('steno_all_eval_rules')) || {}
 
     let announcementPage = 1;
     let logsPage = 1;
@@ -1866,11 +1862,15 @@ function getSelectedEvalKey() {
 }
 
 /**
- * Strict evaluation rule lookup. Returns null if no rule is explicitly configured 
- * for the specific subtab or base category, preventing unauthorized test launches.
- */
-function getEvaluationRulesForTab(subtabKey) {
-  if (!subtabKey) return null;
+     * Strict evaluation rule lookup. Returns null if no rule is explicitly configured 
+     * for the specific subtab/exam, with NO default or category fallback rules.
+     */
+    function getEvaluationRulesForTab(subtabKey) {
+      if (!subtabKey) return null;
+      
+      // Strict lookup: only return if admin explicitly set a rule for this exact subtabKey
+      return allEvaluationRules[subtabKey] || null;
+    }
   
   // 1. Check for specific exam/subtab rule (e.g. typingtest_SSC_Exam)
   if (allEvaluationRules[subtabKey]) {
@@ -2979,14 +2979,14 @@ function startConfiguredTypingExam() {
   startTypingExam(selectedTypingPassage);
 }
 
-    function startTypingExam(item) {
+function startTypingExam(item) {
       const cleanExamNameKey = selectedTypingExam ? selectedTypingExam.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
       const evaluationKey = `typingtest_${cleanExamNameKey}`;
       
-      // 👉 Strict evaluation rule check upfront
-      const rules = getEvaluationRulesForTab(evaluationKey) || getEvaluationRulesForTab('typingtest');
+      // Strict evaluation rule check upfront
+      const rules = getEvaluationRulesForTab(evaluationKey);
       if (!rules) {
-        showToast('Rule is not set. Cannot start exam.');
+        showToast('Error: No admin-specified evaluation rule found for this exam. Cannot start exam.');
         return;
       }
 
@@ -3000,7 +3000,7 @@ function startConfiguredTypingExam() {
       testStartTime = 0;
       currentReferenceText = item.ContentOrUrl || '';
       
-      activeTestSubtabKey = evaluationKey; // Binds exact active evaluation key for keydown and highlight checks
+      activeTestSubtabKey = evaluationKey;
       isTestPaused = false;
       isTypingTimerStarted = false;
 
@@ -3018,7 +3018,8 @@ function startConfiguredTypingExam() {
       if (mainBody) {
         mainBody.innerHTML = `
           <div style="display: flex; ${layoutFlexDir} gap: 12px; width: 100%; max-width: 1200px; flex: 1; min-height: 0; align-items: stretch;">
-            <div style="flex: 1; min-width: 0; background: var(--surface); padding: 14px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+            <!-- 👉 FIX 1: Added onwheel="event.preventDefault()" to prevent mouse scrolling -->
+            <div style="flex: 1; min-width: 0; background: var(--surface); padding: 14px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;" onwheel="event.preventDefault()">
               <div style="font-weight: 700; font-size: 13px; color: var(--secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px;">
                 <i class="fa-solid fa-file-lines"></i> Master Passage: ${item.Title} (${item.ExamDate ? String(item.ExamDate).substring(0, 10) : ''})
               </div>
@@ -3033,6 +3034,7 @@ function startConfiguredTypingExam() {
                 </div>
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
               </div>
+              <!-- 👉 FIX 4: Explicitly disabled spellcheck, autocorrect, autocapitalize, and autocomplete to stop browser error underlining -->
               <textarea id="test-user-input" 
                         class="form-control" 
                         spellcheck="false" 
@@ -3060,6 +3062,54 @@ function startConfiguredTypingExam() {
       toggleFullscreen();
     }
 
+    // 👉 FIX 2: Updated keydown handler to track both Backspace and Delete keys
+function handleTestKeyDown(event) {
+      if (isTestPaused) {
+        event.preventDefault();
+        return;
+      }
+
+      // Safely fetch rules from active window scope or subtab lookup
+      const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
+
+      // 1. Check for Backspace or Delete keypresses (supports key, code, and legacy keyCode)
+      const isBackspaceOrDelete = 
+        event.key === 'Backspace' || event.key === 'Delete' || 
+        event.code === 'Backspace' || event.code === 'Delete' || 
+        event.keyCode === 8 || event.keyCode === 46;
+
+      if (isBackspaceOrDelete) {
+        if (rules.backspaceMode === 'off') {
+          event.preventDefault();
+          showToast('Backspace and Delete keys are disabled for this exam under admin rules.');
+          return;
+        } else {
+          testBackspaces++;
+        }
+      }
+
+      // 2. Check for Function Keys (F1 - F12) restriction
+      if (rules.funcKeysMode === 'no' && event.key && event.key.startsWith('F') && event.key.length > 1) {
+        event.preventDefault();
+        showToast('Function keys are disabled under current exam rules.');
+      }
+    }
+
+// 👉 Pitman Zoom-In, Zoom-Out, and Reset helper functions
+    let testPhotoZoom = 1;
+
+    function adjustTestPhotoZoom(amount) {
+      testPhotoZoom = Math.max(0.5, Math.min(4, testPhotoZoom + amount));
+      const wrapper = document.getElementById('test-photo-zoom-wrapper');
+      if (wrapper) wrapper.style.transform = `scale(${testPhotoZoom})`;
+    }
+
+    function resetTestPhotoZoom() {
+      testPhotoZoom = 1;
+      const wrapper = document.getElementById('test-photo-zoom-wrapper');
+      if (wrapper) wrapper.style.transform = `scale(1)`;
+    }
+
     function handleTypingInputProgress() {
       if (!isTypingTimerStarted) {
         isTypingTimerStarted = true;
@@ -3070,7 +3120,6 @@ function startConfiguredTypingExam() {
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
       if (!rules) return;
       
-      // Respect highlight rule setting from admin evaluation rules
       if (rules.highlightMode !== 'on') return;
 
       const userInput = document.getElementById('test-user-input');
@@ -3094,7 +3143,6 @@ function startConfiguredTypingExam() {
       }
       passageContainer.innerHTML = highlightedHtml;
 
-      // Respect auto-scroll rule setting from admin evaluation rules
       if (rules.autoScrollMode === 'on') {
         passageContainer.scrollTop = passageContainer.scrollHeight;
       }
@@ -3180,13 +3228,12 @@ function startPitmanTestById(id) {
       }
 
       // Clean subtab name by replacing spaces and special characters with underscores to match rule keys
-      const cleanPitmanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+const cleanPitmanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
       activeTestSubtabKey = item.Subtab ? `pitman_${cleanPitmanSubtab}` : 'pitman';
 
-      // 👉 Check if evaluation rules are set; if not, show message and exit immediately
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey) || getEvaluationRulesForTab('pitman');
+      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
       if (!rules) {
-        showToast('Rule is not set. Cannot start exam.');
+        showToast('Error: No admin-specified evaluation rule found for this Pitman exercise. Cannot start exam.');
         return;
       }
 
@@ -6283,12 +6330,12 @@ function startAudioDictationTestById(id) {
   }
 
   // 2. Bind Active Evaluation Rules for Audio Subtab
-  const cleanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+const cleanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
   activeTestSubtabKey = item.Subtab ? `audio_${cleanSubtab}` : 'audio';
 
-  const rules = getEvaluationRulesForTab(activeTestSubtabKey) || getEvaluationRulesForTab('audio');
+const rules = getEvaluationRulesForTab(activeTestSubtabKey);
   if (!rules) {
-    showToast('Rule is not set for this audio subtab. Cannot start exam.');
+    showToast('Error: Admin-specified evaluation rule is missing for evaluation.');
     return;
   }
 
