@@ -2918,25 +2918,64 @@ function onTypingPassageSelected() {
     }
 
 function startConfiguredTypingExam() {
-      if (!selectedTypingPassage) {
-        showToast('Please select medium, exam, date, and passage first.');
-        return;
-      }
+  if (!selectedTypingPassage) {
+    showToast('Please select medium, exam, date, and passage first.');
+    return;
+  }
 
-      const role = currentUser ? currentUser.role : 'user';
-      const accessLevel = (selectedTypingPassage.AccessLevel || 'public').toLowerCase();
+  const role = currentUser ? currentUser.role : 'user';
+  const accessLevel = (selectedTypingPassage.AccessLevel || 'public').toLowerCase();
 
-      if (accessLevel === 'admin' && role !== 'admin') {
-        showToast('Access Denied: Restricted to Administrators.');
-        return;
-      }
-      if (accessLevel === 'member' && role !== 'member' && role !== 'admin') {
-        showToast('Access Denied: Restricted to Members only.');
-        return;
-      }
+  if (accessLevel === 'admin' && role !== 'admin') {
+    showToast('Access Denied: Restricted to Administrators.');
+    return;
+  }
+  if (accessLevel === 'member' && role !== 'member' && role !== 'admin') {
+    showToast('Access Denied: Restricted to Members only.');
+    return;
+  } 
 
-      startTypingExam(selectedTypingPassage);
+  // --- NEW: Dynamic Rule & Security Enforcement ---
+  const subtabName = selectedTypingPassage.Subtab || selectedTypingPassage.subtab || 'General';
+  const rules = getActiveEvaluationRules(subtabName, 'typing');
+
+  // Bind active rules and security constraints to global exam window scope
+  window.currentExamRules = rules;
+  window.isBackspaceAllowed = (rules.backspaceMode !== 'off');
+  window.isCopyPasteBlocked = rules.copyPasteRestricted !== false;
+
+  // Set the exam duration from rules or passage fallback
+  testDurationMinutes = selectedTypingPassage.TimeLimit ? parseInt(selectedTypingPassage.TimeLimit) : (rules.timeLimit || 5);
+  
+  // Proceed with standard typing exam interface setup...
+  currentExamName = `Typing Exam: ${selectedTypingPassage.Title || 'Passage'}`;
+  testBackspaces = 0;
+  testStartTime = Date.now();
+  currentReferenceText = selectedTypingPassage.ContentOrUrl || selectedTypingPassage.ThumbnailUrl || '';
+
+  isTestPaused = false;
+  isTypingTimerStarted = false;
+
+  document.getElementById('test-modal-title').innerText = currentExamName;
+  
+  // Example container setup (ensure your input textarea hooks into keydown/paste restrictions)
+  const mainBody = document.getElementById('test-main-body-container');
+  if (mainBody) {
+    const userInputElem = document.getElementById('test-user-input');
+    if (userInputElem) {
+      userInputElem.style.fontSize = (rules.defaultTextSize || 15) + 'px';
     }
+  }
+
+  document.getElementById('active-test-modal').style.display = 'flex';
+  
+  if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+
+  // Properly invoke the actual exam initializer at the end of the function
+  startTypingExam(selectedTypingPassage);
+}
 
     function startTypingExam(item) {
       const cleanExamNameKey = selectedTypingExam ? selectedTypingExam.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
@@ -3111,7 +3150,7 @@ function startConfiguredTypingExam() {
       });
     }
 
-    function startPitmanTestById(id) {
+function startPitmanTestById(id) {
       const item = materialsData.find(m => String(m.ID || m.id) === String(id));
       if (item) {
         startPitmanTest(item);
@@ -3149,8 +3188,13 @@ function startConfiguredTypingExam() {
         return;
       }
 
+      // --- NEW: Bind active rules and security constraints to global exam window scope ---
+      window.currentExamRules = rules;
+      window.isBackspaceAllowed = (rules.backspaceMode !== 'off');
+      window.isCopyPasteBlocked = rules.copyPasteRestricted !== false;
+
       currentExamName = `Pitman: ${item.Title}`;
-      testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
+      testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : (rules.timeLimit || 5);
       testBackspaces = 0;
       testStartTime = Date.now();
       currentReferenceText = item.ContentOrUrl || '';
@@ -3200,17 +3244,17 @@ function startConfiguredTypingExam() {
               </div>
             </div>
             <textarea id="test-user-input" 
-                      class="form-control" 
-                      spellcheck="false" 
-                      autocorrect="off" 
-                      autocapitalize="off" 
-                      autocomplete="off" 
-                      style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
-                      placeholder="Type dictation here..." 
-                      onkeydown="handleTestKeyDown(event)" 
-                      onpaste="handleTestPaste(event)" 
-                      oncopy="handleTestCopy(event)" 
-                      oncut="handleTestCut(event)"></textarea>
+                    class="form-control" 
+                    spellcheck="false" 
+                    autocorrect="off" 
+                    autocapitalize="off" 
+                    autocomplete="off" 
+                    style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                    placeholder="Type dictation here..." 
+                    onkeydown="handleTestKeyDown(event)" 
+                    onpaste="handleTestPaste(event)" 
+                    oncopy="handleTestCopy(event)" 
+                    oncut="handleTestCut(event)"></textarea>
           </div>
         </div>
       `;
@@ -3847,15 +3891,15 @@ async function submitStenoTest() {
     }
   }
 
-  const matchingWords = dp[m][n];
+const matchingWords = dp[m][n];
   const accuracyPercentage = Math.max(0, Math.min(100, ((matchingWords / Math.max(totalWordsOriginal, 1)) * 100))).toFixed(2);
   const errorPercentage = (100 - accuracyPercentage).toFixed(2);
   
   const totalPunctuationErrors = punctuationLeftCount + punctuationExtraCount + punctuationWrongCount;
 
-  // 👉 Updated: Total Marks = 100 and Marks Obtained = Accuracy Obtained
-  const totalMarks = 100;
-  const marksObtained = accuracyPercentage;
+  // 👉 Updated Evaluation Rule Setting
+  const totalMarks = rules.totalMarks !== undefined ? parseFloat(rules.totalMarks) : 100;
+  const marksObtained = parseFloat(accuracyPercentage).toFixed(2);
 
   const deductWrong = rules.deductWrong !== undefined ? rules.deductWrong : 1.0;
   const deductOmission = rules.deductOmission !== undefined ? rules.deductOmission : 1.0;
@@ -5955,8 +5999,8 @@ function handleTestKeyDown(event) {
         return;
       }
 
-      // Safeguard against undefined rules
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey) || {};
+      // Safeguard against undefined rules by checking global state or fetching from subtab key
+      const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
 
       // 1. Backspace & Delete restriction rule
       if (event.key === 'Backspace' || event.key === 'Delete') {
@@ -5977,24 +6021,24 @@ function handleTestKeyDown(event) {
     }
 
     function handleTestPaste(event) {
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (rules.copyPasteMode === 'no') {
+      const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
+      if (rules.copyPasteMode === 'no' || rules.copyPasteRestricted === true) {
         event.preventDefault();
         showToast('Copy & Paste is disabled for this exam.');
       }
     }
 
     function handleTestCopy(event) {
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (rules.copyPasteMode === 'no') {
+      const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
+      if (rules.copyPasteMode === 'no' || rules.copyPasteRestricted === true) {
         event.preventDefault();
         showToast('Copying text is disabled for this exam.');
       }
     }
 
     function handleTestCut(event) {
-      const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-      if (rules.copyPasteMode === 'no') {
+      const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
+      if (rules.copyPasteMode === 'no' || rules.copyPasteRestricted === true) {
         event.preventDefault();
         showToast('Cutting text is disabled for this exam.');
       }
@@ -6211,6 +6255,105 @@ document.addEventListener("change", async function (event) {
     }
   }
 });
+
+function startAudioDictationTestById(id) {
+  const item = materialsData.find(m => String(m.ID || m.id) === String(id));
+  if (!item) {
+    showToast('Audio dictation exercise not found.');
+    return;
+  }
+
+  // 1. Enforce Access Control
+  const role = currentUser ? currentUser.role : 'user';
+  const accessLevel = (item.AccessLevel || 'public').toLowerCase();
+  if (accessLevel === 'admin' && role !== 'admin') {
+    showToast('Access Denied: Restricted to Administrators.');
+    return;
+  }
+  if (accessLevel === 'member' && role === 'user') {
+    showToast('Access Denied: Restricted to Members only.');
+    return;
+  }
+
+  // 2. Bind Active Evaluation Rules for Audio Subtab
+  const cleanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+  activeTestSubtabKey = item.Subtab ? `audio_${cleanSubtab}` : 'audio';
+
+  const rules = getEvaluationRulesForTab(activeTestSubtabKey) || getEvaluationRulesForTab('audio');
+  if (!rules) {
+    showToast('Rule is not set for this audio subtab. Cannot start exam.');
+    return;
+  }
+
+  currentExamName = `Audio Dictation: ${item.Title}`;
+  testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : (rules.timeLimit || 5);
+  testBackspaces = 0;
+  testStartTime = Date.now();
+  currentReferenceText = item.ThumbnailUrl || item.ContentOrUrl || ''; // Master transcription text stored in ThumbnailUrl for audio items
+
+  isTestPaused = false;
+  isTypingTimerStarted = false;
+
+  document.getElementById('test-modal-title').innerText = currentExamName;
+  
+  const mainBody = document.getElementById('test-main-body-container');
+  const audioFileUrl = getUniversalUrl(item.ContentOrUrl, 'audio');
+
+  mainBody.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 1000px; margin: 0 auto; flex: 1;">
+      <div style="background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); text-align: center;">
+        <h5 style="margin-bottom: 10px; color: var(--secondary);">🔊 Listen to Audio Dictation</h5>
+        <audio id="active-audio-exam-player" controls autoplay style="width: 100%; max-width: 600px;">
+          <source src="${audioFileUrl}" type="audio/mpeg">
+          Your browser does not support audio playback.
+        </audio>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+        <label style="font-weight: 700; color: var(--secondary);">Type Your Transcription:</label>
+        <textarea id="test-user-input" 
+                  class="form-control" 
+                  spellcheck="false" 
+                  autocorrect="off" 
+                  autocapitalize="off" 
+                  autocomplete="off" 
+                  style="width: 100%; min-height: 250px; resize: none; font-family: 'Segoe UI', monospace; padding: 16px; border-radius: var(--radius);" 
+                  placeholder="Type transcription here (Timer starts on first keypress)..." 
+                  oninput="handleAudioTypingInput()" 
+                  onkeydown="handleTestKeyDown(event)" 
+                  onpaste="handleTestPaste(event)" 
+                  oncopy="handleTestCopy(event)" 
+                  oncut="handleTestCut(event)"></textarea>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
+  document.getElementById('active-test-modal').style.display = 'flex';
+  
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+function getActiveEvaluationRules(subtabName, categoryType) {
+  // categoryType can be 'typing', 'pitman', or 'audio'
+  const cleanSubtab = subtabName ? subtabName.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+  const specificKey = `${categoryType}_${cleanSubtab}`;
+  
+  // Fallback cascade: specific subtab -> category default -> global default
+  return allEvaluationRules[specificKey] || 
+         allEvaluationRules[categoryType] || 
+         allEvaluationRules['default'] || 
+         {
+           timeLimit: 5,
+           backspaceMode: 'on',
+           totalMarks: 100,
+           passingMarks: 40,
+           passingAccuracy: 85,
+           copyPasteRestricted: true,
+           functionKeysRestricted: true
+         };
+}
 
 
   </script>
