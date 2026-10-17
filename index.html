@@ -1410,7 +1410,7 @@
 
   <footer>
     <div class="footer-left">
-      <span>Total Users: <strong id="footer-total-users" style="color: var(--primary);">0</strong></span>
+      <span>Active Users: <strong id="footer-total-users" style="color: var(--primary);">0</strong></span>
       <span style="opacity: 0.4;">|</span>
       <span>Total Visitsers: <strong id="footer-total-visits" style="color: var(--primary);">0</strong></span>
     </div>
@@ -1864,71 +1864,78 @@ function getSelectedEvalKey() {
   return cat;
 }
 
+/**
+ * Strict evaluation rule lookup. Returns null if no rule is explicitly configured 
+ * for the specific subtab or base category, preventing unauthorized test launches.
+ */
 function getEvaluationRulesForTab(subtabKey) {
-      if (!subtabKey) return allEvaluationRules['default'] || defaultEvaluationRule;
-      
-      // 1. Check for specific exam/subtab rule (e.g. typingtest_SSC Exam)
-      if (allEvaluationRules[subtabKey]) {
-        return allEvaluationRules[subtabKey];
-      }
-      
-      // 2. Fall back to base category rule (e.g. typingtest, pitman, audio)
-      const baseCat = subtabKey.split('_')[0];
-      if (allEvaluationRules[baseCat]) {
-        return allEvaluationRules[baseCat];
-      }
-      
-      // 3. Fall back to global default rule
-      if (allEvaluationRules['default']) {
-        return allEvaluationRules['default'];
-      }
-      
-      // 4. Fallback to hardcoded default rule object if nothing else exists
-      return defaultEvaluationRule;
+  if (!subtabKey) return null;
+  
+  // 1. Check for specific exam/subtab rule (e.g. typingtest_SSC_Exam)
+  if (allEvaluationRules[subtabKey]) {
+    return allEvaluationRules[subtabKey];
+  }
+  
+  // 2. Check for base category rule (e.g. typingtest, pitman, audio)
+  const baseCat = subtabKey.split('_')[0];
+  if (allEvaluationRules[baseCat]) {
+    return allEvaluationRules[baseCat];
+  }
+  
+  // 3. Return null if no rule is set (No default fallback rule for execution)
+  return null;
+}
+
+/**
+ * Loads rules into the admin form. 
+ * Uses defaultEvaluationRule as a UI fallback ONLY when configuring a new unconfigured tab,
+ * ensuring admin input fields are never blank.
+ */
+function loadSelectedEvaluationRulesIntoForm() {
+  const key = getSelectedEvalKey();
+  if (!key) return;
+
+  // For the admin form UI, fallback to defaultEvaluationRule if nothing is saved yet
+  const rules = getEvaluationRulesForTab(key) || defaultEvaluationRule;
+
+  if (!rules) {
+    return;
+  }
+
+  // Updated setVal helper to safely allow zero-bound numbers (0) without falling back
+  const setVal = (id, val, fallback) => {
+    const elem = document.getElementById(id);
+    if (elem) {
+      elem.value = (val !== undefined && val !== null) ? val : fallback;
     }
+  };
 
-    function loadSelectedEvaluationRulesIntoForm() {
-      const key = getSelectedEvalKey();
-      const rules = getEvaluationRulesForTab(key);
-
-      if (!rules) {
-        return;
-      }
-
-      // 👉 Updated setVal helper to safely allow zero-bound numbers (0) without falling back
-      const setVal = (id, val, fallback) => {
-        const elem = document.getElementById(id);
-        if (elem) {
-          elem.value = (val !== undefined && val !== null) ? val : fallback;
-        }
-      };
-
-      setVal('eval-time-limit', rules.timeLimit, 5);          // 👈 Included Typing Test Time Limit
-      setVal('eval-backspace-mode', rules.backspaceMode, 'on');
-      setVal('eval-total-marks', rules.totalMarks, 100);
-      setVal('eval-passing-marks', rules.passingMarks, 40);
-      setVal('eval-passing-accuracy', rules.passingAccuracy, 85);
-      setVal('eval-min-gross-stroke-pct', rules.minGrossStrokePct, 100);
-      setVal('eval-ignore-paragraph-change', rules.ignoreParagraphChange, 'yes');
-      setVal('eval-repeat-passage', rules.repeatPassage, 'yes');
-      setVal('eval-default-text-size', rules.defaultTextSize, 15);
-      setVal('eval-deduct-punctuation', rules.deductPunctuation, 0.5);
-      setVal('eval-deduct-word', rules.deductWord, 1.0);
-      setVal('eval-deduct-wrong', rules.deductWrong, 1.0);
-      setVal('eval-deduct-omission', rules.deductOmission, 1.0);
-      setVal('eval-deduct-extra-word', rules.deductExtraWord, 0.5);         // Extra Words Deduction
-      setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged, 1.0); // Paragraph Not Changed Deduction
-      setVal('eval-copypaste-mode', rules.copyPasteMode, 'yes');
-      setVal('eval-func-keys-mode', rules.funcKeysMode, 'yes');
-      setVal('eval-word-count-rule', rules.wordCountRule, '1word');
-      setVal('eval-autoscroll-mode', rules.autoScrollMode, 'on');
-      setVal('eval-highlight-mode', rules.highlightMode, 'on');
-      setVal('eval-layout-position', rules.layoutPosition, 'top');
-      setVal('eval-initial-words', rules.initialWords, 0);       // Safely allows 0
-      setVal('eval-min-time', rules.minTimeSeconds, 0);          // Safely allows 0
-      setVal('eval-ignore-error-pct', rules.ignoreErrorPct, 5);
-      setVal('eval-penalty-value', rules.penaltyValue, 1.0);
-    }
+  setVal('eval-time-limit', rules.timeLimit, 5);         // Typing Test Time Limit
+  setVal('eval-backspace-mode', rules.backspaceMode, 'on');
+  setVal('eval-total-marks', rules.totalMarks, 100);
+  setVal('eval-passing-marks', rules.passingMarks, 40);
+  setVal('eval-passing-accuracy', rules.passingAccuracy, 85);
+  setVal('eval-min-gross-stroke-pct', rules.minGrossStrokePct, 100);
+  setVal('eval-ignore-paragraph-change', rules.ignoreParagraphChange, 'yes');
+  setVal('eval-repeat-passage', rules.repeatPassage, 'yes');
+  setVal('eval-default-text-size', rules.defaultTextSize, 15);
+  setVal('eval-deduct-punctuation', rules.deductPunctuation, 0.5);
+  setVal('eval-deduct-word', rules.deductWord, 1.0);
+  setVal('eval-deduct-wrong', rules.deductWrong, 1.0);
+  setVal('eval-deduct-omission', rules.deductOmission, 1.0);
+  setVal('eval-deduct-extra-word', rules.deductExtraWord, 0.5);          // Extra Words Deduction
+  setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged, 1.0); // Paragraph Not Changed Deduction
+  setVal('eval-copypaste-mode', rules.copyPasteMode, 'yes');
+  setVal('eval-func-keys-mode', rules.funcKeysMode, 'yes');
+  setVal('eval-word-count-rule', rules.wordCountRule, '1word');
+  setVal('eval-autoscroll-mode', rules.autoScrollMode, 'on');
+  setVal('eval-highlight-mode', rules.highlightMode, 'on');
+  setVal('eval-layout-position', rules.layoutPosition, 'top');
+  setVal('eval-initial-words', rules.initialWords, 0);       // Safely allows 0
+  setVal('eval-min-time', rules.minTimeSeconds, 0);          // Safely allows 0
+  setVal('eval-ignore-error-pct', rules.ignoreErrorPct, 5);
+  setVal('eval-penalty-value', rules.penaltyValue, 1.0);
+}
 
 async function saveEvaluationRulesSettings() {
   let key = getSelectedEvalKey();
@@ -1936,8 +1943,8 @@ async function saveEvaluationRulesSettings() {
     showToast('Please select a valid evaluation category/subtab.');
     return;
   }
-
-  // 👉 Ensure key format matches the clean format used during tests (e.g., typingtest_SSC_Exam)
+  
+  // Ensure key format matches the clean format used during tests (e.g., typingtest_SSC_Exam)
   if (key.includes('_')) {
     const parts = key.split('_');
     const cat = parts[0];
@@ -1982,14 +1989,13 @@ async function saveEvaluationRulesSettings() {
   localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
   
   if (typeof populateSavedRulesQuickDropdown === 'function') {
-    populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
+    populateSavedRulesQuickDropdown();
   }
 
   if (typeof renderAdminEvaluationRulesTable === 'function') {
-    renderAdminEvaluationRulesTable(); // 🔄 Refreshes rules list table
+    renderAdminEvaluationRulesTable();
   }
 
-  // Sync and save permanently to the Google Sheets backend
   const res = await apiCall('saveEvaluationRules', {
     ruleKey: key,
     ruleJson: JSON.stringify(ruleData)
@@ -1999,46 +2005,6 @@ async function saveEvaluationRulesSettings() {
     showToast('Exam & Evaluation rules saved, edited, and synced successfully.');
   } else {
     showToast('Rules saved locally, but backend sync failed: ' + res.message);
-  }
-}
-
-async function deleteSelectedEvaluationRules() {
-  let key = getSelectedEvalKey();
-  if (!key) {
-    showToast('Please select a valid evaluation category/subtab.');
-    return;
-  }
-
-  if (key.includes('_')) {
-    const parts = key.split('_');
-    const cat = parts[0];
-    const sub = parts.slice(1).join('_').replace(/[^a-zA-Z0-9_]/g, '_');
-    key = `${cat}_${sub}`;
-  }
-
-  if (confirm(`Are you sure you want to delete/reset evaluation rules for [ ${key} ]?`)) {
-    delete allEvaluationRules[key];
-    localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-    
-    if (typeof populateSavedRulesQuickDropdown === 'function') {
-      populateSavedRulesQuickDropdown(); // 🔄 Refreshes saved rules dropdown list instantly
-    }
-
-    if (typeof renderAdminEvaluationRulesTable === 'function') {
-      renderAdminEvaluationRulesTable(); // 🔄 Refreshes rules list table
-    }
-
-    const res = await apiCall('saveEvaluationRules', {
-      ruleKey: key,
-      ruleJson: ''
-    });
-
-    loadSelectedEvaluationRulesIntoForm();
-    if (res.success) {
-      showToast('Evaluation rule deleted and synced successfully.');
-    } else {
-      showToast('Deleted locally, but backend sync failed.');
-    }
   }
 }
 
@@ -2927,7 +2893,7 @@ function onTypingPassageSelected() {
           <div><strong>Language Medium:</strong> ${selectedTypingPassage.Medium || 'English'}</div>
           <div><strong>Exam Name (Subtab):</strong> ${selectedTypingExam || 'General Typing'}</div>
           <div><strong>Master Passage (Title):</strong> ${selectedTypingPassage.Title}</div>
-          <div><strong>Exam Date:</strong> ${selectedTypingPassage.ExamDate || selectedTypingDate}</div>
+       <div><strong>Exam Date:</strong> ${(selectedTypingPassage.ExamDate || selectedTypingDate).substring(0, 10)}</div>
           <div><strong>Total Words:</strong> ${totalWords} | <strong>Strokes:</strong> ${text.length}</div>
           <div><strong>Min Gross Strokes Required:</strong> ${Math.round((text.length * (rules.minGrossStrokePct || 100)) / 100)} (${rules.minGrossStrokePct || 100}%)</div>
           <div><strong>Total Duration:</strong> ${totalDuration} Minutes</div>
@@ -2951,7 +2917,7 @@ function onTypingPassageSelected() {
       initTypingTestWizard();
     }
 
-    function startConfiguredTypingExam() {
+function startConfiguredTypingExam() {
       if (!selectedTypingPassage) {
         showToast('Please select medium, exam, date, and passage first.');
         return;
@@ -2973,25 +2939,32 @@ function onTypingPassageSelected() {
     }
 
     function startTypingExam(item) {
-      currentExamName = `Typing Test: ${selectedTypingExam || 'General'} - ${item.Title}`;
+      const cleanExamNameKey = selectedTypingExam ? selectedTypingExam.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+      const evaluationKey = `typingtest_${cleanExamNameKey}`;
       
-      const cleanExamName = selectedTypingExam ? selectedTypingExam.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
-      const evaluationKey = `typingtest_${cleanExamName}`;
+      // 👉 Strict evaluation rule check upfront
       const rules = getEvaluationRulesForTab(evaluationKey) || getEvaluationRulesForTab('typingtest');
+      if (!rules) {
+        showToast('Rule is not set. Cannot start exam.');
+        return;
+      }
+
+      const cleanExamDate = item.ExamDate ? String(item.ExamDate).split('T')[0] : '';
+      const cleanTitle = String(item.Title || '').split('T')[0];
+
+      currentExamName = `Typing Test: ${selectedTypingExam || 'General'} - ${cleanTitle}`;
       
       testDurationMinutes = rules.timeLimit ? parseInt(rules.timeLimit) : 5;
       testBackspaces = 0;
       testStartTime = 0;
       currentReferenceText = item.ContentOrUrl || '';
       
-      activeTestSubtabKey = evaluationKey; // 👉 Binds exact active evaluation key for keydown and highlight checks[cite: 1]
+      activeTestSubtabKey = evaluationKey; // Binds exact active evaluation key for keydown and highlight checks
       isTestPaused = false;
       isTypingTimerStarted = false;
 
-      if (!rules) return;
-
       const titleElem = document.getElementById('test-modal-title');
-      if (titleElem) titleElem.innerText = `${currentExamName} (${item.ExamDate || ''})`;
+      if (titleElem) titleElem.innerText = `${currentExamName}${cleanExamDate ? ' (' + cleanExamDate + ')' : ''}`;
       
       const mainBody = document.getElementById('test-main-body-container');
       const layoutPos = rules.layoutPosition || 'top';
@@ -3003,15 +2976,15 @@ function onTypingPassageSelected() {
 
       if (mainBody) {
         mainBody.innerHTML = `
-          <div style="display: flex; ${layoutFlexDir} gap: 16px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch;">
-            <div style="flex: 1; min-width: 320px; background: var(--surface); padding: 18px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
+          <div style="display: flex; ${layoutFlexDir} gap: 12px; width: 100%; max-width: 1200px; flex: 1; min-height: 0; align-items: stretch;">
+            <div style="flex: 1; min-width: 0; background: var(--surface); padding: 14px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
               <div style="font-weight: 700; font-size: 13px; color: var(--secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-                <i class="fa-solid fa-file-lines"></i> Master Passage: ${item.Title} (${item.ExamDate || ''})
+                <i class="fa-solid fa-file-lines"></i> Master Passage: ${item.Title} (${item.ExamDate ? String(item.ExamDate).substring(0, 10) : ''})
               </div>
               <div id="test-material-passage-text" style="font-size: ${rules.defaultTextSize || 15}px; line-height: 1.6; white-space: pre-wrap; font-family: 'Segoe UI', monospace;">${currentReferenceText}</div>
             </div>
 
-            <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; min-height: 0;">
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
                   <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
@@ -3025,7 +2998,7 @@ function onTypingPassageSelected() {
                         autocorrect="off" 
                         autocapitalize="off" 
                         autocomplete="off" 
-                        style="width: 100%; flex: 1; min-height: 280px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                        style="width: 100%; flex: 1; min-height: 150px; resize: none; font-family: 'Segoe UI', monospace; padding: 14px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
                         placeholder="Start typing passage here (Timer starts on first keypress)..." 
                         oninput="handleTypingInputProgress()" 
                         onkeydown="handleTestKeyDown(event)" 
@@ -3056,7 +3029,7 @@ function onTypingPassageSelected() {
       const rules = getEvaluationRulesForTab(activeTestSubtabKey);
       if (!rules) return;
       
-      // 👉 Respect highlight rule setting from admin evaluation rules[cite: 1]
+      // Respect highlight rule setting from admin evaluation rules
       if (rules.highlightMode !== 'on') return;
 
       const userInput = document.getElementById('test-user-input');
@@ -3080,283 +3053,181 @@ function onTypingPassageSelected() {
       }
       passageContainer.innerHTML = highlightedHtml;
 
-      // 👉 Respect auto-scroll rule setting from admin evaluation rules[cite: 1]
+      // Respect auto-scroll rule setting from admin evaluation rules
       if (rules.autoScrollMode === 'on') {
         passageContainer.scrollTop = passageContainer.scrollHeight;
       }
     }
 
-function renderPitmanList(filterSubtab = 'ALL') {
-    const grid = document.getElementById('pitman-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
+    function renderPitmanList(filterSubtab = 'ALL') {
+      const grid = document.getElementById('pitman-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
 
-    let items = materialsData.filter(m => (m.Type || '').toLowerCase() === 'pitman');
-    const searchInput = document.getElementById('pitman-search-input');
-    const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      let items = materialsData.filter(m => (m.Type || '').toLowerCase() === 'pitman');
+      const searchInput = document.getElementById('pitman-search-input');
+      const searchQuery = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-    if (filterSubtab !== 'ALL' && !searchQuery) {
-      items = items.filter(m => m.Subtab === filterSubtab);
+      if (filterSubtab !== 'ALL' && !searchQuery) {
+        items = items.filter(m => m.Subtab === filterSubtab);
+      }
+
+      if (searchQuery) {
+        items = items.filter(m => 
+          (m.Title || '').toLowerCase().includes(searchQuery) ||
+          (m.Subtab || '').toLowerCase().includes(searchQuery)
+        );
+      }
+
+      if (items.length === 0) {
+        grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No Pitman exercises available.</div>`;
+        return;
+      }
+
+      items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        
+        const logoTarget = (item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
+          ? item.LogoUrl 
+          : ((item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
+              ? item.ThumbnailUrl 
+              : DEFAULT_LOGO_URL);
+        
+        const thumbUrl = getUniversalUrl(logoTarget, 'image');
+
+        const adminTimeLimit = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
+        
+        const displayTitle = item.Title || item.Name || item.Word || '';
+        const safeTitle = displayTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+        card.innerHTML = `
+          <img src="${thumbUrl}" class="card-thumb" style="object-fit:contain;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+          <strong style="margin: 6px 0;">${safeTitle}</strong>
+          <span class="subtab-badge">📂 ${item.Subtab || 'General'} | ⏱️ ${adminTimeLimit} Mins</span>
+          <button class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%;" onclick='startPitmanTestById("${item.ID || item.id}")'><i class="fa-solid fa-play"></i> Start Pitman Test</button>
+        `;
+        grid.appendChild(card);
+      });
     }
 
-    if (searchQuery) {
-      items = items.filter(m => 
-        (m.Title || '').toLowerCase().includes(searchQuery) ||
-        (m.Subtab || '').toLowerCase().includes(searchQuery)
-      );
+    function startPitmanTestById(id) {
+      const item = materialsData.find(m => String(m.ID || m.id) === String(id));
+      if (item) {
+        startPitmanTest(item);
+      } else {
+        showToast('Pitman exercise material not found.');
+      }
     }
 
-    if (items.length === 0) {
-      grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: var(--text-muted);">No Pitman exercises available.</div>`;
-      return;
-    }
+    function startPitmanTest(item) {
+      // Security validation check to enforce membership/admin access restrictions
+      const role = currentUser ? currentUser.role : 'user';
+      const accessLevel = (item.AccessLevel || 'public').toLowerCase();
 
-    items.forEach(item => {
-      const card = document.createElement('div');
-      card.className = 'card';
+      if (accessLevel === 'admin' && role !== 'admin') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+      if (accessLevel === 'member' && role === 'user') {
+        showToast('Access Denied: Restricted to Members only.');
+        return;
+      }
+      if (accessLevel === 'admin' && role === 'member') {
+        showToast('Access Denied: Restricted to Administrators.');
+        return;
+      }
+
+      // Clean subtab name by replacing spaces and special characters with underscores to match rule keys
+      const cleanPitmanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+      activeTestSubtabKey = item.Subtab ? `pitman_${cleanPitmanSubtab}` : 'pitman';
+
+      // 👉 Check if evaluation rules are set; if not, show message and exit immediately
+      const rules = getEvaluationRulesForTab(activeTestSubtabKey) || getEvaluationRulesForTab('pitman');
+      if (!rules) {
+        showToast('Rule is not set. Cannot start exam.');
+        return;
+      }
+
+      currentExamName = `Pitman: ${item.Title}`;
+      testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
+      testBackspaces = 0;
+      testStartTime = Date.now();
+      currentReferenceText = item.ContentOrUrl || '';
+
+      isTestPaused = false;
+      isTypingTimerStarted = true;
+
+      document.getElementById('test-modal-title').innerText = currentExamName;
       
-      // 👉 Prioritize LogoUrl first for card view, falling back to ThumbnailUrl, then default
-      const logoTarget = (item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
-        ? item.LogoUrl 
-        : ((item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
-            ? item.ThumbnailUrl 
+      const mainBody = document.getElementById('test-main-body-container');
+      
+      // Reset zoom state completely on fresh test launch
+      testPhotoZoom = 1;
+
+      const photoTarget = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
+        ? item.ThumbnailUrl 
+        : ((item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
+            ? item.LogoUrl 
             : DEFAULT_LOGO_URL);
       
-      const thumbUrl = getUniversalUrl(logoTarget, 'image');
+      const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
 
-      const adminTimeLimit = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
-      
-      const displayTitle = item.Title || item.Name || item.Word || '';
-      const safeTitle = displayTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      mainBody.innerHTML = `
+        <div style="display: flex; gap: 20px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 320px; background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
+              <strong style="color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-image"></i> Pitman Outline Photo</strong>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(0.2)">+</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(-0.2)">-</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="resetTestPhotoZoom()">Reset</button>
+              </div>
+            </div>
+            <div style="flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 8px; padding: 10px; min-height: 300px; position: relative;">
+              <div class="global-watermark-layer" style="opacity: 0.25; z-index: 2;"></div>
+              <div id="test-photo-zoom-wrapper" style="transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 1;">
+                <img id="test-pitman-img" src="${pitmanThumbUrl}" style="max-width: 100%; max-height: 500px; object-fit: contain; display: block;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+              </div>
+            </div>
+          </div>
 
-      card.innerHTML = `
-        <img src="${thumbUrl}" class="card-thumb" style="object-fit:contain;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-        <strong style="margin: 6px 0;">${safeTitle}</strong>
-        <span class="subtab-badge">📂 ${item.Subtab || 'General'} | ⏱️ ${adminTimeLimit} Mins</span>
-        <button class="btn btn-primary btn-sm" style="margin-top: 8px; width: 100%;" onclick='startPitmanTestById("${item.ID || item.id}")'><i class="fa-solid fa-play"></i> Start Pitman Test</button>
+          <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
+                <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
+                <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
+              </div>
+            </div>
+            <textarea id="test-user-input" 
+                      class="form-control" 
+                      spellcheck="false" 
+                      autocorrect="off" 
+                      autocapitalize="off" 
+                      autocomplete="off" 
+                      style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                      placeholder="Type dictation here..." 
+                      onkeydown="handleTestKeyDown(event)" 
+                      onpaste="handleTestPaste(event)" 
+                      oncopy="handleTestCopy(event)" 
+                      oncut="handleTestCut(event)"></textarea>
+          </div>
+        </div>
       `;
-      grid.appendChild(card);
-    });
-  }
 
-function startPitmanTestById(id) {
-    const item = materialsData.find(m => String(m.ID || m.id) === String(id));
-    if (item) {
-      startPitmanTest(item);
-    } else {
-      showToast('Pitman exercise material not found.');
+      document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
+      document.getElementById('active-test-modal').style.display = 'flex';
+      
+      if (typeof toggleFullscreen === 'function' && !document.fullscreenElement) {
+        toggleFullscreen();
+      }
+      
+      if (typeof renderGlobalWatermark === 'function') {
+        renderGlobalWatermark();
+      }
+      
+      startTestTimer(testDurationMinutes * 60);
     }
-  }
-
-  function startPitmanTest(item) {
-    // 👉 Security validation check to enforce membership/admin access restrictions
-    const role = currentUser ? currentUser.role : 'user';
-    const accessLevel = (item.AccessLevel || 'public').toLowerCase();
-
-    if (accessLevel === 'admin' && role !== 'admin') {
-      showToast('Access Denied: Restricted to Administrators.');
-      return;
-    }
-    if (accessLevel === 'member' && role === 'user') {
-      showToast('Access Denied: Restricted to Members only.');
-      return;
-    }
-    if (accessLevel === 'admin' && role === 'member') {
-      showToast('Access Denied: Restricted to Administrators.');
-      return;
-    }
-
-    currentExamName = `Pitman: ${item.Title}`;
-    testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
-    testBackspaces = 0;
-    testStartTime = Date.now();
-    currentReferenceText = item.ContentOrUrl || '';
-    activeTestSubtabKey = item.Subtab ? `pitman_${item.Subtab}` : 'pitman';
-    isTestPaused = false;
-    isTypingTimerStarted = true;
-
-    // 👉 Check if evaluation rules are set; if not, exit and show error message
-    const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-    if (!rules) return;
-
-    document.getElementById('test-modal-title').innerText = currentExamName;
-    
-    const mainBody = document.getElementById('test-main-body-container');
-    
-    // 👉 Reset zoom state completely on fresh test launch
-    testPhotoZoom = 1;
-
-    // 👉 Updated to check ThumbnailUrl first (admin upload field), then LogoUrl, then default
-    const photoTarget = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
-      ? item.ThumbnailUrl 
-      : ((item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
-          ? item.LogoUrl 
-          : DEFAULT_LOGO_URL);
-    
-    const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
-
-    mainBody.innerHTML = `
-      <div style="display: flex; gap: 20px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 320px; background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 10px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-            <strong style="color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-image"></i> Pitman Outline Photo</strong>
-            <div style="display: flex; gap: 4px;">
-              <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(0.2)">+</button>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(-0.2)">-</button>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="resetTestPhotoZoom()">Reset</button>
-            </div>
-          </div>
-          <div style="flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 8px; padding: 10px; min-height: 300px; position: relative;">
-            <div class="global-watermark-layer" style="opacity: 0.25; z-index: 2;"></div>
-            <div id="test-photo-zoom-wrapper" style="transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 1;">
-              <img id="test-pitman-img" src="${pitmanThumbUrl}" style="max-width: 100%; max-height: 500px; object-fit: contain; display: block;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-            </div>
-          </div>
-        </div>
-
-        <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 10px;">
-          <div style="display: flex; align-items: center; justify-content: space-between;">
-            <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
-              <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
-              <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
-            </div>
-          </div>
-          <textarea id="test-user-input" 
-                    class="form-control" 
-                    spellcheck="false" 
-                    autocorrect="off" 
-                    autocapitalize="off" 
-                    autocomplete="off" 
-                    style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
-                    placeholder="Type dictation here..." 
-                    onkeydown="handleTestKeyDown(event)" 
-                    onpaste="handleTestPaste(event)" 
-                    oncopy="handleTestCopy(event)" 
-                    oncut="handleTestCut(event)"></textarea>
-        </div>
-      </div>
-    `;
-
-    document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
-    document.getElementById('active-test-modal').style.display = 'flex';
-    
-    // Ensure fullscreen toggles safely if supported
-    if (typeof toggleFullscreen === 'function' && !document.fullscreenElement) {
-      toggleFullscreen();
-    }
-    
-    if (typeof renderGlobalWatermark === 'function') {
-      renderGlobalWatermark();
-    }
-    
-    startTestTimer(testDurationMinutes * 60);
-  }
-
-  function adjustTestPhotoZoom(amount) {
-    testPhotoZoom = Math.max(0.5, Math.min(4, testPhotoZoom + amount));
-    const wrapper = document.getElementById('test-photo-zoom-wrapper');
-    if (wrapper) wrapper.style.transform = `scale(${testPhotoZoom})`;
-  }
-
-  function resetTestPhotoZoom() {
-    testPhotoZoom = 1;
-    const wrapper = document.getElementById('test-photo-zoom-wrapper');
-    if (wrapper) wrapper.style.transform = `scale(1)`;
-  }
-
-  function startAudioDictationTestById(id) {
-    const item = materialsData.find(m => String(m.ID || m.id) === String(id));
-    if (item) {
-      startAudioDictationTest(item);
-    } else {
-      showToast('Material not found.');
-    }
-  }
-
-  function startAudioDictationTest(item) {
-    // 👉 Security validation check to prevent unauthorized access
-    const role = currentUser ? currentUser.role : 'user';
-    const accessLevel = (item.AccessLevel || 'public').toLowerCase();
-
-    if (accessLevel === 'admin' && role !== 'admin') {
-      showToast('Access Denied: Restricted to Administrators.');
-      return;
-    }
-    if (accessLevel === 'member' && role === 'user') {
-      showToast('Access Denied: Restricted to Members only.');
-      return;
-    }
-    if (accessLevel === 'admin' && role === 'member') {
-      showToast('Access Denied: Restricted to Administrators.');
-      return;
-    }
-
-    const displayTitle = item.Title || item.Name || item.Word || 'Audio Transcription';
-    currentExamName = `Audio Transcription: ${displayTitle}`;
-    testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : 5;
-    testBackspaces = 0;
-    testStartTime = 0;
-    
-    currentReferenceText = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && !item.ThumbnailUrl.startsWith('http')) ? item.ThumbnailUrl : (item.ContentOrUrl || '');
-    activeTestSubtabKey = item.Subtab ? `audio_${item.Subtab}` : 'audio';
-    isTestPaused = false;
-    isTypingTimerStarted = false;
-
-    // 👉 Check if evaluation rules are set; if not, exit and show error message
-    const rules = getEvaluationRulesForTab(activeTestSubtabKey);
-    if (!rules) return;
-
-    const finalAudioUrl = getUniversalUrl(item.ContentOrUrl, 'audio');
-
-    document.getElementById('test-modal-title').innerText = currentExamName;
-    
-    const initialTotalSeconds = testDurationMinutes * 60;
-    const initMins = Math.floor(initialTotalSeconds / 60);
-    const initSecs = initialTotalSeconds % 60;
-    const timerElem = document.getElementById('test-timer');
-    if (timerElem) {
-      timerElem.innerText = `${String(initMins).padStart(2, '0')}:${String(initSecs).padStart(2, '0')}`;
-    }
-    
-    const mainBody = document.getElementById('test-main-body-container');
-    
-    mainBody.innerHTML = `
-      <audio id="active-bg-audio" autoplay style="display: none;">
-        <source src="${finalAudioUrl}" type="audio/mpeg">
-        <source src="${finalAudioUrl}" type="audio/mp3">
-        <source src="${finalAudioUrl}" type="audio/wav">
-        <source src="${finalAudioUrl}" type="audio/ogg">
-      </audio>
-
-      <div style="width: 100%; max-width: 900px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
-          <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
-          <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
-        </div>
-        <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
-      </div>
-
-      <div style="width: 100%; max-width: 900px; flex: 1; display: flex; flex-direction: column;">
-        <textarea id="test-user-input" 
-                  class="form-control" 
-                  spellcheck="false" 
-                  autocorrect="off" 
-                  autocapitalize="off" 
-                  autocomplete="off" 
-                  style="width: 100%; flex: 1; min-height: 380px; resize: none; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
-                  placeholder="Listen to audio dictation and type here..." 
-                  oninput="handleAudioTypingInput()" 
-                  onkeydown="handleTestKeyDown(event)" 
-                  onpaste="handleTestPaste(event)" 
-                  oncopy="handleTestCopy(event)" 
-                  oncut="handleTestCut(event)"></textarea>
-      </div>
-    `;
-
-    document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
-    document.getElementById('active-test-modal').style.display = 'flex';
-    toggleFullscreen();
-  }
 
   function buildAlphabetBar() {
     const bar = document.getElementById('alphabet-bar');
@@ -3982,11 +3853,14 @@ async function submitStenoTest() {
   
   const totalPunctuationErrors = punctuationLeftCount + punctuationExtraCount + punctuationWrongCount;
 
-  const totalMarks = rules.totalMarks || 100;
+  // 👉 Updated: Total Marks = 100 and Marks Obtained = Accuracy Obtained
+  const totalMarks = 100;
+  const marksObtained = accuracyPercentage;
+
   const deductWrong = rules.deductWrong !== undefined ? rules.deductWrong : 1.0;
   const deductOmission = rules.deductOmission !== undefined ? rules.deductOmission : 1.0;
   const deductPunctuation = rules.deductPunctuation !== undefined ? rules.deductPunctuation : 0.5;
-  const deductCapital = 0.25;
+  const deductCapital = rules.deductCapital !== undefined ? rules.deductCapital : 0.25;
   const deductExtraWord = rules.deductExtraWord !== undefined ? rules.deductExtraWord : 0.5;
   const deductParaNotChanged = rules.deductParaNotChanged !== undefined ? rules.deductParaNotChanged : 1.0;
 
@@ -4004,14 +3878,15 @@ async function submitStenoTest() {
                         parseFloat(extraDeduction) + 
                         parseFloat(paraDeduction);
   
-  const ignorePct = rules.ignoreErrorPct || 5;
+  const ignorePct = rules.ignoreErrorPct !== undefined ? rules.ignoreErrorPct : 5;
+  const penaltyValue = rules.penaltyValue !== undefined ? rules.penaltyValue : 1.0;
+
   if (parseFloat(errorPercentage) > ignorePct) {
     const excessError = parseFloat(errorPercentage) - ignorePct;
-    errorDeductions += (excessError * (rules.penaltyValue || 1.0));
+    errorDeductions += (excessError * penaltyValue);
   }
 
-  const marksObtained = Math.max(0, totalMarks - errorDeductions).toFixed(2);
-  const passingAccuracy = rules.passingAccuracy || 85;
+  const passingAccuracy = rules.passingAccuracy !== undefined ? rules.passingAccuracy : 85;
   const isPassed = (parseFloat(accuracyPercentage) >= parseFloat(passingAccuracy)) && meetsMinGrossStroke;
 
   const grossSpeed = Math.round(totalTypedWords / durationMins);
@@ -4025,8 +3900,8 @@ async function submitStenoTest() {
     timeDuration: `${testDurationMinutes} Mins`,
     typingDate: getLocalDateString(),
     timeTaken: `${timeUsedMinutes} mins`,
-    errorRelaxed: `${rules.ignoreErrorPct || 5}%`,
-    penaltyWord: `${rules.penaltyValue || 1.0}`,
+    errorRelaxed: `${ignorePct}%`,
+    penaltyWord: `${penaltyValue}`,
     date: getLocalDateString(),
     submissionTime: submissionTimeFormatted,
     grossSpeed: grossSpeed,
