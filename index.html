@@ -158,10 +158,24 @@
     .password-wrapper { position: relative; }
     .password-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); z-index: 10; }
 
-    /* 👉 ADD THIS: Makes the test user box larger by default and lets users resize it vertically */
+    /* 👉 Guarantee mobile visibility, vertical resizing, and prevent box clipping */
     #test-user-input {
       resize: vertical !important; 
-      min-height: 280px !important;
+      min-height: 250px !important;
+      max-height: 60vh !important;
+    }
+
+    @media (max-width: 768px) {
+      /* Ensure parent containers wrap properly on mobile */
+      #active-test-modal .modal-content > div[style*="flex"] {
+        flex-direction: column !important;
+        overflow-y: auto !important;
+      }
+      
+      /* Control image container height on mobile so typing input stays visible */
+      #test-photo-zoom-wrapper {
+        max-height: 250px;
+      }
     }
 
     .btn { padding: 9px 18px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; justify-content: center; transition: all 0.2s; }
@@ -172,7 +186,7 @@
     .btn-secondary:hover { background: var(--border); }
     .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
 
-    .subtab-bar { display: flex; gap: 8px; border-bottom: 2px solid var(--border); margin-bottom: 16px; overflow-x: auto; padding: 4px 2px 10px 2px; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; width: 100%; }
+    .subtab-bar { display: flex; gap: 8px; border-bottom: 2px solid var(--border); margin-bottom: 16px; overflow-x: auto; padding: 4px 2px 10px 2px; flex-wrap: wrap; -webkit-overflow-scrolling: touch; width: 100%; }
     .subtab-btn { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; white-space: nowrap; font-size: 13px; font-weight: 700; transition: 0.2s; flex-shrink: 0; box-shadow: 0 1px 3px var(--shadow); }
     .subtab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 3px 10px rgba(37,99,235,0.3); }
 
@@ -280,6 +294,36 @@
 @keyframes visualPulse {
   0% { background-color: rgba(239, 68, 68, 0.1); }
   100% { background-color: rgba(239, 68, 68, 0.4); }
+}
+
+
+/* 👉 ADD THIS: Error Color Legend Badge Styling */
+.error-legend-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  background: var(--border);
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.legend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.legend-color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
 }
   </style>
 </head>
@@ -753,596 +797,437 @@
     </section>
 
 <!-- ADMIN PANEL -->
-    <section id="view-admin" class="app-view" style="display: none;">
-      <div class="subtab-bar">
-        <button class="subtab-btn active" onclick="switchAdminTab('content', this)"> 📚 Content Uploaded </button>
-        <button class="subtab-btn" onclick="switchAdminTab('users', this)"> 👥 User </button>
-        <button class="subtab-btn" onclick="switchAdminTab('logs', this)"> ⚠ Security & Logs </button>
-        <button class="subtab-btn" onclick="switchAdminTab('subtabs', this)"> ➖ Subtab </button>
-        <button class="subtab-btn" onclick="switchAdminTab('evaluation', this)"> ⚙️ Evaluation Rules </button>
-        <button class="subtab-btn" onclick="switchAdminTab('banner', this)"> 🎋 Banner </button>
-        <button class="subtab-btn" onclick="switchAdminTab('leaderboard', this)"> 🏆 Leaderboard </button>
-        <button class="subtab-btn" onclick="switchAdminTab('feedback-admin', this)"> 💁‍♂️ Feedbacks </button>
-      </div>
-
-<!-- Admin Upload Tab -->
-      <div id="admin-sub-content" class="admin-tab-body">
-        <div class="card">
-          <h4> Upload Material / Typing Test Exam </h4>
-          <form onsubmit="event.preventDefault(); handleAdminMaterialUpload();" style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-            <div class="form-group">
-              <label>Material Type <span class="required-star">*</span></label>
-              <select id="adm-upload-type" class="form-control" onchange="adjustAdminUploadForm()" required>
-                <option value="" disabled selected>-- Select Material Type --</option>
-                <option value="pdf">PDF</option>
-                <option value="word">Word & Outline</option>
-                <option value="audio">Audio Dictation</option>
-                <option value="pitman">Pitman Book Exercise</option>
-                <option value="typingtest">Typing Test Exam</option>
-                <option value="video">Reference Video</option>
-                <option value="homework">Homework</option>
-                <option value="announcement">Announcement</option>
-              </select>
-            </div>
-            <div class="form-group" id="group-adm-subtab">
-              <label id="adm-subtab-label">Subtab / Exam Name <span class="required-star">*</span></label>
-              <select id="adm-upload-subtab" class="form-control"></select>
-            </div>
-            <div class="form-group" id="group-adm-category">
-              <label>Category</label>
-              <input type="text" id="adm-upload-category" class="form-control" placeholder="e.g. Legal, General">
-            </div>
-            <div class="form-group" id="group-adm-title-container">
-              <label id="adm-title-label">Master Passage / Title <span class="required-star">*</span></label>
-              <input type="text" id="adm-upload-title" class="form-control" required placeholder="Enter Master Passage Title or Exam Name">
-            </div>
-
-            <div class="form-group" id="group-adm-medium" style="display: none;">
-              <label>Language Medium <span class="required-star">*</span></label>
-              <select id="adm-upload-medium" class="form-control">
-                <option value="English">English</option>
-                <option value="Hindi">Hindi</option>
-              </select>
-            </div>
-            <div class="form-group" id="group-adm-difficulty" style="display: none;">
-              <label>Difficulty Level <span class="required-star">*</span></label>
-              <select id="adm-upload-difficulty" class="form-control">
-                <option value="Easy">Easy</option>
-                <option value="Medium" selected>Medium</option>
-                <option value="Hard">Hard</option>
-                <option value="Advanced">Advanced</option>
-              </select>
-            </div>
-            <div class="form-group" id="group-adm-exam-date" style="display: none;">
-              <label>Date of Exam <span class="required-star">*</span> <small style="color:var(--text-muted);">(Admin can upload future date tests)</small></label>
-              <input type="date" id="adm-upload-exam-date" class="form-control">
-            </div>
-
-            <div class="form-group" id="group-adm-content-url" style="grid-column: 1 / -1;">
-              <label id="adm-url-label">Material Passage / Audio Link / URL <span class="required-star">*</span></label>
-              <textarea id="adm-upload-url" class="form-control" rows="3" placeholder="Paste full typing passage or audio file link / transcription here..." oninput="autoCalculateWordsAndStrokes()"></textarea>
-              <div id="adm-auto-stats" style="font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 4px;"></div>
-            </div>
-
-<!-- New Field for Audio Master Passage / Text -->
-            <div class="form-group" id="group-adm-audio-passage" style="display: none; grid-column: 1 / -1;">
-              <label>Audio Master Passage / Transcription Text <span class="required-star">*</span></label>
-              <textarea id="adm-upload-audio-passage" class="form-control" rows="3" placeholder="Paste master transcription passage for audio evaluation (hidden from user during typing)..." oninput="autoCalculateAudioWordsAndStrokes()"></textarea>
-              <div id="adm-audio-auto-stats" style="font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 4px;"></div>
-            </div>
-
-            <!-- New Field for Pitman Logo / Secondary Image URL -->
-            <div class="form-group" id="group-adm-logo" style="display: none;">
-              <label>Logo / Secondary Image URL</label>
-              <input type="text" id="adm-upload-logo" class="form-control" placeholder="Logo or secondary badge image URL">
-            </div>
-
-            <div class="form-group" id="group-adm-thumb">
-              <label>Thumbnail / Pitman Book Photo URL</label>
-              <input type="text" id="adm-upload-thumb" class="form-control" placeholder="Exercise Picture / Thumbnail URL">
-            </div>
-            
-            <!-- Time Limit Field (Hidden by default, shown for Pitman Book and Audio) -->
-            <div class="form-group" id="group-adm-time-limit" style="display: none;">
-              <label>Time Limit (Minutes) <span class="required-star">*</span></label>
-              <input type="number" id="adm-upload-time-limit" class="form-control" value="5" min="1" max="180">
-            </div>
-
-            <div class="form-group" id="group-adm-access">
-              <label>Access Level <span class="required-star">*</span></label>
-              <select id="adm-upload-access" class="form-control">
-                <option value="public">Public (Viewable & Downloadable by Everyone)</option>
-                <option value="user" selected>User Viewable (View-only for Users, Downloadable for Admin)</option>
-                <option value="member">Member Viewable (View-only for Members, Downloadable for Admin)</option>
-                <option value="admin">Admin Viewable & Downloadable (Visible & Downloadable by Admin only)</option>
-              </select>
-            </div>
-            <div class="form-group" id="group-adm-target-date" style="display: none;">
-              <label>Target Homework Date <span class="required-star">*</span></label>
-              <input type="date" id="adm-upload-date" class="form-control">
-            </div>
-            <div style="grid-column: 1 / -1; display: flex; gap: 8px;">
-              <button type="submit" class="btn btn-primary" id="adm-upload-submit-btn">Upload Item</button>
-              <button type="button" class="btn btn-secondary" id="adm-upload-cancel-btn" onclick="cancelEditingMaterial()">Clear / Reset</button>
-            </div>
-          </form>
-        </div>
-
-<div style="margin-top: 16px;">
-          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <h4> Existing Materials </h4>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <input type="text" id="admin-search-materials" class="form-control" placeholder="Search material..." oninput="currentAdminMaterialPage = 1; document.getElementById('admin-filter-material-type').value='ALL'; renderAdminMaterialsTable();" style="max-width: 220px;">
-              <select id="admin-filter-material-type" class="form-control" onchange="currentAdminMaterialPage = 1; renderAdminMaterialsTable();" style="max-width: 180px;">
-                <option value="ALL">All Types</option>
-                <option value="pdf">PDF</option>
-                <option value="word">Word & Outline</option>
-                <option value="audio">Audio</option>
-                <option value="pitman">Pitman Book</option>
-                <option value="typingtest">Typing Test</option>
-                <option value="video">Video</option>
-                <option value="homework">Homework</option>
-                <option value="announcement">Announcement</option>
-              </select>
-            </div>
-          </div>
-          <div id="admin-materials-table-container" style="overflow-x: auto;"></div>
-          
-          <!-- 👉 Pagination Controls Bar (Previous / Next) -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
-            <button class="btn btn-secondary btn-sm" onclick="paginateAdminMaterials(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
-            <span id="admin-materials-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
-            <button class="btn btn-secondary btn-sm" onclick="paginateAdminMaterials(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
-          </div>
-        </div>
-      </div>
-
-<!-- Admin Users Tab -->
-      <div id="admin-sub-users" class="admin-tab-body" style="display: none;">
-        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; align-items: center; justify-content: space-between;">
-          <!-- 👉 Added currentAdminUserPage = 1 on input -->
-          <input type="text" id="admin-search-users" class="form-control" placeholder="Search user by name, email, mobile..." oninput="currentAdminUserPage = 1; document.getElementById('admin-filter-user-role').value='ALL'; document.getElementById('admin-filter-user-status').value='ALL'; renderAdminUsers()" style="max-width: 280px;">
-          <div style="display: flex; gap: 8px;">
-            <!-- 👉 Added currentAdminUserPage = 1 on change -->
-            <select id="admin-filter-user-role" class="form-control" onchange="currentAdminUserPage = 1; renderAdminUsers()" style="width: 140px;">
-              <option value="ALL">All Roles</option>
-              <option value="user">User</option>
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-            </select>
-            <!-- 👉 Added currentAdminUserPage = 1 on change -->
-            <select id="admin-filter-user-status" class="form-control" onchange="currentAdminUserPage = 1; renderAdminUsers()" style="width: 140px;">
-              <option value="ALL">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="blocked">Blocked</option>
-            </select>
-          </div>
-        </div>
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px;" border="1" borderColor="var(--border)" cellpadding="8">
-            <thead>
-              <tr style="background: var(--border);">
-                <th>UserID</th><th>Name</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="admin-users-tbody"></tbody>
-          </table>
-        </div>
-
-        <!-- 👉 ADD THIS: Pagination Controls Bar (30 items per page) -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
-          <button class="btn btn-secondary btn-sm" onclick="paginateAdminUsers(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
-          <span id="admin-users-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
-          <button class="btn btn-secondary btn-sm" onclick="paginateAdminUsers(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
-        </div>
-      </div>
-
-      <!-- Admin Logs Tab -->
-      <div id="admin-sub-logs" class="admin-tab-body" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <div>Restricted Violation Counter: <strong id="admin-violation-count" style="color: var(--danger);">0</strong></div>
-        </div>
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px;" border="1" borderColor="var(--border)" cellpadding="8">
-            <thead>
-              <tr style="background: var(--border);">
-                <th>LogID</th><th>User</th><th>Activity</th><th>Details</th><th>Timestamp</th>
-              </tr>
-            </thead>
-            <tbody id="admin-logs-tbody"></tbody>
-          </table>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-top: 12px;">
-          <button class="btn btn-secondary btn-sm" onclick="paginateLogs(-1)">Previous</button>
-          <span id="logs-page-indicator">Page 1</span>
-          <button class="btn btn-secondary btn-sm" onclick="paginateLogs(1)">Next</button>
-        </div>
-      </div>
-
-<!-- Admin Subtab Tab -->
-      <div id="admin-sub-subtabs" class="admin-tab-body" style="display: none;">
-        <div class="card" style="max-width: 450px;">
-          <h4>Create New Subtab</h4>
-          <form id="admin-subtab-form" onsubmit="event.preventDefault(); handleAddSubtab();" style="margin-top: 8px;">
-            <div class="form-group">
-              <label>Material Type <span class="required-star">*</span></label>
-              <select id="new-subtab-type" class="form-control" required>
-                <option value="" disabled selected>-- Select Material Type --</option>
-                <option value="pdf">PDF</option>
-                <option value="audio">Audio</option>
-                <option value="pitman">Pitman Book</option>
-                <option value="typingtest">Typing Test</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Subtab Name <span class="required-star">*</span></label>
-              <input type="text" id="new-subtab-name" class="form-control" required placeholder="Enter Subtab Title">
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <button type="submit" class="btn btn-primary">Create Subtab</button>
-              <button type="button" class="btn btn-secondary" onclick="resetSubtabForm()">Reset Form</button>
-            </div>
-          </form>
-        </div>
-        
-        <div style="margin-top: 20px;">
-          <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
-            <h4>Existing Subtabs</h4>
-            
-            <!-- 👉 Search Bar and Type Filter Controls -->
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <input type="text" id="admin-search-subtabs" class="form-control" placeholder="Search subtab name..." oninput="currentAdminSubtabPage = 1; renderAdminSubtabsTable();" style="max-width: 220px;">
-              
-              <select id="admin-filter-subtab-type" class="form-control" onchange="currentAdminSubtabPage = 1; renderAdminSubtabsTable();" style="max-width: 180px;">
-                <option value="ALL">All Types</option>
-                <option value="pdf">PDF</option>
-                <option value="audio">Audio</option>
-                <option value="pitman">Pitman Book</option>
-                <option value="typingtest">Typing Test</option>
-              </select>
-            </div>
-          </div>
-
-          <div id="admin-subtabs-table-container"></div>
-          
-          <!-- 👉 Pagination Controls Bar (30 items per page) -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
-            <button class="btn btn-secondary btn-sm" onclick="paginateAdminSubtabs(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
-            <span id="admin-subtabs-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
-            <button class="btn btn-secondary btn-sm" onclick="paginateAdminSubtabs(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
-          </div>
-        </div>
-      </div>
-
-<!-- Admin Evaluation Rules Tab -->
-<div id="admin-sub-evaluation" class="admin-tab-body" style="display: none;">
-  <div class="card" style="max-width: 800px;">
-    <h4>Exam & Evaluation Rules & Settings</h4>
-    <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Configure, edit, or delete custom evaluation rules for Typing Test exams, Pitman, or Audio subtabs.</p>
-    
-    <!-- 👉 Quick Selector to View, Edit or Delete Saved Rules -->
-    <div class="form-group" style="margin-bottom: 15px; background: var(--border); padding: 12px; border-radius: 8px;">
-      <label style="color: var(--primary); font-weight: 700;">📂 Manage Saved Rules (Select to Edit / Delete)</label>
-      <select id="saved-rules-quick-select" class="form-control" onchange="loadSpecificSavedRule(this.value)">
-        <option value="" disabled selected>-- Select a Saved Rule to Edit/View --</option>
-      </select>
-    </div>
-
-    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
-      <div class="form-group" style="flex: 1; min-width: 220px; margin-bottom: 0;">
-        <label>Select Category <span class="required-star">*</span></label>
-        <select id="eval-category-select" class="form-control" onchange="handleEvalCategoryChange()">
-          <option value="typingtest">⌨️ Typing Test Exam Rule</option>
-          <option value="pitman">📖 Pitman Evaluation Rule</option>
-          <option value="audio">🔉 Audio Dictation Subtab Rule</option>
-        </select>
-      </div>
-      <div class="form-group" id="group-eval-subtab" style="flex: 1; min-width: 220px; margin-bottom: 0; display: none;">
-        <label>Select Subtab <span class="required-star">*</span></label>
-        <select id="eval-subtab-select" class="form-control" onchange="loadSelectedEvaluationRulesIntoForm()"></select>
-      </div>
-    </div>
-
-    <form id="admin-eval-rules-form" onsubmit="event.preventDefault(); saveEvaluationRulesSettings();" style="display: flex; flex-direction: column; gap: 12px;">
-      
-      <!-- 👉 ADDED: Typing Test Time Limit Field -->
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>⏱️ Typing Test Time Limit (Minutes) <span class="required-star">*</span></label>
-          <input type="number" id="eval-time-limit" class="form-control" value="5" min="1" max="180">
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>e. Backspace Mode</label>
-          <select id="eval-backspace-mode" class="form-control">
-            <option value="on">Backspace ON (Allowed)</option>
-            <option value="off">Backspace OFF (Blocked)</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>f. Total Marks</label>
-          <input type="number" id="eval-total-marks" class="form-control" value="100" min="10" max="500">
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>g. Passing Marks</label>
-          <input type="number" id="eval-passing-marks" class="form-control" value="40" min="1" max="500">
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>h. Passing Accuracy (% Accuracy)</label>
-          <input type="number" id="eval-passing-accuracy" class="form-control" value="85" min="1" max="100" step="0.5">
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>w. Minimum Gross Stroke % (to Pass)</label>
-          <input type="number" id="eval-min-gross-stroke-pct" class="form-control" value="100" min="0" max="200" step="1">
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>x. Paragraph Change Neglected / Ignored</label>
-          <select id="eval-ignore-paragraph-change" class="form-control">
-            <option value="yes">Yes (Neglect Paragraph Changes)</option>
-            <option value="no">No (Strict Paragraph Checking)</option>
-          </select>
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>Option: Repeat Passage Allowed</label>
-          <select id="eval-repeat-passage" class="form-control">
-            <option value="yes">Yes (Allow Repeating Passage)</option>
-            <option value="no">No (Disable Passage Repeating)</option>
-          </select>
-        </div>
-      </div>
-
-      <h5 style="margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Marks Deduction Parameters</h5>
-
-<div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>i. Marks Deduction for Punctuation Error</label>
-          <input type="number" id="eval-deduct-punctuation" class="form-control" value="0.5" min="0" max="10" step="0.1">
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>Marks Deduction for Capital Letter Error</label>
-          <input type="number" id="eval-deduct-capital" class="form-control" value="0.25" min="0" max="10" step="0.1">
-        </div>
-      </div>
-
-      <!-- 👉 Unified Spelling / Wrong Word / Wrong Typed / Singular-Plural Error Input -->
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>Marks Deduction for Spelling / Wrong Word / Singular-Plural / Wrong Typed</label>
-          <input type="number" id="eval-deduct-wrong" class="form-control" value="1.0" min="0" max="10" step="0.1">
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>Marks Deduction for Omission / Word Left</label>
-          <input type="number" id="eval-deduct-omission" class="form-control" value="1.0" min="0" max="10" step="0.1">
-        </div>
-      </div>
-
-      <!-- Extra Words & Paragraph Not Changed Deductions -->
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>Marks Deduction for Extra Words Typed</label>
-          <input type="number" id="eval-deduct-extra-word" class="form-control" value="0.5" min="0" max="10" step="0.1">
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>Marks Deduction for Paragraph Not Changed</label>
-          <input type="number" id="eval-deduct-para-not-changed" class="form-control" value="1.0" min="0" max="10" step="0.1">
-        </div>
-      </div>
-
-      <h5 style="margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Security & Exam Controls</h5>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>m. Copy & Paste Working</label>
-          <select id="eval-copypaste-mode" class="form-control">
-            <option value="yes">Copy & Paste Allowed</option>
-            <option value="no">Copy & Paste Disabled</option>
-          </select>
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>n. Function Keys Working (F1-F12)</label>
-          <select id="eval-func-keys-mode" class="form-control">
-            <option value="yes">Function Keys Allowed</option>
-            <option value="no">Function Keys Disabled</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>o. Word Counting Rule</label>
-          <select id="eval-word-count-rule" class="form-control">
-            <option value="1word">One Word as One Word</option>
-            <option value="5stroke">5 Strokes as One Word</option>
-          </select>
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>u. Auto Scroll Mode</label>
-          <select id="eval-autoscroll-mode" class="form-control">
-            <option value="on">Auto Scroll ON</option>
-            <option value="off">Auto Scroll OFF</option>
-          </select>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>v. Highlight Word / Character</label>
-          <select id="eval-highlight-mode" class="form-control">
-            <option value="on">Highlight Enabled</option>
-            <option value="off">Highlight Disabled</option>
-          </select>
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>t. Default Text Size (px)</label>
-          <input type="number" id="eval-default-text-size" class="form-control" value="15" min="10" max="30">
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>s. Layout Position (Material Source)</label>
-          <select id="eval-layout-position" class="form-control">
-            <option value="top">Material Top, User Box Bottom</option>
-            <option value="left">Material Left, User Box Right</option>
-          </select>
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>q. Total Initial Words / Strokes Required</label>
-          <input type="number" id="eval-initial-words" class="form-control" value="0" min="0" max="1000">
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>r. Minimum Time Period Required (Seconds)</label>
-          <input type="number" id="eval-min-time" class="form-control" value="0" min="0" max="3600">
-        </div>
-        <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>p. Penalty After Error % Ignored & Penalty Value</label>
-          <div style="display: flex; gap: 6px;">
-            <input type="number" id="eval-ignore-error-pct" class="form-control" value="5" placeholder="Ignore %" min="0" max="100">
-            <input type="number" id="eval-penalty-value" class="form-control" value="1" placeholder="Penalty" min="0" max="10" step="0.1">
-          </div>
-        </div>
-      </div>
-
-      <div style="display: flex; gap: 10px; margin-top: 10px;">
-        <button type="submit" class="btn btn-primary">Save Evaluation Rules</button>
-        <button type="button" class="btn btn-danger" onclick="deleteSelectedEvaluationRules()">Delete / Reset Rule</button>
-      </div>
-    </form>
+<section id="view-admin" class="app-view" style="display: none;">
+  <div class="subtab-bar">
+    <button class="subtab-btn active" onclick="switchAdminTab('content', this)"> 📚 Content Uploaded </button>
+    <button class="subtab-btn" onclick="switchAdminTab('users', this)"> 👥 User </button>
+    <button class="subtab-btn" onclick="switchAdminTab('logs', this)"> ⚠ Security & Logs </button>
+    <button class="subtab-btn" onclick="switchAdminTab('subtabs', this)"> ➖ Subtab </button>
+    <button class="subtab-btn" onclick="switchAdminTab('evaluation', this)"> ⚙️ Evaluation Rules </button>
+    <button class="subtab-btn" onclick="switchAdminTab('banner', this)"> 🎋 Banner </button>
+    <button class="subtab-btn" onclick="switchAdminTab('leaderboard', this)"> 🏆 Leaderboard </button>
+    <button class="subtab-btn" onclick="switchAdminTab('feedback-admin', this)"> 💁‍♂️ Feedbacks </button>
   </div>
 
-<!-- Existing Evaluation Rules Summary Table placed securely inside the Tab Body -->
-  <div style="margin-top: 20px; max-width: 800px;">
-    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
-      <h4>Existing Uploaded / Saved Evaluation Rules</h4>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <!-- Search input auto-resets page to 1 and shifts filter to ALL -->
-        <input type="text" id="admin-search-eval-rules" class="form-control" placeholder="Search rules..." oninput="currentEvalRulesPage = 1; document.getElementById('admin-filter-eval-category').value='ALL'; renderAdminEvaluationRulesTable();" style="max-width: 220px;">
+  <!-- 1. Admin Upload Tab -->
+  <div id="admin-sub-content" class="admin-tab-body">
+    <div class="card">
+      <h4> Upload Material / Typing Test Exam </h4>
+      <form onsubmit="event.preventDefault(); handleAdminMaterialUpload();" style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+        <div class="form-group">
+          <label>Material Type <span class="required-star">*</span></label>
+          <select id="adm-upload-type" class="form-control" onchange="adjustAdminUploadForm()" required>
+            <option value="" disabled selected>-- Select Material Type --</option>
+            <option value="pdf">PDF</option>
+            <option value="word">Word & Outline</option>
+            <option value="audio">Audio Dictation</option>
+            <option value="pitman">Pitman Book Exercise</option>
+            <option value="typingtest">Typing Test Exam</option>
+            <option value="video">Reference Video</option>
+            <option value="homework">Homework</option>
+            <option value="announcement">Announcement</option>
+          </select>
+        </div>
+        <div class="form-group" id="group-adm-subtab">
+          <label id="adm-subtab-label">Subtab / Exam Name <span class="required-star">*</span></label>
+          <select id="adm-upload-subtab" class="form-control"></select>
+        </div>
+        <div class="form-group" id="group-adm-category">
+          <label>Category</label>
+          <input type="text" id="adm-upload-category" class="form-control" placeholder="e.g. Legal, General">
+        </div>
+        <div class="form-group" id="group-adm-title-container">
+          <label id="adm-title-label">Master Passage / Title <span class="required-star">*</span></label>
+          <input type="text" id="adm-upload-title" class="form-control" required placeholder="Enter Master Passage Title or Exam Name">
+        </div>
+
+        <div class="form-group" id="group-adm-medium" style="display: none;">
+          <label>Language Medium <span class="required-star">*</span></label>
+          <select id="adm-upload-medium" class="form-control">
+            <option value="English">English</option>
+            <option value="Hindi">Hindi</option>
+          </select>
+        </div>
+        <div class="form-group" id="group-adm-difficulty" style="display: none;">
+          <label>Difficulty Level <span class="required-star">*</span></label>
+          <select id="adm-upload-difficulty" class="form-control">
+            <option value="Easy">Easy</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="Hard">Hard</option>
+            <option value="Advanced">Advanced</option>
+          </select>
+        </div>
+        <div class="form-group" id="group-adm-exam-date" style="display: none;">
+          <label>Date of Exam <span class="required-star">*</span></label>
+          <input type="date" id="adm-upload-exam-date" class="form-control">
+        </div>
+
+        <div class="form-group" id="group-adm-content-url" style="grid-column: 1 / -1;">
+          <label id="adm-url-label">Material Passage / Audio Link / URL <span class="required-star">*</span></label>
+          <textarea id="adm-upload-url" class="form-control" rows="3" placeholder="Paste full typing passage or audio file link / transcription here..." oninput="autoCalculateWordsAndStrokes()"></textarea>
+          <div id="adm-auto-stats" style="font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 4px;"></div>
+        </div>
+
+        <div class="form-group" id="group-adm-audio-passage" style="display: none; grid-column: 1 / -1;">
+          <label>Audio Master Passage / Transcription Text <span class="required-star">*</span></label>
+          <textarea id="adm-upload-audio-passage" class="form-control" rows="3" placeholder="Paste master transcription passage..." oninput="autoCalculateAudioWordsAndStrokes()"></textarea>
+          <div id="adm-audio-auto-stats" style="font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 4px;"></div>
+        </div>
+
+        <div class="form-group" id="group-adm-logo" style="display: none;">
+          <label>Logo / Secondary Image URL</label>
+          <input type="text" id="adm-upload-logo" class="form-control" placeholder="Logo or secondary badge image URL">
+        </div>
+
+        <div class="form-group" id="group-adm-thumb">
+          <label>Thumbnail / Pitman Book Photo URL</label>
+          <input type="text" id="adm-upload-thumb" class="form-control" placeholder="Exercise Picture / Thumbnail URL">
+        </div>
         
-        <!-- Category Filter dropdown -->
-        <select id="admin-filter-eval-category" class="form-control" onchange="currentEvalRulesPage = 1; renderAdminEvaluationRulesTable();" style="max-width: 180px;">
-          <option value="ALL">All Categories</option>
-          <option value="typingtest">Typing Test</option>
-          <option value="pitman">Pitman</option>
-          <option value="audio">Audio</option>
+        <div class="form-group" id="group-adm-time-limit" style="display: none;">
+          <label>Time Limit (Minutes) <span class="required-star">*</span></label>
+          <input type="number" id="adm-upload-time-limit" class="form-control" value="5" min="1" max="180">
+        </div>
+
+        <div class="form-group" id="group-adm-access">
+          <label>Access Level <span class="required-star">*</span></label>
+          <select id="adm-upload-access" class="form-control">
+            <option value="public">Public</option>
+            <option value="user" selected>User Viewable</option>
+            <option value="member">Member Viewable</option>
+            <option value="admin">Admin Only</option>
+          </select>
+        </div>
+        <div class="form-group" id="group-adm-target-date" style="display: none;">
+          <label>Target Homework Date <span class="required-star">*</span></label>
+          <input type="date" id="adm-upload-date" class="form-control">
+        </div>
+        <div style="grid-column: 1 / -1; display: flex; gap: 8px;">
+          <button type="submit" class="btn btn-primary" id="adm-upload-submit-btn">Upload Item</button>
+          <button type="button" class="btn btn-secondary" id="adm-upload-cancel-btn" onclick="cancelEditingMaterial()">Clear / Reset</button>
+        </div>
+      </form>
+    </div>
+
+    <div style="margin-top: 16px;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
+        <h4> Existing Materials </h4>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="admin-search-materials" class="form-control" placeholder="Search material..." oninput="currentAdminMaterialPage = 1; document.getElementById('admin-filter-material-type').value='ALL'; renderAdminMaterialsTable();" style="max-width: 220px;">
+          <select id="admin-filter-material-type" class="form-control" onchange="currentAdminMaterialPage = 1; renderAdminMaterialsTable();" style="max-width: 180px;">
+            <option value="ALL">All Types</option>
+            <option value="pdf">PDF</option>
+            <option value="word">Word & Outline</option>
+            <option value="audio">Audio</option>
+            <option value="pitman">Pitman Book</option>
+            <option value="typingtest">Typing Test</option>
+            <option value="video">Video</option>
+            <option value="homework">Homework</option>
+            <option value="announcement">Announcement</option>
+          </select>
+        </div>
+      </div>
+      <div id="admin-materials-table-container" style="overflow-x: auto;"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+        <button class="btn btn-secondary btn-sm" onclick="paginateAdminMaterials(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+        <span id="admin-materials-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+        <button class="btn btn-secondary btn-sm" onclick="paginateAdminMaterials(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Admin Users Tab -->
+  <div id="admin-sub-users" class="admin-tab-body" style="display: none;">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; align-items: center; justify-content: space-between;">
+      <input type="text" id="admin-search-users" class="form-control" placeholder="Search user..." oninput="currentAdminUserPage = 1; renderAdminUsers()" style="max-width: 280px;">
+      <div style="display: flex; gap: 8px;">
+        <select id="admin-filter-user-role" class="form-control" onchange="currentAdminUserPage = 1; renderAdminUsers()" style="width: 140px;">
+          <option value="ALL">All Roles</option>
+          <option value="user">User</option>
+          <option value="member">Member</option>
+          <option value="admin">Admin</option>
+        </select>
+        <select id="admin-filter-user-status" class="form-control" onchange="currentAdminUserPage = 1; renderAdminUsers()" style="width: 140px;">
+          <option value="ALL">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="blocked">Blocked</option>
         </select>
       </div>
     </div>
-
-    <div id="admin-eval-rules-table-container" style="overflow-x: auto; margin-top: 10px;"></div>
-    
-    <!-- Pagination Controls Bar -->
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 12px;" border="1" borderColor="var(--border)" cellpadding="8">
+        <thead>
+          <tr style="background: var(--border);">
+            <th>UserID</th><th>Name</th><th>Email</th><th>Mobile</th><th>Role</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="admin-users-tbody"></tbody>
+      </table>
+    </div>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
-      <button class="btn btn-secondary btn-sm" onclick="paginateEvalRules(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
-      <span id="admin-eval-rules-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
-      <button class="btn btn-secondary btn-sm" onclick="paginateEvalRules(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+      <button class="btn btn-secondary btn-sm" onclick="paginateAdminUsers(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+      <span id="admin-users-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+      <button class="btn btn-secondary btn-sm" onclick="paginateAdminUsers(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
     </div>
   </div>
 
-      <!-- Admin Banner Tab with Auto Start/Stop & Forced Disable[cite: 1] -->
-      <div id="admin-sub-banner" class="admin-tab-body" style="display: none;">
-        <div style="background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border); max-width: 600px;">
-          <h4 style="margin-top: 0; margin-bottom: 15px;">Announcement Banner Management</h4>
-          <div style="margin-bottom: 15px;">
-            <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; cursor: pointer;">
-              <input type="checkbox" id="banner-enable-chk" style="width: 18px; height: 18px;">
-              Force Enable / Active Banner
-            </label>
-          </div>
-          <div class="form-group" style="margin-bottom: 15px;">
-            <label style="font-weight: 600; font-size: 13px;">Auto Start Date & Time:</label>
-            <input type="datetime-local" id="banner-start-input" class="form-control">
-          </div>
-          <div class="form-group" style="margin-bottom: 15px;">
-            <label style="font-weight: 600; font-size: 13px;">Auto Stop Date & Time:</label>
-            <input type="datetime-local" id="banner-stop-input" class="form-control">
-          </div>
-          <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Banner Text Content:</label>
-            <textarea id="banner-text-input" class="form-control" rows="3" placeholder="Enter banner notification text..."></textarea>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-primary" onclick="handleSaveBannerSettings()">Save Banner Settings</button>
-            <button class="btn btn-secondary" onclick="deleteBannerItem('active')">Reset Banner</button>
-          </div>
-          <h4 style="margin-top: 25px; margin-bottom: 10px;">Active Banner Status</h4>
-          <div id="admin-banners-table-container"></div>
+  <!-- 3. Admin Logs Tab -->
+  <div id="admin-sub-logs" class="admin-tab-body" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div>Restricted Violation Counter: <strong id="admin-violation-count" style="color: var(--danger);">0</strong></div>
+    </div>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 12px;" border="1" borderColor="var(--border)" cellpadding="8">
+        <thead>
+          <tr style="background: var(--border);">
+            <th>LogID</th><th>User</th><th>Activity</th><th>Details</th><th>Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="admin-logs-tbody"></tbody>
+      </table>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-top: 12px;">
+      <button class="btn btn-secondary btn-sm" onclick="paginateLogs(-1)">Previous</button>
+      <span id="logs-page-indicator">Page 1</span>
+      <button class="btn btn-secondary btn-sm" onclick="paginateLogs(1)">Next</button>
+    </div>
+  </div>
+
+  <!-- 4. Admin Subtab Tab -->
+  <div id="admin-sub-subtabs" class="admin-tab-body" style="display: none;">
+    <div class="card" style="max-width: 450px;">
+      <h4>Create New Subtab</h4>
+      <form id="admin-subtab-form" onsubmit="event.preventDefault(); handleAddSubtab();" style="margin-top: 8px;">
+        <div class="form-group">
+          <label>Material Type <span class="required-star">*</span></label>
+          <select id="new-subtab-type" class="form-control" required>
+            <option value="" disabled selected>-- Select Material Type --</option>
+            <option value="pdf">PDF</option>
+            <option value="audio">Audio</option>
+            <option value="pitman">Pitman Book</option>
+            <option value="typingtest">Typing Test</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Subtab Name <span class="required-star">*</span></label>
+          <input type="text" id="new-subtab-name" class="form-control" required placeholder="Enter Subtab Title">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="submit" class="btn btn-primary">Create Subtab</button>
+          <button type="button" class="btn btn-secondary" onclick="resetSubtabForm()">Reset Form</button>
+        </div>
+      </form>
+    </div>
+    
+    <div style="margin-top: 20px;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
+        <h4>Existing Subtabs</h4>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="admin-search-subtabs" class="form-control" placeholder="Search subtab name..." oninput="currentAdminSubtabPage = 1; renderAdminSubtabsTable();" style="max-width: 220px;">
+          <select id="admin-filter-subtab-type" class="form-control" onchange="currentAdminSubtabPage = 1; renderAdminSubtabsTable();" style="max-width: 180px;">
+            <option value="ALL">All Types</option>
+            <option value="pdf">PDF</option>
+            <option value="audio">Audio</option>
+            <option value="pitman">Pitman Book</option>
+            <option value="typingtest">Typing Test</option>
+          </select>
+        </div>
+      </div>
+      <div id="admin-subtabs-table-container"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+        <button class="btn btn-secondary btn-sm" onclick="paginateAdminSubtabs(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+        <span id="admin-subtabs-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+        <button class="btn btn-secondary btn-sm" onclick="paginateAdminSubtabs(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Admin Evaluation Rules Tab -->
+  <div id="admin-sub-evaluation" class="admin-tab-body" style="display: none;">
+    <div class="card" style="max-width: 800px;">
+      <h4>Exam & Evaluation Rules & Settings</h4>
+      <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Configure, edit, or delete custom evaluation rules.</p>
+      
+      <div class="form-group" style="margin-bottom: 15px; background: var(--border); padding: 12px; border-radius: 8px;">
+        <label style="color: var(--primary); font-weight: 700;">📂 Manage Saved Rules (Select to Edit / Delete)</label>
+        <select id="saved-rules-quick-select" class="form-control" onchange="loadSpecificSavedRule(this.value)">
+          <option value="" disabled selected>-- Select a Saved Rule to Edit/View --</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
+        <div class="form-group" style="flex: 1; min-width: 220px; margin-bottom: 0;">
+          <label>Select Category <span class="required-star">*</span></label>
+          <select id="eval-category-select" class="form-control" onchange="handleEvalCategoryChange()">
+            <option value="typingtest">⌨️ Typing Test Exam Rule</option>
+            <option value="pitman">📖 Pitman Evaluation Rule</option>
+            <option value="audio">🔉 Audio Dictation Subtab Rule</option>
+          </select>
+        </div>
+        <div class="form-group" id="group-eval-subtab" style="flex: 1; min-width: 220px; margin-bottom: 0; display: none;">
+          <label>Select Subtab <span class="required-star">*</span></label>
+          <select id="eval-subtab-select" class="form-control" onchange="loadSelectedEvaluationRulesIntoForm()"></select>
         </div>
       </div>
 
-<!-- Admin Leaderboard Tab (Datewise Complete Leaderboard with Search, Filter & Pagination) -->
-      <div id="admin-sub-leaderboard" class="admin-tab-body" style="display: none;">
-        <div class="card">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-            <h4>🏆 Admin Datewise Complete Leaderboard</h4>
-            
-            <!-- 👉 Search Bar, Filter & Date Selector Controls -->
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-              <input type="text" id="admin-search-leaderboard" class="form-control" placeholder="Search user or exam..." oninput="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 200px;">
-              
-              <select id="admin-filter-leaderboard-status" class="form-control" onchange="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 140px;">
-                <option value="ALL">All Statuses</option>
-                <option value="PASSED">Passed Only</option>
-                <option value="FAILED">Failed Only</option>
-              </select>
-
-              <label style="font-weight: 600; font-size: 13px;">Date:</label>
-              <input type="date" id="admin-leaderboard-date" class="form-control" onchange="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 160px;">
-            </div>
+      <form id="admin-eval-rules-form" onsubmit="event.preventDefault(); saveEvaluationRulesSettings();" style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label>⏱️ Typing Test Time Limit (Minutes) <span class="required-star">*</span></label>
+            <input type="number" id="eval-time-limit" class="form-control" value="5" min="1" max="180">
           </div>
-
-          <div id="admin-leaderboard-container" style="overflow-x: auto;">
-            <p style="color: var(--text-muted);">Loading leaderboard data...</p>
-          </div>
-
-          <!-- 👉 Pagination Controls Bar (30 items per page) -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
-            <button class="btn btn-secondary btn-sm" onclick="paginateAdminLeaderboard(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
-            <span id="admin-leaderboard-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
-            <button class="btn btn-secondary btn-sm" onclick="paginateAdminLeaderboard(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label>e. Backspace Mode</label>
+            <select id="eval-backspace-mode" class="form-control">
+              <option value="on">Backspace ON (Allowed)</option>
+              <option value="off">Backspace OFF (Blocked)</option>
+            </select>
           </div>
         </div>
+
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label>f. Total Marks</label>
+            <input type="number" id="eval-total-marks" class="form-control" value="100" min="10" max="500">
+          </div>
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label>g. Passing Marks</label>
+            <input type="number" id="eval-passing-marks" class="form-control" value="40" min="1" max="500">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label>h. Passing Accuracy (% Accuracy)</label>
+            <input type="number" id="eval-passing-accuracy" class="form-control" value="85" min="1" max="100" step="0.5">
+          </div>
+          <div class="form-group" style="flex: 1; min-width: 200px;">
+            <label>w. Minimum Gross Stroke % (to Pass)</label>
+            <input type="number" id="eval-min-gross-stroke-pct" class="form-control" value="100" min="0" max="200" step="1">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button type="submit" class="btn btn-primary">Save Evaluation Rules</button>
+          <button type="button" class="btn btn-danger" onclick="deleteSelectedEvaluationRules()">Delete / Reset Rule</button>
+        </div>
+      </form>
+    </div>
+
+    <div style="margin-top: 20px; max-width: 800px;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
+        <h4>Existing Uploaded / Saved Evaluation Rules</h4>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="admin-search-eval-rules" class="form-control" placeholder="Search rules..." oninput="currentEvalRulesPage = 1; renderAdminEvaluationRulesTable();" style="max-width: 220px;">
+          <select id="admin-filter-eval-category" class="form-control" onchange="currentEvalRulesPage = 1; renderAdminEvaluationRulesTable();" style="max-width: 180px;">
+            <option value="ALL">All Categories</option>
+            <option value="typingtest">Typing Test</option>
+            <option value="pitman">Pitman</option>
+            <option value="audio">Audio</option>
+          </select>
+        </div>
       </div>
-
-<!-- Admin Feedback Tab -->
-<div id="admin-sub-feedback-admin" class="admin-tab-body" style="display: none;">
-  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px;">
-    <input type="text" id="admin-search-feedback" class="form-control" placeholder="Search feedback by user, message..." oninput="currentAdminFeedbackPage = 1; renderAdminFeedback()" style="max-width: 280px;">
-    <select id="admin-filter-feedback-status" class="form-control" onchange="currentAdminFeedbackPage = 1; renderAdminFeedback()" style="max-width: 180px;">
-      <option value="ALL">All Statuses</option>
-      <option value="replied">Replied</option>
-      <option value="pending">Pending Reply</option>
-    </select>
-  </div>
-  
-  <div style="overflow-x: auto;">
-    <table style="width: 100%; border-collapse: collapse; font-size: 12px;" border="1" borderColor="var(--border)" cellpadding="8">
-      <thead>
-        <tr style="background: var(--border);">
-          <th>ID</th><th>User</th><th>Category</th><th>Message</th><th>Date</th><th>Admin Response</th><th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="admin-feedback-tbody"></tbody>
-    </table>
+      <div id="admin-eval-rules-table-container" style="overflow-x: auto; margin-top: 10px;"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+        <button class="btn btn-secondary btn-sm" onclick="paginateEvalRules(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+        <span id="admin-eval-rules-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+        <button class="btn btn-secondary btn-sm" onclick="paginateEvalRules(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
   </div>
 
-  <!-- 👉 Pagination Controls Bar (30 items per page) -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
-    <button class="btn btn-secondary btn-sm" onclick="paginateAdminFeedback(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
-    <span id="admin-feedback-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
-    <button class="btn btn-secondary btn-sm" onclick="paginateAdminFeedback(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+  <!-- 6. Admin Banner Tab -->
+  <div id="admin-sub-banner" class="admin-tab-body" style="display: none;">
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+      <h4 style="margin-top: 0; margin-bottom: 15px; color: var(--secondary);">📢 Announcement Banner Management</h4>
+      <div style="margin-bottom: 15px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; cursor: pointer;">
+          <input type="checkbox" id="banner-enable-chk" style="width: 18px; height: 18px;">
+          Force Enable / Active Banner
+        </label>
+      </div>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
+        <div class="form-group" style="flex: 1; min-width: 220px; margin-bottom: 0;">
+          <label style="font-weight: 600; font-size: 13px;">Auto Start Date & Time:</label>
+          <input type="datetime-local" id="banner-start-input" class="form-control">
+        </div>
+        <div class="form-group" style="flex: 1; min-width: 220px; margin-bottom: 0;">
+          <label style="font-weight: 600; font-size: 13px;">Auto Stop Date & Time:</label>
+          <input type="datetime-local" id="banner-stop-input" class="form-control">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px;">Banner Text Content:</label>
+        <textarea id="banner-text-input" class="form-control" rows="3" placeholder="Enter banner notification text..."></textarea>
+      </div>
+      <div style="display: flex; gap: 8px; margin-bottom: 25px;">
+        <button class="btn btn-primary" onclick="handleSaveBannerSettings()">Save Banner Settings</button>
+        <button class="btn btn-secondary" onclick="deleteBannerItem('active')">Reset Banner</button>
+      </div>
+      
+      <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--secondary); border-top: 1px solid var(--border); padding-top: 15px;">Active Banner Status</h4>
+      <div id="admin-banners-table-container" style="overflow-x: auto;"></div>
+    </div>
   </div>
-</div>
+
+  <!-- 7. Admin Leaderboard Tab -->
+  <div id="admin-sub-leaderboard" class="admin-tab-body" style="display: none;">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+        <h4 style="color: var(--secondary);">🏆 Admin Datewise Complete Leaderboard</h4>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <input type="text" id="admin-search-leaderboard" class="form-control" placeholder="Search user or exam..." oninput="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 200px;">
+          <select id="admin-filter-leaderboard-status" class="form-control" onchange="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 140px;">
+            <option value="ALL">All Statuses</option>
+            <option value="PASSED">Passed Only</option>
+            <option value="FAILED">Failed Only</option>
+          </select>
+          <label style="font-weight: 600; font-size: 13px;">Date:</label>
+          <input type="date" id="admin-leaderboard-date" class="form-control" onchange="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 160px;">
+        </div>
+      </div>
+      <div id="admin-leaderboard-container" style="overflow-x: auto;">
+        <p style="color: var(--text-muted);">Loading leaderboard data...</p>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+        <button class="btn btn-secondary btn-sm" onclick="paginateAdminLeaderboard(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+        <span id="admin-leaderboard-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+        <button class="btn btn-secondary btn-sm" onclick="paginateAdminLeaderboard(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Admin Feedback Tab -->
+  <div id="admin-sub-feedback-admin" class="admin-tab-body" style="display: none;">
+    <div class="card">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <h4 style="color: var(--secondary); margin: 0;">💁‍♂️ User Feedbacks & Queries</h4>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="text" id="admin-search-feedback" class="form-control" placeholder="Search feedback..." oninput="currentAdminFeedbackPage = 1; renderAdminFeedback()" style="max-width: 250px;">
+          <select id="admin-filter-feedback-status" class="form-control" onchange="currentAdminFeedbackPage = 1; renderAdminFeedback()" style="max-width: 160px;">
+            <option value="ALL">All Statuses</option>
+            <option value="replied">Replied</option>
+            <option value="pending">Pending Reply</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px;" border="1" borderColor="var(--border)" cellpadding="8">
+          <thead>
+            <tr style="background: var(--border);">
+              <th>ID</th><th>User</th><th>Category</th><th>Message</th><th>Date</th><th>Admin Response</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="admin-feedback-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+        <button class="btn btn-secondary btn-sm" onclick="paginateAdminFeedback(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+        <span id="admin-feedback-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+        <button class="btn btn-secondary btn-sm" onclick="paginateAdminFeedback(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
 </section>
   </main>
 
@@ -1454,25 +1339,38 @@
   <script>
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl78VM_WN1YNH8uq2rq2AH1_Ys5O_aWC0tXwqXM9qF9ZCYVNUvT2MhXRffUPIckFMmCQ/exec'; 
 function getLocalDateString() {
-      const d = new Date();
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
     // 👉 ADD THIS NEW FUNCTION RIGHT BELOW IT:
-    function formatLocalDate(dateInput) {
-      if (!dateInput) return '';
-      const d = new Date(dateInput);
-      if (isNaN(d.getTime())) {
-        return String(dateInput).split('T')[0];
-      }
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+function formatLocalDate(dateInput) {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string') {
+    const cleanStr = dateInput.trim();
+    if (cleanStr.includes('T')) {
+      return cleanStr.split('T')[0];
     }
+    if (cleanStr.includes(' ')) {
+      return cleanStr.split(' ')[0];
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+      return cleanStr;
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    return String(dateInput).split('T')[0];
+  }
+  // Using UTC methods prevents local timezone offset from shifting the date back by 1 day
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 
 
@@ -2106,13 +2004,14 @@ function navigateTo(tabName, pushHistory = true) {
     loadUserFeedback();
   }
   if (tabName === 'admin') {
-    loadAdminData();
+    loadAdminData().then(() => {
+      renderAdminMaterialsTable();
+      renderAdminBannersTable();
+      renderAdminLeaderboard();
+    });
     populateEvalCategoryDropdown();
     if (typeof populateSavedRulesQuickDropdown === 'function') {
       populateSavedRulesQuickDropdown();
-    }
-    if (typeof renderAdminEvaluationRulesTable === 'function') {
-      renderAdminEvaluationRulesTable();
     }
     loadSelectedEvaluationRulesIntoForm();
     adjustAdminUploadForm();
@@ -3046,6 +2945,9 @@ function startTypingExam(item) {
       isTestPaused = false;
       isTypingTimerStarted = false;
 
+      // Initialize font size state based on rules or default
+      currentPassageFontSize = rules.defaultTextSize || 15;
+
       const titleElem = document.getElementById('test-modal-title');
       if (titleElem) titleElem.innerText = `${currentExamName}${cleanExamDate ? ' (' + cleanExamDate + ')' : ''}`;
       
@@ -3060,12 +2962,20 @@ function startTypingExam(item) {
       if (mainBody) {
         mainBody.innerHTML = `
           <div style="display: flex; ${layoutFlexDir} gap: 12px; width: 100%; max-width: 1200px; flex: 1; min-height: 0; align-items: stretch;">
-            <!-- 👉 FIX 1: Added onwheel="event.preventDefault()" to prevent mouse scrolling -->
+            <!-- 👉 Master Passage Container with Zoom Controls -->
             <div style="flex: 1; min-width: 0; background: var(--surface); padding: 14px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;" onwheel="event.preventDefault()">
-              <div style="font-weight: 700; font-size: 13px; color: var(--secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-                <i class="fa-solid fa-file-lines"></i> Master Passage: ${item.Title} (${item.ExamDate ? String(item.ExamDate).substring(0, 10) : ''})
+              
+              <!-- Master Passage Header with Zoom In, Zoom Out, and Reset Buttons -->
+              <div style="font-weight: 700; font-size: 13px; color: var(--secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;">
+                <span><i class="fa-solid fa-file-lines"></i> Master Passage: ${item.Title} (${cleanExamDate})</span>
+                <div style="display: flex; gap: 4px; align-items: center;">
+                  <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 11px;" onclick="adjustPassageZoom(2)" title="Zoom In Passage"><i class="fa-solid fa-magnifying-glass-plus"></i> +</button>
+                  <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 11px;" onclick="adjustPassageZoom(-2)" title="Zoom Out Passage"><i class="fa-solid fa-magnifying-glass-minus"></i> -</button>
+                  <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 11px;" onclick="resetPassageZoom()" title="Reset Passage Zoom">Reset</button>
+                </div>
               </div>
-              <div id="test-material-passage-text" style="font-size: ${rules.defaultTextSize || 15}px; line-height: 1.6; white-space: pre-wrap; font-family: 'Segoe UI', monospace;">${currentReferenceText}</div>
+
+              <div id="test-material-passage-text" style="font-size: ${currentPassageFontSize}px; line-height: 1.6; white-space: pre-wrap; font-family: 'Segoe UI', monospace;">${currentReferenceText}</div>
             </div>
 
             <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; min-height: 0;">
@@ -3076,7 +2986,6 @@ function startTypingExam(item) {
                 </div>
                 <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
               </div>
-              <!-- 👉 UPDATED: Changed min-height to 280px and resize to vertical -->
               <textarea id="test-user-input" 
                         class="form-control" 
                         spellcheck="false" 
@@ -3307,48 +3216,52 @@ const cleanPitmanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_
       
       const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
 
-      mainBody.innerHTML = `
-        <div style="display: flex; gap: 20px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 320px; background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-              <strong style="color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-image"></i> Pitman Outline Photo</strong>
-              <div style="display: flex; gap: 4px;">
-                <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(0.2)">+</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(-0.2)">-</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="resetTestPhotoZoom()">Reset</button>
-              </div>
-            </div>
-            <div style="flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; background: #000; border-radius: 8px; padding: 10px; min-height: 300px; position: relative;">
-              <div class="global-watermark-layer" style="opacity: 0.25; z-index: 2;"></div>
-              <div id="test-photo-zoom-wrapper" style="transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 1;">
-                <img id="test-pitman-img" src="${pitmanThumbUrl}" style="max-width: 100%; max-height: 500px; object-fit: contain; display: block;" onerror="this.src='${DEFAULT_LOGO_URL}'">
-              </div>
-            </div>
+// REPLACE THIS BLOCK INSIDE startPitmanTest():
+// REPLACE THIS BLOCK INSIDE startPitmanTest():
+  mainBody.innerHTML = `
+    <div style="display: flex; gap: 16px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap; overflow-y: auto; padding-bottom: 20px;">
+      
+      <!-- Pitman Image Container with controlled mobile height & scrollable zoom -->
+      <div style="flex: 1; min-width: 300px; background: var(--surface); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 4px;">
+          <strong style="color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-image"></i> Pitman Outline Photo</strong>
+          <div style="display: flex; gap: 4px;">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(0.2)">+</button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="adjustTestPhotoZoom(-0.2)">-</button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="resetTestPhotoZoom()">Reset</button>
           </div>
-
-          <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 10px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
-                <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
-                <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
-              </div>
-            </div>
-            <!-- 👉 UPDATED: Changed resize from none to vertical -->
-            <textarea id="test-user-input" 
-                    class="form-control" 
-                    spellcheck="false" 
-                    autocorrect="off" 
-                    autocapitalize="off" 
-                    autocomplete="off" 
-                    style="width: 100%; flex: 1; min-height: 380px; resize: vertical; font-family: 'Segoe UI', monospace; padding: 18px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
-                    placeholder="Type dictation here..." 
-                    onkeydown="handleTestKeyDown(event)" 
-                    onpaste="handleTestPaste(event)" 
-                    oncopy="handleTestCopy(event)" 
-                    oncut="handleTestCut(event)"></textarea>
+ </div>
+        <div style="flex: 1; overflow: auto; display: block; background: #000; border-radius: 8px; padding: 10px; min-height: 250px; max-height: 45vh; position: relative; text-align: center;">
+          <div class="global-watermark-layer" style="opacity: 0.25; z-index: 2;"></div>
+          <div id="test-photo-zoom-wrapper" style="transform: scale(1); transform-origin: top center; display: inline-block; transition: transform 0.15s ease; position: relative; z-index: 1;">
+            <img id="test-pitman-img" src="${pitmanThumbUrl}" style="max-width: 100%; max-height: 350px; object-fit: contain; display: block;" onerror="this.src='${DEFAULT_LOGO_URL}'">
           </div>
         </div>
-      `;
+      </div>
+
+      <!-- User Typing Input Container (Guaranteed visible with vertical resizing) -->
+      <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); font-size: 11px; font-weight: 600;">
+            <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
+            <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
+          </div>
+        </div>
+        <textarea id="test-user-input" 
+                class="form-control" 
+                spellcheck="false" 
+                autocorrect="off" 
+                autocapitalize="off" 
+                autocomplete="off" 
+                style="width: 100%; flex: 1; min-height: 250px; resize: vertical; font-family: 'Segoe UI', monospace; padding: 14px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                placeholder="Type dictation here..." 
+                onkeydown="handleTestKeyDown(event)" 
+                onpaste="handleTestPaste(event)" 
+                oncopy="handleTestCopy(event)" 
+                oncut="handleTestCut(event)"></textarea>
+      </div>
+    </div>
+  `;
 
       document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
       document.getElementById('active-test-modal').style.display = 'flex';
@@ -4113,21 +4026,16 @@ function loadTestHistory() {
   const container = document.getElementById('test-history-container');
   if (!container || !currentUser) return;
 
-  // 👉 Immediate fallback to globalData.history so search works instantly on tab load
-  if (globalData && globalData.history && globalData.history.length > 0) {
-    allTestHistoryList = globalData.history;
-    renderTestHistoryTable();
-  }
-
+  // Always request history filtered strictly by the logged-in user's ID (whether user or admin)
   apiCall('getTestHistory', { userId: currentUser.userId }).then(res => {
-    if (res.success && res.historyList && res.historyList.length > 0) {
+    if (res.success && res.historyList) {
       allTestHistoryList = res.historyList;
       renderTestHistoryTable();
-    } else if (!allTestHistoryList || allTestHistoryList.length === 0) {
+    } else {
+      allTestHistoryList = [];
       container.innerHTML = '<p style="color: var(--text-muted);">No test or practice history recorded yet.</p>';
       const pageIndicator = document.getElementById('history-page-indicator');
       if (pageIndicator) pageIndicator.innerText = `Page 1 of 1 (0 entries)`;
-      return;
     }
   });
 }
@@ -4325,7 +4233,6 @@ function openTestComparison(indexOrItem) {
   if (typeof indexOrItem === 'object' && indexOrItem !== null) {
     window._currentComparisonItem = indexOrItem;
   } else {
-    // Robust fallback across cached, global, and admin history lists
     window._currentComparisonItem = 
       (typeof cachedTestHistory !== 'undefined' && cachedTestHistory && cachedTestHistory[indexOrItem]) || 
       (typeof allTestHistoryList !== 'undefined' && allTestHistoryList && allTestHistoryList[indexOrItem]) || 
@@ -4360,7 +4267,6 @@ function openTestComparison(indexOrItem) {
   const refText = historyItem.ReferenceText || historyItem.referenceText || '';
   const userText = historyItem.UserTranscription || historyItem.userTranscription || '';
 
-  // 🌟 Helper function to parse tokens and stem words for singular/plural matching
   const parseToken = (token) => {
     const clean = token.replace(/^[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+|[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+$/g, '');
     const punct = (token.match(/[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]/g) || []).join('');
@@ -4392,7 +4298,6 @@ function openTestComparison(indexOrItem) {
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      // 🌟 Matches if exact word OR singular/plural stem matches
       if (refTokens[i - 1].word === userTokens[j - 1].word || refTokens[i - 1].stem === userTokens[j - 1].stem) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
@@ -4512,6 +4417,26 @@ function openTestComparison(indexOrItem) {
     body.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 20px; width: 100vw; height: calc(100vh - 50px); max-width: 1400px; margin: 0 auto; overflow-y: auto;">
         
+        <!-- ERROR COLOR LEGEND BAR -->
+        <div class="error-legend-bar">
+          <span style="color: var(--secondary); font-weight: 800;"><i class="fa-solid fa-palette"></i> Error Color Legend:</span>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(239, 68, 68, 0.4);"></span> Spelling / Wrong Word
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(6, 182, 212, 0.4);"></span> Punctuation Error
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(245, 158, 11, 0.4);"></span> Capitalization Error
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(139, 92, 246, 0.4);"></span> Extra Word
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: #ef4444;"></span> Word Left / Omission
+          </div>
+        </div>
+
         <div style="background: var(--surface); border: 1px solid var(--border); padding: 18px; border-radius: var(--radius); box-shadow: 0 4px 12px var(--shadow);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
             <h4 style="color: var(--secondary); display: flex; align-items: center; gap: 8px; margin: 0;">
@@ -4730,166 +4655,229 @@ async function handleFeedbackSubmit() {
     let editingMaterialId = null;
 
 async function loadAdminData() {
-      const res = await apiCall('getAdminData');
-      if (res.success) {
-        adminData = res;
-        document.getElementById('admin-violation-count').innerText = res.violationCount || 0;
-        
-        // --> LOAD EVALUATION RULES FROM BACKEND <--
-        if (res.evaluationRulesMap && Object.keys(res.evaluationRulesMap).length > 0) {
-          for (var rKey in res.evaluationRulesMap) {
-            allEvaluationRules[rKey] = res.evaluationRulesMap[rKey];
-          }
-          localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-        }
-        // -----------------------------------------------------------
-
-        renderAdminUsers();
-        renderAdminLogs();
-        renderAdminFeedback();
-        populateAdminSubtabsDropdown();
-        renderAdminMaterialsTable();
-        renderAdminSubtabsTable();
-        renderAdminBannersTable();
-        renderAdminLeaderboard();
-        populateEvalCategoryDropdown();
-        loadSelectedEvaluationRulesIntoForm(); // Ensures form populates with the latest rules
-
-        // 👉 Added to ensure evaluation rules table renders right away
-        if (typeof renderAdminEvaluationRulesTable === 'function') {
-          renderAdminEvaluationRulesTable();
-        }
+  const res = await apiCall('getAdminData');
+  if (res.success) {
+    adminData = res;
+    document.getElementById('admin-violation-count').innerText = res.violationCount || 0;
+    
+    // --> LOAD EVALUATION RULES FROM BACKEND <--
+    if (res.evaluationRulesMap && Object.keys(res.evaluationRulesMap).length > 0) {
+      for (var rKey in res.evaluationRulesMap) {
+        allEvaluationRules[rKey] = res.evaluationRulesMap[rKey];
       }
+      localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
     }
 
-    function switchAdminTab(subTab, btn) {
-      document.querySelectorAll('.admin-tab-body').forEach(b => b.style.display = 'none');
-      const targetSub = document.getElementById(`admin-sub-${subTab}`);
-      if (targetSub) targetSub.style.display = 'block';
+    renderAdminUsers();
+    renderAdminLogs();
+    renderAdminFeedback();
+    populateAdminSubtabsDropdown();
+    renderAdminMaterialsTable();
+    renderAdminSubtabsTable();
+    renderAdminBannersTable();
+    renderAdminLeaderboard();
+    populateEvalCategoryDropdown();
+    loadSelectedEvaluationRulesIntoForm();
 
-      if (btn && btn.parentElement) {
-        btn.parentElement.querySelectorAll('.subtab-btn').forEach(sb => sb.classList.remove('active'));
-        btn.classList.add('active');
-      }
+    if (typeof renderAdminEvaluationRulesTable === 'function') {
+      renderAdminEvaluationRulesTable();
     }
+  }
+}
+
+async function loadAdminData() {
+  const res = await apiCall('getAdminData');
+  if (res && res.success) {
+    adminData = res;
+    const violationElem = document.getElementById('admin-violation-count');
+    if (violationElem) violationElem.innerText = res.violationCount || 0;
+    
+    if (res.evaluationRulesMap && Object.keys(res.evaluationRulesMap).length > 0) {
+      for (var rKey in res.evaluationRulesMap) {
+        allEvaluationRules[rKey] = res.evaluationRulesMap[rKey];
+      }
+      localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+    }
+
+    renderAdminUsers();
+    renderAdminLogs();
+    renderAdminFeedback();
+    populateAdminSubtabsDropdown();
+    renderAdminMaterialsTable();
+    renderAdminSubtabsTable();
+    renderAdminBannersTable();
+    renderAdminLeaderboard();
+    populateEvalCategoryDropdown();
+    loadSelectedEvaluationRulesIntoForm();
+
+    if (typeof renderAdminEvaluationRulesTable === 'function') {
+      renderAdminEvaluationRulesTable();
+    }
+  }
+  return res;
+}
+
+function switchAdminTab(subTab, btn) {
+  document.querySelectorAll('.admin-tab-body').forEach(b => {
+    b.style.display = 'none';
+  });
+
+  let targetId = `admin-sub-${subTab}`;
+  if (subTab === 'feedback' || subTab === 'feedback-admin') targetId = 'admin-sub-feedback-admin';
+  if (subTab === 'banner') targetId = 'admin-sub-banner';
+  if (subTab === 'leaderboard') targetId = 'admin-sub-leaderboard';
+  if (subTab === 'content') targetId = 'admin-sub-content';
+  if (subTab === 'users') targetId = 'admin-sub-users';
+  if (subTab === 'logs') targetId = 'admin-sub-logs';
+  if (subTab === 'subtabs') targetId = 'admin-sub-subtabs';
+  if (subTab === 'evaluation') targetId = 'admin-sub-evaluation';
+
+  const targetSub = document.getElementById(targetId);
+  if (targetSub) {
+    targetSub.style.display = 'block';
+  }
+
+  if (btn && btn.parentElement) {
+    btn.parentElement.querySelectorAll('.subtab-btn').forEach(sb => sb.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // If adminData is not loaded yet or missing materials, fetch it first and then render
+  if (!adminData || !adminData.materials || adminData.materials.length === 0) {
+    loadAdminData().then(() => {
+      triggerAdminRenderer(subTab);
+    });
+  } else {
+    triggerAdminRenderer(subTab);
+  }
+}
+
+function triggerAdminRenderer(subTab) {
+  if (subTab === 'banner') renderAdminBannersTable();
+  if (subTab === 'leaderboard') renderAdminLeaderboard();
+  if (subTab === 'feedback-admin' || subTab === 'feedback') renderAdminFeedback();
+  if (subTab === 'users') renderAdminUsers();
+  if (subTab === 'logs') renderAdminLogs();
+  if (subTab === 'subtabs') renderAdminSubtabsTable();
+  if (subTab === 'evaluation') renderAdminEvaluationRulesTable();
+  if (subTab === 'content') renderAdminMaterialsTable();
+}
 
 function renderAdminLeaderboard() {
-      const container = document.getElementById('admin-leaderboard-container');
-      const pageIndicator = document.getElementById('admin-leaderboard-page-indicator');
-      const dateInput = document.getElementById('admin-leaderboard-date');
-      const searchInput = document.getElementById('admin-search-leaderboard');
-      const statusFilterSelect = document.getElementById('admin-filter-leaderboard-status');
-      
-      if (!container) return;
+  const container = document.getElementById('admin-leaderboard-container');
+  const pageIndicator = document.getElementById('admin-leaderboard-page-indicator');
+  const dateInput = document.getElementById('admin-leaderboard-date');
+  const searchInput = document.getElementById('admin-search-leaderboard');
+  const statusFilterSelect = document.getElementById('admin-filter-leaderboard-status');
+  
+  if (!container) return;
 
-      if (dateInput && !dateInput.value) {
-        dateInput.value = getLocalDateString();
-      }
+  if (dateInput && !dateInput.value) {
+    dateInput.value = getLocalDateString();
+  }
 
-      const selectedDate = dateInput ? dateInput.value : getLocalDateString();
-      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const selectedDate = dateInput ? dateInput.value : getLocalDateString();
+  const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
+  
+  const allHistory = (adminData && adminData.history) ? adminData.history : (globalData.history || []);
+  
+  let filtered = allHistory.filter(h => {
+    const rawDate = h.Date || h.date || h.typingDate || h.timestamp;
+    const hDate = formatLocalDate(rawDate);
+    return hDate === selectedDate;
+  });
 
-      // 👉 Automatically change status filter to 'ALL' whenever a search is performed
-      if (search && statusFilterSelect) {
-        statusFilterSelect.value = 'ALL';
-      }
+  if (search) {
+    filtered = filtered.filter(h => {
+      const uName = String(h.UserName || h.userName || '').toLowerCase();
+      const eName = String(h.ExamName || h.examName || '').toLowerCase();
+      return uName.includes(search) || eName.includes(search);
+    });
+  }
 
-      const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
-      const allHistory = adminData.history || globalData.history || [];
-      
-      // 1. Strictly filter results for the selected date only
-      let filtered = allHistory.filter(h => {
-        const hDate = formatLocalDate(h.Date || h.date);
-        return hDate === selectedDate;
-      });
+  if (statusFilter !== 'ALL') {
+    filtered = filtered.filter(h => String(h.Status || h.status || '').toUpperCase() === statusFilter.toUpperCase());
+  }
 
-      // 2. Filter by Search Query within that selected date's data
-      if (search) {
-        filtered = filtered.filter(h => {
-          const uName = String(h.UserName || '').toLowerCase();
-          const eName = String(h.ExamName || '').toLowerCase();
-          return uName.includes(search) || eName.includes(search);
-        });
-      }
+  filtered.sort((a, b) => parseFloat(b.AccuracyPercentage || b.accuracyPercentage || 0) - parseFloat(a.AccuracyPercentage || a.accuracyPercentage || 0));
 
-      // 3. Filter by Status (PASSED / FAILED)
-      if (statusFilter !== 'ALL') {
-        filtered = filtered.filter(h => String(h.Status || '').toUpperCase() === statusFilter.toUpperCase());
-      }
+  const totalPages = Math.ceil(filtered.length / ADMIN_LEADERBOARD_PER_PAGE) || 1;
+  if (currentAdminLeaderboardPage > totalPages) currentAdminLeaderboardPage = totalPages;
+  if (currentAdminLeaderboardPage < 1) currentAdminLeaderboardPage = 1;
 
-      // Sort descending by Accuracy percentage
-      filtered.sort((a, b) => parseFloat(b.AccuracyPercentage || 0) - parseFloat(a.AccuracyPercentage || 0));
+  const startIndex = (currentAdminLeaderboardPage - 1) * ADMIN_LEADERBOARD_PER_PAGE;
+  const paginatedList = filtered.slice(startIndex, startIndex + ADMIN_LEADERBOARD_PER_PAGE);
 
-      // 4. Pagination Slicing (30 items per page)
-      const totalPages = Math.ceil(filtered.length / ADMIN_LEADERBOARD_PER_PAGE) || 1;
-      if (currentAdminLeaderboardPage > totalPages) currentAdminLeaderboardPage = totalPages;
-      if (currentAdminLeaderboardPage < 1) currentAdminLeaderboardPage = 1;
+  if (pageIndicator) {
+    pageIndicator.innerText = `Page ${currentAdminLeaderboardPage} of ${totalPages} (${filtered.length} total entries)`;
+  }
 
-      const startIndex = (currentAdminLeaderboardPage - 1) * ADMIN_LEADERBOARD_PER_PAGE;
-      const paginatedList = filtered.slice(startIndex, startIndex + ADMIN_LEADERBOARD_PER_PAGE);
+  if (paginatedList.length === 0) {
+    container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 20px;">No test submissions found for date: ${selectedDate}</p>`;
+    return;
+  }
 
-      if (pageIndicator) {
-        pageIndicator.innerText = `Page ${currentAdminLeaderboardPage} of ${totalPages} (${filtered.length} total entries)`;
-      }
+  let html = `
+    <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
+      <tr style="background: var(--border);">
+        <th>Rank</th><th>User Name</th><th>Exam / Exercise</th><th>Accuracy</th><th>Marks</th><th>Speed</th><th>Status</th>
+      </tr>
+  `;
 
-      if (paginatedList.length === 0) {
-        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 20px;">No test submissions found matching your criteria for date: ${selectedDate}</p>`;
-        return;
-      }
+  paginatedList.forEach((h, index) => {
+    const globalRank = startIndex + index + 1;
+    const uName = h.UserName || h.userName || 'User';
+    const eName = h.ExamName || h.examName || '-';
+    const acc = h.AccuracyPercentage || h.accuracyPercentage || 0;
+    const marks = h.MarksObtained || h.marksObtained || '-';
+    const speed = h.NetSpeed || h.netSpeed || 0;
+    const status = h.Status || h.status || 'FAILED';
 
-      let html = `
-        <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
-          <tr style="background: var(--border);">
-            <th>Rank</th><th>User Name</th><th>Exam / Exercise</th><th>Accuracy</th><th>Marks</th><th>Speed</th><th>Status</th>
-          </tr>
-      `;
+    html += `
+      <tr>
+        <td><strong>#${globalRank}</strong></td>
+        <td>${uName}</td>
+        <td>${eName}</td>
+        <td>${acc}%</td>
+        <td>${marks}</td>
+        <td>${speed} WPM</td>
+        <td><span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></td>
+      </tr>
+    `;
+  });
 
-      paginatedList.forEach((h, index) => {
-        const globalRank = startIndex + index + 1;
-        html += `
-          <tr>
-            <td><strong>#${globalRank}</strong></td>
-            <td>${h.UserName}</td>
-            <td>${h.ExamName}</td>
-            <td>${h.AccuracyPercentage}%</td>
-            <td>${h.MarksObtained || '-'}</td>
-            <td>${h.NetSpeed || 0} WPM</td>
-            <td><span class="role-badge" style="background: ${h.Status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${h.Status}</span></td>
-          </tr>
-        `;
-      });
+  html += `</table>`;
+  container.innerHTML = html;
+}
 
-      html += `</table>`;
-      container.innerHTML = html;
-    }
+function paginateAdminLeaderboard(direction) {
+  const dateInput = document.getElementById('admin-leaderboard-date');
+  const searchInput = document.getElementById('admin-search-leaderboard');
+  const statusFilterSelect = document.getElementById('admin-filter-leaderboard-status');
+  
+  const selectedDate = dateInput ? dateInput.value : getLocalDateString();
+  const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
+  const allHistory = (adminData && adminData.history) ? adminData.history : (globalData.history || []);
 
-    function paginateAdminLeaderboard(direction) {
-      const dateInput = document.getElementById('admin-leaderboard-date');
-      const searchInput = document.getElementById('admin-search-leaderboard');
-      const statusFilterSelect = document.getElementById('admin-filter-leaderboard-status');
-      
-      const selectedDate = dateInput ? dateInput.value : getLocalDateString();
-      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
-      const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
-      const allHistory = adminData.history || globalData.history || [];
+  let filtered = allHistory.filter(h => formatLocalDate(h.Date || h.date) === selectedDate);
+  if (search) {
+    filtered = filtered.filter(h => String(h.UserName || '').toLowerCase().includes(search) || String(h.ExamName || '').toLowerCase().includes(search));
+  }
+  if (statusFilter !== 'ALL') {
+    filtered = filtered.filter(h => String(h.Status || '').toUpperCase() === statusFilter.toUpperCase());
+  }
 
-      let filtered = allHistory.filter(h => formatLocalDate(h.Date || h.date) === selectedDate);
-      if (search) {
-        filtered = filtered.filter(h => String(h.UserName || '').toLowerCase().includes(search) || String(h.ExamName || '').toLowerCase().includes(search));
-      }
-      if (statusFilter !== 'ALL') {
-        filtered = filtered.filter(h => String(h.Status || '').toUpperCase() === statusFilter.toUpperCase());
-      }
+  const totalPages = Math.ceil(filtered.length / ADMIN_LEADERBOARD_PER_PAGE) || 1;
 
-      const totalPages = Math.ceil(filtered.length / ADMIN_LEADERBOARD_PER_PAGE) || 1;
-
-      if (direction === 1 && currentAdminLeaderboardPage < totalPages) {
-        currentAdminLeaderboardPage++;
-      } else if (direction === -1 && currentAdminLeaderboardPage > 1) {
-        currentAdminLeaderboardPage--;
-      }
-      renderAdminLeaderboard();
-    }
+  if (direction === 1 && currentAdminLeaderboardPage < totalPages) {
+    currentAdminLeaderboardPage++;
+  } else if (direction === -1 && currentAdminLeaderboardPage > 1) {
+    currentAdminLeaderboardPage--;
+  }
+  renderAdminLeaderboard();
+}
 
     function renderAdminUsers() {
       const tbody = document.getElementById('admin-users-tbody');
@@ -5074,99 +5062,100 @@ function onFeedbackSearchFocus() {
     }
 
 function renderAdminFeedback() {
-      const tbody = document.getElementById('admin-feedback-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '';
+  const tbody = document.getElementById('admin-feedback-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-      // Safely check and extract feedback from adminData (handling both feedback and feedbackList keys)
-      const rawFeedback = adminData ? (adminData.feedback || adminData.feedbackList) : null;
+  const rawFeedback = adminData ? (adminData.feedback || adminData.feedbackList || []) : [];
 
-      if (!adminData || !rawFeedback) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading feedback or no data available...</td></tr>`;
-        return;
+  if (!Array.isArray(rawFeedback) || rawFeedback.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No feedback records found.</td></tr>`;
+    return;
+  }
+
+  let feedbackList = [...rawFeedback];
+  const searchInput = document.getElementById('admin-search-feedback');
+  const statusFilterSelect = document.getElementById('admin-filter-feedback-status');
+
+  const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
+
+  if (search) {
+    feedbackList = feedbackList.filter(f => {
+      const user = String(f.UserName || f.userName || f.user || '').toLowerCase();
+      const msg = String(f.Message || f.message || '').toLowerCase();
+      const cat = String(f.Category || f.category || '').toLowerCase();
+      return user.includes(search) || msg.includes(search) || cat.includes(search);
+    });
+  }
+
+  if (statusFilter === 'replied') {
+    feedbackList = feedbackList.filter(f => {
+      const resp = f.AdminResponse || f.adminResponse || f.response;
+      return resp && String(resp).trim() !== '';
+    });
+  } else if (statusFilter === 'pending') {
+    feedbackList = feedbackList.filter(f => {
+      const resp = f.AdminResponse || f.adminResponse || f.response;
+      return !resp || String(resp).trim() === '';
+    });
+  }
+
+  const ADMIN_FEEDBACK_PER_PAGE = 30;
+  const totalPages = Math.ceil(feedbackList.length / ADMIN_FEEDBACK_PER_PAGE) || 1;
+  
+  if (typeof currentAdminFeedbackPage === 'undefined') currentAdminFeedbackPage = 1;
+  if (currentAdminFeedbackPage > totalPages) currentAdminFeedbackPage = totalPages;
+  if (currentAdminFeedbackPage < 1) currentAdminFeedbackPage = 1;
+
+  const startIndex = (currentAdminFeedbackPage - 1) * ADMIN_FEEDBACK_PER_PAGE;
+  const paginatedFeedback = feedbackList.slice(startIndex, startIndex + ADMIN_FEEDBACK_PER_PAGE);
+
+  const pageIndicator = document.getElementById('admin-feedback-page-indicator');
+  if (pageIndicator) {
+    pageIndicator.innerText = `Page ${currentAdminFeedbackPage} of ${totalPages} (${feedbackList.length} total feedbacks)`;
+  }
+
+  if (paginatedFeedback.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No feedback records match your filters.</td></tr>`;
+    return;
+  }
+
+  paginatedFeedback.forEach(f => {
+    const feedbackId = f.ID || f.id || '';
+    const userName = f.UserName || f.userName || f.user || 'User';
+    const category = f.Category || f.category || 'General';
+    const message = f.Message || f.message || '';
+    const rawDate = f.SubmittedDate || f.submittedDate || f.date;
+    
+    let formattedDate = '-';
+    if (rawDate) {
+      try {
+        formattedDate = new Date(rawDate).toLocaleDateString();
+      } catch (e) {
+        formattedDate = String(rawDate).split('T')[0];
       }
-
-      let feedbackList = Array.isArray(rawFeedback) ? rawFeedback : [];
-      const searchInput = document.getElementById('admin-search-feedback');
-      const statusFilterSelect = document.getElementById('admin-filter-feedback-status');
-
-      const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
-
-      // Automatically switch to ALL status when searching
-      if (search && statusFilterSelect && statusFilterSelect.value !== 'ALL') {
-        statusFilterSelect.value = 'ALL';
-      }
-
-      const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
-
-      if (search) {
-        feedbackList = feedbackList.filter(f => {
-          const user = String(f.UserName || f.userName || f.user || '').toLowerCase();
-          const msg = String(f.Message || f.message || '').toLowerCase();
-          const cat = String(f.Category || f.category || '').toLowerCase();
-          return user.includes(search) || msg.includes(search) || cat.includes(search);
-        });
-      }
-
-      if (statusFilter === 'replied') {
-        feedbackList = feedbackList.filter(f => {
-          const resp = f.AdminResponse || f.adminResponse || f.response;
-          return resp && String(resp).trim() !== '';
-        });
-      } else if (statusFilter === 'pending') {
-        feedbackList = feedbackList.filter(f => {
-          const resp = f.AdminResponse || f.adminResponse || f.response;
-          return !resp || String(resp).trim() === '';
-        });
-      }
-
-      // --- 👉 PAGINATION SETUP (30 items per page) ---
-      const ADMIN_FEEDBACK_PER_PAGE = 30;
-      const totalPages = Math.ceil(feedbackList.length / ADMIN_FEEDBACK_PER_PAGE) || 1;
-      
-      if (typeof currentAdminFeedbackPage === 'undefined') currentAdminFeedbackPage = 1;
-      if (currentAdminFeedbackPage > totalPages) currentAdminFeedbackPage = totalPages;
-      if (currentAdminFeedbackPage < 1) currentAdminFeedbackPage = 1;
-
-      const startIndex = (currentAdminFeedbackPage - 1) * ADMIN_FEEDBACK_PER_PAGE;
-      const paginatedFeedback = feedbackList.slice(startIndex, startIndex + ADMIN_FEEDBACK_PER_PAGE);
-
-      // Update page indicator element if present in HTML
-      const pageIndicator = document.getElementById('admin-feedback-page-indicator');
-      if (pageIndicator) {
-        pageIndicator.innerText = `Page ${currentAdminFeedbackPage} of ${totalPages} (${feedbackList.length} total feedbacks)`;
-      }
-
-      if (paginatedFeedback.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No feedback records found.</td></tr>`;
-        return;
-      }
-
-      paginatedFeedback.forEach(f => {
-        const feedbackId = f.ID || f.id || '';
-        const userName = f.UserName || f.userName || f.user || 'User';
-        const category = f.Category || f.category || 'General';
-        const message = f.Message || f.message || '';
-        const submittedDate = f.SubmittedDate || f.submittedDate || f.date || new Date();
-        const adminResponse = f.AdminResponse || f.adminResponse || f.response || '';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${feedbackId}</td>
-          <td>${userName}</td>
-          <td>${category}</td>
-          <td>${message}</td>
-          <td>${submittedDate ? new Date(submittedDate).toLocaleDateString() : '-'}</td>
-          <td>${adminResponse ? adminResponse : '<em style="color: #f59e0b; font-weight: 600;">Pending Reply</em>'}</td>
-          <td>
-            <button class="btn btn-sm btn-primary" onclick="promptAdminReply('${feedbackId}')">
-              ${adminResponse ? 'Edit Reply' : 'Reply'}
-            </button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
     }
+
+    const adminResponse = f.AdminResponse || f.adminResponse || f.response || '';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${feedbackId}</td>
+      <td>${userName}</td>
+      <td>${category}</td>
+      <td>${message}</td>
+      <td>${formattedDate}</td>
+      <td>${adminResponse ? adminResponse : '<em style="color: #f59e0b; font-weight: 600;">Pending Reply</em>'}</td>
+      <td>
+        <button class="btn btn-sm btn-primary" onclick="promptAdminReply('${feedbackId}')">
+          ${adminResponse ? 'Edit Reply' : 'Reply'}
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 
     // --- 👉 PAGINATION HANDLER FUNCTION ---
     function paginateAdminFeedback(direction) {
@@ -5699,66 +5688,89 @@ let currentAdminSubtabPage = 1;
       if (res.success) loadAdminData();
     }
 
-    async function handleSaveBannerSettings() {
-      const enableChk = document.getElementById('banner-enable-chk');
-      const startInput = document.getElementById('banner-start-input');
-      const stopInput = document.getElementById('banner-stop-input');
-      const textInput = document.getElementById('banner-text-input');
+async function handleSaveBannerSettings() {
+  const enableChk = document.getElementById('banner-enable-chk');
+  const startInput = document.getElementById('banner-start-input');
+  const stopInput = document.getElementById('banner-stop-input');
+  const textInput = document.getElementById('banner-text-input');
 
-      const res = await apiCall('updateBannerSettings', { 
-        enabled: enableChk.checked, 
-        startTime: startInput.value, 
-        stopTime: stopInput.value, 
-        text: textInput.value.trim() 
-      });
-      showToast(res.message);
-      if (res.success) loadAdminData();
-    }
+  const bannerPayload = {
+    enabled: enableChk ? enableChk.checked : false,
+    startTime: startInput ? startInput.value : '',
+    stopTime: stopInput ? stopInput.value : '',
+    text: textInput ? textInput.value.trim() : ''
+  };
 
-    function renderAdminBannersTable() {
-      const container = document.getElementById('admin-banners-table-container');
-      if (!container) return;
+  const res = await apiCall('updateBannerSettings', bannerPayload);
+  showToast(res.message || 'Banner settings updated successfully.');
+  if (res.success) {
+    if (!adminData) adminData = {};
+    adminData.banner = bannerPayload;
+    renderAdminBannersTable();
+  }
+}
 
-      if (adminData && adminData.banner) {
-        document.getElementById('banner-enable-chk').checked = adminData.banner.enabled;
-        if (adminData.banner.startTime) document.getElementById('banner-start-input').value = adminData.banner.startTime;
-        if (adminData.banner.stopTime) document.getElementById('banner-stop-input').value = adminData.banner.stopTime;
-        document.getElementById('banner-text-input').value = adminData.banner.text || '';
+function renderAdminBannersTable() {
+  const container = document.getElementById('admin-banners-table-container');
+  if (!container) return;
+
+  let banner = { enabled: false, startTime: '', stopTime: '', text: '' };
+  try {
+    if (adminData && adminData.banner) {
+      if (typeof adminData.banner === 'string') {
+        banner = JSON.parse(adminData.banner);
+      } else {
+        banner = adminData.banner;
       }
-
-      const isBannerActive = adminData && adminData.banner && adminData.banner.enabled;
-      const bannerText = adminData && adminData.banner ? (adminData.banner.text || '') : '';
-
-      let html = `<table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
-        <tr style="background:var(--border);"><th>Status</th><th>Start time</th><th>Stop time</th><th>Banner Text</th><th>Actions</th></tr>
-        <tr>
-          <td><span style="color: ${isBannerActive ? '#16a34a' : '#dc2626'}; font-weight: bold;">${isBannerActive ? 'Active' : 'Disabled'}</span></td>
-          <td>${adminData.banner?.startTime || '-'}</td>
-          <td>${adminData.banner?.stopTime || '-'}</td>
-          <td>${bannerText || 'No text set'}</td>
-          <td><button class="btn btn-danger btn-sm" onclick="deleteBannerItem('active')">Reset Banner</button></td>
-        </tr>
-      </table>`;
-
-      container.innerHTML = html;
     }
+  } catch (e) {
+    console.error("Error parsing banner data:", e);
+  }
 
-    async function deleteBannerItem(id) {
-      if (!confirm('Are you sure you want to reset the banner?')) return;
-      const res = await apiCall('updateBannerSettings', { enabled: false, startTime: '', stopTime: '', text: '' });
-      showToast(res.message);
-      if (res.success) loadAdminData();
-    }
+  const enableChk = document.getElementById('banner-enable-chk');
+  const startInput = document.getElementById('banner-start-input');
+  const stopInput = document.getElementById('banner-stop-input');
+  const textInput = document.getElementById('banner-text-input');
 
-    document.addEventListener('click', function(event) {
-      const profilePopup = document.getElementById('profile-popup');
-      const userMenuTrigger = document.getElementById('user-menu-trigger');
-      
-      if (!profilePopup || !userMenuTrigger) return;
-      if (!profilePopup.contains(event.target) && !userMenuTrigger.contains(event.target)) {
-        profilePopup.classList.remove('show');
-      }
-    });
+  if (enableChk) enableChk.checked = banner.enabled === true || String(banner.enabled).toLowerCase() === 'true';
+  if (startInput) startInput.value = banner.startTime ? String(banner.startTime).substring(0, 16) : '';
+  if (stopInput) stopInput.value = banner.stopTime ? String(banner.stopTime).substring(0, 16) : '';
+  if (textInput) textInput.value = banner.text || '';
+
+  const isBannerActive = banner.enabled === true || String(banner.enabled).toLowerCase() === 'true';
+
+  container.innerHTML = `
+    <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;">
+      <tr style="background:var(--border);">
+        <th>Status</th><th>Start Time</th><th>Stop Time</th><th>Banner Text</th><th>Actions</th>
+      </tr>
+      <tr>
+        <td><span style="color: ${isBannerActive ? '#16a34a' : '#dc2626'}; font-weight: bold;">${isBannerActive ? 'Active' : 'Disabled'}</span></td>
+        <td>${banner.startTime || '-'}</td>
+        <td>${banner.stopTime || '-'}</td>
+        <td>${banner.text || 'No text set'}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteBannerItem('active')">Reset Banner</button></td>
+      </tr>
+    </table>
+  `;
+}
+
+async function deleteBannerItem(id) {
+  if (!confirm('Are you sure you want to reset the banner?')) return;
+  const res = await apiCall('updateBannerSettings', { enabled: false, startTime: '', stopTime: '', text: '' });
+  showToast(res.message);
+  if (res.success) loadAdminData();
+}
+
+document.addEventListener('click', function(event) {
+  const profilePopup = document.getElementById('profile-popup');
+  const userMenuTrigger = document.getElementById('user-menu-trigger');
+  
+  if (!profilePopup || !userMenuTrigger) return;
+  if (!profilePopup.contains(event.target) && !userMenuTrigger.contains(event.target)) {
+    profilePopup.classList.remove('show');
+  }
+});
 
 
 
@@ -6586,6 +6598,25 @@ function adjustTestFontSize(amount) {
   
   userInput.style.fontSize = newSize + 'px';
   showToast(`Text size adjusted to ${newSize}px for this test.`);
+}
+
+let currentPassageFontSize = 15;
+
+function adjustPassageZoom(amount) {
+  const passageElem = document.getElementById('test-material-passage-text');
+  if (!passageElem) return;
+  currentPassageFontSize = Math.max(10, Math.min(36, currentPassageFontSize + amount));
+  passageElem.style.fontSize = currentPassageFontSize + 'px';
+  showToast(`Passage font size: ${currentPassageFontSize}px`);
+}
+
+function resetPassageZoom() {
+  const passageElem = document.getElementById('test-material-passage-text');
+  if (!passageElem) return;
+  const rules = getEvaluationRulesForTab(activeTestSubtabKey) || {};
+  currentPassageFontSize = rules.defaultTextSize || 15;
+  passageElem.style.fontSize = currentPassageFontSize + 'px';
+  showToast(`Passage font size reset to ${currentPassageFontSize}px`);
 }
 
 
