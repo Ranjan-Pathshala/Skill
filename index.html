@@ -1430,10 +1430,10 @@
       <div class="modal-body watermark-text-container" id="test-main-body-container" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; flex: 1; padding: 12px; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch;">
       </div>
 
-      <!-- Footer Controls for Test (Pinned at Bottom with Mobile Flex Wrap support) -->
-      <div style="background: var(--surface); border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px; justify-content: space-between; align-items: center; z-index: 10; flex-shrink: 0; width: 100%;">
-        <button class="btn btn-primary" style="padding: 10px 14px; border-radius: 20px; font-weight: 700; flex: 1; font-size: 13px;" onclick="submitStenoTest()">Submit Test</button>
-        <button id="test-pause-btn" class="btn btn-secondary" style="padding: 10px 14px; border-radius: 20px; font-weight: 700; background: var(--surface); flex: 1; font-size: 13px; border: 1px solid var(--border);" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
+<!-- Footer Controls for Test (Pinned and sticky at bottom for mobile & desktop visibility) -->
+      <div style="background: var(--surface); border-top: 1px solid var(--border); padding: 12px 16px; display: flex; gap: 12px; justify-content: space-between; align-items: center; z-index: 100; flex-shrink: 0; width: 100%; position: sticky; bottom: 0; box-shadow: 0 -4px 15px rgba(0,0,0,0.1);">
+        <button class="btn btn-primary" style="padding: 12px 20px; border-radius: 20px; font-weight: 700; flex: 1; font-size: 14px; box-shadow: 0 4px 12px rgba(37,99,235,0.3);" onclick="submitStenoTest()"><i class="fa-solid fa-check"></i> Submit Test</button>
+        <button id="test-pause-btn" class="btn btn-secondary" style="padding: 12px 20px; border-radius: 20px; font-weight: 700; background: var(--surface); flex: 1; font-size: 14px; border: 1px solid var(--border);" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
       </div>
 
     </div>
@@ -1626,14 +1626,17 @@ async function initApp() {
     setupAuthenticatedUI();
     navigateTo('dashboard', false);
     
-    // 3. Run essential startup requests concurrently in the background (avoiding GAS rate limits)
+    // 3. Run session verification, rule fetching, dashboard data, and all materials pre-loading silently in the background
     Promise.all([
       verifyUserSession(),
       apiCall('getEvaluationRules', {}, true), // silent: true prevents the loader from showing
       apiCall('getDashboardData', {}, true),
       apiCall('getMaterials', { type: 'word' }, true),
+      apiCall('getMaterials', { type: 'pdf' }, true),
+      apiCall('getMaterials', { type: 'audio' }, true),
+      apiCall('getMaterials', { type: 'pitman' }, true),
       apiCall('getMaterials', { type: 'typingtest' }, true)
-    ]).then(([sessionRes, ruleRes, dashRes, wordRes, typingRes]) => {
+    ]).then(([sessionRes, ruleRes, dashRes, wordRes, pdfRes, audioRes, pitmanRes, typingRes]) => {
       if (ruleRes && ruleRes.success && ruleRes.rulesMap) {
         allEvaluationRules = ruleRes.rulesMap;
         localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
@@ -1645,9 +1648,12 @@ async function initApp() {
         if (typeof renderHomework === 'function') renderHomework();
       }
       
-      // Populate initial global materials cache for words & typing tests
+      // 👉 Populate global materials cache for instant tab and exam switching
       materialsData = [
         ...(wordRes && wordRes.success ? wordRes.materials || [] : []),
+        ...(pdfRes && pdfRes.success ? pdfRes.materials || [] : []),
+        ...(audioRes && audioRes.success ? audioRes.materials || [] : []),
+        ...(pitmanRes && pitmanRes.success ? pitmanRes.materials || [] : []),
         ...(typingRes && typingRes.success ? typingRes.materials || [] : [])
       ];
 
@@ -2046,7 +2052,7 @@ deductPunctuation: getNumVal('eval-deduct-punctuation', 0),
   }
 }
 
-async function navigateTo(tabName, pushHistory = true) {
+function navigateTo(tabName, pushHistory = true) {
   if (!currentUser) {
     switchAuthTab('login');
     return;
@@ -2074,70 +2080,31 @@ async function navigateTo(tabName, pushHistory = true) {
     details: 'Navigated to ' + tabName
   }, true);
 
-  // 👉 Smart caching & on-demand lazy-loading checks
+  // 👉 Smart caching checks: only fetch from server if local data is empty
   if (tabName === 'dashboard') {
     if (!window.globalData || !window.globalData.announcements) loadDashboardData();
   }
-  
   if (tabName === 'words') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'word')) {
-      const res = await apiCall('getMaterials', { type: 'word' }, true);
-      if (res && res.success && res.materials) {
-        materialsData.push(...res.materials);
-        if (typeof renderWordsView === 'function') renderWordsView();
-      }
-    }
+    if (!window.materialsData || !materialsData.some(m => m.type === 'word')) loadMaterials('word');
   }
-  
   if (tabName === 'pdf') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'pdf')) {
-      const res = await apiCall('getMaterials', { type: 'pdf' }, true);
-      if (res && res.success && res.materials) {
-        materialsData.push(...res.materials);
-        if (typeof renderPdfView === 'function') renderPdfView();
-      }
-    }
+    if (!window.materialsData || !materialsData.some(m => m.type === 'pdf')) loadMaterials('pdf');
   }
-  
   if (tabName === 'audio') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'audio')) {
-      const res = await apiCall('getMaterials', { type: 'audio' }, true);
-      if (res && res.success && res.materials) {
-        materialsData.push(...res.materials);
-        if (typeof renderAudioView === 'function') renderAudioView();
-      }
-    }
+    if (!window.materialsData || !materialsData.some(m => m.type === 'audio')) loadMaterials('audio');
   }
-  
   if (tabName === 'pitman') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'pitman')) {
-      const res = await apiCall('getMaterials', { type: 'pitman' }, true);
-      if (res && res.success && res.materials) {
-        materialsData.push(...res.materials);
-        if (typeof renderPitmanView === 'function') renderPitmanView();
-      }
-    }
+    if (!window.materialsData || !materialsData.some(m => m.type === 'pitman')) loadMaterials('pitman');
   }
-  
   if (tabName === 'typingtest') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'typingtest')) {
-      const res = await apiCall('getMaterials', { type: 'typingtest' }, true);
-      if (res && res.success && res.materials) {
-        materialsData.push(...res.materials);
-        if (res.subtabs) subtabsData = res.subtabs;
-        if (typeof renderTypingTestView === 'function') renderTypingTestView();
-      }
-    }
+    if (!window.materialsData || materialsData.length === 0) loadMaterials('typingtest');
   }
-  
   if (tabName === 'test') {
     if (!window.allTestHistoryList || allTestHistoryList.length === 0) loadTestHistory();
   }
-  
   if (tabName === 'feedback') {
     loadUserFeedback();
   }
-  
   if (tabName === 'admin') {
     loadAdminData();
     populateEvalCategoryDropdown();
@@ -4358,6 +4325,7 @@ function openTestComparison(indexOrItem) {
   if (typeof indexOrItem === 'object' && indexOrItem !== null) {
     window._currentComparisonItem = indexOrItem;
   } else {
+    // Robust fallback across cached, global, and admin history lists
     window._currentComparisonItem = 
       (typeof cachedTestHistory !== 'undefined' && cachedTestHistory && cachedTestHistory[indexOrItem]) || 
       (typeof allTestHistoryList !== 'undefined' && allTestHistoryList && allTestHistoryList[indexOrItem]) || 
@@ -4368,7 +4336,11 @@ function openTestComparison(indexOrItem) {
   const historyItem = window._currentComparisonItem;
 
   if (!historyItem) {
-    showToast('Error loading test comparison details.');
+    if (typeof showToast === 'function') {
+      showToast('Error loading test comparison details.');
+    } else {
+      console.error('Error loading test comparison details.');
+    }
     return;
   }
 
@@ -4388,6 +4360,7 @@ function openTestComparison(indexOrItem) {
   const refText = historyItem.ReferenceText || historyItem.referenceText || '';
   const userText = historyItem.UserTranscription || historyItem.userTranscription || '';
 
+  // 🌟 Helper function to parse tokens and stem words for singular/plural matching
   const parseToken = (token) => {
     const clean = token.replace(/^[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+|[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+$/g, '');
     const punct = (token.match(/[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]/g) || []).join('');
@@ -4419,6 +4392,7 @@ function openTestComparison(indexOrItem) {
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
+      // 🌟 Matches if exact word OR singular/plural stem matches
       if (refTokens[i - 1].word === userTokens[j - 1].word || refTokens[i - 1].stem === userTokens[j - 1].stem) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
@@ -4443,16 +4417,18 @@ function openTestComparison(indexOrItem) {
       const userT = userTokens[j - 1];
 
       const isCapErr = refT.raw !== userT.raw;
-      if (isCapErr) computedCapitalErrors++;
+      if (isCapErr) {
+        computedCapitalErrors++;
+      }
 
       if (refT.punct !== userT.punct) {
         if (!refT.punct && userT.punct) computedPunctuationErrors.extra++;
         else if (refT.punct && !userT.punct) computedPunctuationErrors.left++;
         else computedPunctuationErrors.wrong++;
 
-        annotatedUserHtml.unshift(`<span style="background: rgba(6, 182, 212, 0.2); color: var(--accent); padding: 2px 4px; border-radius: 4px; margin: 0 2px;">${userT.raw} <small>(Punct Error)</small></span>`);
+        annotatedUserHtml.unshift(`<span style="background: rgba(6, 182, 212, 0.2); color: var(--accent); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Punctuation Error">${userT.raw} <small>(Punct Error)</small></span>`);
       } else if (isCapErr) {
-        annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;">${userT.raw} <small>(Ref: ${refT.raw})</small></span>`);
+        annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Capitalization Error">${userT.raw} <small>(Ref: ${refT.raw})</small></span>`);
       } else {
         annotatedUserHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${userT.raw}</span>`);
       }
@@ -4466,7 +4442,7 @@ function openTestComparison(indexOrItem) {
       const userT = userTokens[j - 1];
       if (refT.punct !== userT.punct) computedPunctuationErrors.wrong++;
 
-      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
+      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Spelling / Wrong Word / Singular-Plural"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refT.raw}</span>`);
       i--;
       j--;
@@ -4474,14 +4450,14 @@ function openTestComparison(indexOrItem) {
       computedExtraWords++;
       if (userTokens[j - 1].punct) computedPunctuationErrors.extra++;
 
-      annotatedUserHtml.unshift(`<span style="background: rgba(139, 92, 246, 0.25); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;"><s>${userTokens[j - 1].raw}</s> <small>(Extra)</small></span>`);
+      annotatedUserHtml.unshift(`<span style="background: rgba(139, 92, 246, 0.25); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Extra Typed Word"><s>${userTokens[j - 1].raw}</s> <small>(Extra)</small></span>`);
       j--;
     } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
       computedWordsLeft++;
       if (refTokens[i - 1].punct) computedPunctuationErrors.left++;
 
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refTokens[i - 1].raw}</span>`);
-      annotatedUserHtml.unshift(`<span style="color: var(--danger); font-weight: bold; margin: 0 2px;">(Left) <s>${refTokens[i - 1].raw}</s></span>`);
+      annotatedUserHtml.unshift(`<span style="color: var(--danger); font-weight: bold; margin: 0 2px;" title="Word Left / Omission">(Left) <s>${refTokens[i - 1].raw}</s></span>`);
       i--;
     } else {
       computedWrongWords++; 
@@ -4489,7 +4465,7 @@ function openTestComparison(indexOrItem) {
       const userT = userTokens[j - 1];
       if (refT.punct !== userT.punct) computedPunctuationErrors.wrong++;
 
-      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
+      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Spelling / Wrong Word / Singular-Plural"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refT.raw}</span>`);
       i--;
       j--;
@@ -4533,9 +4509,6 @@ function openTestComparison(indexOrItem) {
     const penaltyWord = historyItem.PenaltyWord || historyItem.penaltyWord || `${rules.penaltyValue !== undefined ? rules.penaltyValue : 1.0}`;
     const status = historyItem.Status || historyItem.status || 'FAILED';
 
-    const adminGross = historyItem.GrossSpeed || historyItem.grossSpeed || 0;
-    const adminNet = historyItem.NetSpeed || historyItem.netSpeed || 0;
-
     body.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 20px; width: 100vw; height: calc(100vh - 50px); max-width: 1400px; margin: 0 auto; overflow-y: auto;">
         
@@ -4559,8 +4532,50 @@ function openTestComparison(indexOrItem) {
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Status:</strong> <span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Accuracy:</strong> ${accuracy}%</div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Marks Obtained:</strong> ${marksObtainedVal} / ${totalMarksVal}</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;" id="modal-gross-speed-metric"><strong>Gross Speed:</strong> ${adminGross} WPM</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;" id="modal-net-speed-metric"><strong>Net Speed:</strong> ${adminNet} WPM</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Gross Speed:</strong> ${historyItem.GrossSpeed || historyItem.grossSpeed || 0} WPM</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Net Speed:</strong> ${historyItem.NetSpeed || historyItem.netSpeed || 0} WPM</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+          <div class="card" style="border-left: 4px solid var(--info, #3b82f6); padding: 14px;">
+            <h5 style="color: var(--info, #3b82f6); margin-bottom: 6px;"><i class="fa-solid fa-file-lines"></i> Material Stats</h5>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Total Words: <strong>${totalWordsMaterial}</strong><br>Total Strokes: <strong>${totalStrokesMaterial}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--secondary); padding: 14px;">
+            <h5 style="color: var(--secondary); margin-bottom: 6px;"><i class="fa-solid fa-keyboard"></i> User Typed Stats</h5>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Words Typed: <strong>${totalWordsUser}</strong><br>Strokes Typed: <strong>${totalStrokesUser}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--primary); padding: 14px;">
+            <h5 style="color: var(--primary); margin-bottom: 6px;"><i class="fa-solid fa-rotate-left"></i> Backspaces Used: ${totalBackspaces}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Total backspace keypresses</p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--danger); padding: 14px;">
+            <h5 style="color: var(--danger); margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Spelling / Wrong Word: ${wrongWordsCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Points Deducted: <strong>-${wrongDeduction}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--warning); padding: 14px;">
+            <h5 style="color: var(--warning); margin-bottom: 6px;"><i class="fa-solid fa-book-bookmark"></i> Words Left: ${wordsLeftCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Points Deducted: <strong>-${wordLeftDeduction}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid #7c3aed; padding: 14px;">
+            <h5 style="color: #7c3aed; margin-bottom: 6px;"><i class="fa-solid fa-plus"></i> Extra Words: ${extraWordsCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Points Deducted: <strong>-${extraDeduction}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid #06b6d4; padding: 14px;">
+            <h5 style="color: #06b6d4; margin-bottom: 6px;"><i class="fa-solid fa-paragraph"></i> Paragraph Changes: ${paraNotChangedCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Points Deducted: <strong>-${paraDeduction}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid #b45309; padding: 14px;">
+            <h5 style="color: #b45309; margin-bottom: 6px;"><i class="fa-solid fa-font"></i> Capital Errors: ${capitalErrorCount}</h5>
+            <p style="font-size: 13px; color: var(--text-muted);">Points Deducted: <strong>-${capitalDeduction}</strong></p>
+          </div>
+          <div class="card" style="border-left: 4px solid var(--accent); padding: 14px;">
+            <h5 style="color: var(--accent); margin-bottom: 6px;"><i class="fa-solid fa-pencil"></i> Punctuation Errors: ${totalPunctErrorCount}</h5>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
+              Extra: ${computedPunctuationErrors.extra} | Left: ${computedPunctuationErrors.left} | Wrong: ${computedPunctuationErrors.wrong}<br>
+              Points Deducted: <strong>-${punctuationDeduction}</strong>
+            </p>
           </div>
         </div>
 
@@ -4586,6 +4601,7 @@ function openTestComparison(indexOrItem) {
   }
 }
 
+// 👉 Helper function for toggling speed view inside the modal evaluation summary
 function toggleModalSpeedView() {
   const isChecked = document.getElementById('modal-toggle-time-used')?.checked || false;
   const historyItem = window._currentComparisonItem;
@@ -4595,47 +4611,38 @@ function toggleModalSpeedView() {
   const adminGross = parseFloat(historyItem.GrossSpeed || historyItem.grossSpeed || 0);
   const adminNet = parseFloat(historyItem.NetSpeed || historyItem.netSpeed || 0);
 
+  // 1. Extract Admin Allotted Time in minutes
   let adminMinutes = 5;
   const timeDurStr = String(historyItem.TimeDuration || historyItem.timeDuration || '5').toLowerCase();
   const durMatch = timeDurStr.match(/([\d.]+)/);
   if (durMatch && durMatch[1]) adminMinutes = parseFloat(durMatch[1]);
   if (!adminMinutes || adminMinutes <= 0) adminMinutes = 5;
 
+  // 2. Extract User Time Taken in minutes
   let userMinutes = adminMinutes;
   const timeTakenStr = String(historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || historyItem.timeUsed || '').toLowerCase();
   const takenMatch = timeTakenStr.match(/([\d.]+)/);
   if (takenMatch && takenMatch[1]) userMinutes = parseFloat(takenMatch[1]);
   if (!userMinutes || userMinutes <= 0) userMinutes = 0.01;
 
-  let totalTyped = parseFloat(
-    historyItem.TotalTypedWords || 
-    historyItem.totalTypedWords || 
-    historyItem.TotalWord || 
-    historyItem.totalWord || 0
-  );
-
-  if (!totalTyped && historyItem.ReferenceText) {
-    totalTyped = historyItem.ReferenceText.split(/\s+/).filter(Boolean).length;
-  }
-
+  const totalTyped = parseFloat(historyItem.TotalTypedWords || historyItem.totalTypedWords || historyItem.TotalWord || historyItem.totalWord || 0);
   const accuracy = parseFloat(historyItem.AccuracyPercentage || historyItem.accuracyPercentage || 0);
   const matchingWords = Math.round(adminNet * userMinutes) || Math.round((accuracy / 100) * (totalTyped || 100));
 
+  // Compute User Time-Based Speeds
   const userGross = Math.round(totalTyped / userMinutes);
   const userNet = Math.round(matchingWords / userMinutes);
 
-  // Directly locate or update the metric elements inside the comparison modal grid
-  const grossMetricElem = document.getElementById('modal-gross-speed-metric');
-  const netMetricElem = document.getElementById('modal-net-speed-metric');
+  const grid = document.getElementById('modal-summary-metrics-grid');
+  if (!grid) return;
 
-  if (grossMetricElem) {
-    grossMetricElem.innerHTML = isChecked 
+  const items = grid.children;
+  if (items.length >= 12) {
+    items[10].innerHTML = isChecked 
       ? `<strong>User Gross Speed:</strong> ${userGross} WPM` 
       : `<strong>Gross Speed:</strong> ${adminGross} WPM`;
-  }
-
-  if (netMetricElem) {
-    netMetricElem.innerHTML = isChecked 
+      
+    items[11].innerHTML = isChecked 
       ? `<strong>User Net Speed:</strong> ${userNet} WPM` 
       : `<strong>Net Speed:</strong> ${adminNet} WPM`;
   }
