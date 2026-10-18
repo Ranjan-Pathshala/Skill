@@ -1101,25 +1101,25 @@
 
       <h5 style="margin-top: 10px; border-bottom: 1px solid var(--border); padding-bottom: 4px;">Marks Deduction Parameters</h5>
 
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+<div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
           <label>i. Marks Deduction for Punctuation Error</label>
           <input type="number" id="eval-deduct-punctuation" class="form-control" value="0.5" min="0" max="10" step="0.1">
         </div>
         <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>j. Marks Deduction for Spelling / Wrong Word</label>
-          <input type="number" id="eval-deduct-wrong" class="form-control" value="1.0" min="0" max="10" step="0.1">
+          <label>Marks Deduction for Capital Letter Error</label>
+          <input type="number" id="eval-deduct-capital" class="form-control" value="0.25" min="0" max="10" step="0.1">
         </div>
       </div>
 
+      <!-- 👉 Unified Spelling / Wrong Word / Wrong Typed / Singular-Plural Error Input -->
       <div style="display: flex; gap: 15px; flex-wrap: wrap;">
         <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>k. Marks Deduction for Wrong Typed</label>
-          <!-- 👉 Fixed duplicate ID -->
-          <input type="number" id="eval-deduct-wrong-typed" class="form-control" value="1.0" min="0" max="10" step="0.1">
+          <label>Marks Deduction for Spelling / Wrong Word / Singular-Plural / Wrong Typed</label>
+          <input type="number" id="eval-deduct-wrong" class="form-control" value="1.0" min="0" max="10" step="0.1">
         </div>
         <div class="form-group" style="flex: 1; min-width: 200px;">
-          <label>l. Marks Deduction for Word Left</label>
+          <label>Marks Deduction for Omission / Word Left</label>
           <input type="number" id="eval-deduct-omission" class="form-control" value="1.0" min="0" max="10" step="0.1">
         </div>
       </div>
@@ -1221,12 +1221,33 @@
     </form>
   </div>
 
-  <!-- Existing Evaluation Rules Summary Table placed securely inside the Tab Body -->
+<!-- Existing Evaluation Rules Summary Table placed securely inside the Tab Body -->
   <div style="margin-top: 20px; max-width: 800px;">
-    <h4>Existing Uploaded / Saved Evaluation Rules</h4>
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
+      <h4>Existing Uploaded / Saved Evaluation Rules</h4>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <!-- Search input auto-resets page to 1 and shifts filter to ALL -->
+        <input type="text" id="admin-search-eval-rules" class="form-control" placeholder="Search rules..." oninput="currentEvalRulesPage = 1; document.getElementById('admin-filter-eval-category').value='ALL'; renderAdminEvaluationRulesTable();" style="max-width: 220px;">
+        
+        <!-- Category Filter dropdown -->
+        <select id="admin-filter-eval-category" class="form-control" onchange="currentEvalRulesPage = 1; renderAdminEvaluationRulesTable();" style="max-width: 180px;">
+          <option value="ALL">All Categories</option>
+          <option value="typingtest">Typing Test</option>
+          <option value="pitman">Pitman</option>
+          <option value="audio">Audio</option>
+        </select>
+      </div>
+    </div>
+
     <div id="admin-eval-rules-table-container" style="overflow-x: auto; margin-top: 10px;"></div>
+    
+    <!-- Pagination Controls Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 0 4px;">
+      <button class="btn btn-secondary btn-sm" onclick="paginateEvalRules(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+      <span id="admin-eval-rules-page-indicator" style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Page 1 of 1</span>
+      <button class="btn btn-secondary btn-sm" onclick="paginateEvalRules(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+    </div>
   </div>
-</div>
 
       <!-- Admin Banner Tab with Auto Start/Stop & Forced Disable[cite: 1] -->
       <div id="admin-sub-banner" class="admin-tab-body" style="display: none;">
@@ -1605,17 +1626,14 @@ async function initApp() {
     setupAuthenticatedUI();
     navigateTo('dashboard', false);
     
-    // 3. Run session verification, rule fetching, dashboard data, and all materials pre-loading silently in the background
+    // 3. Run essential startup requests concurrently in the background (avoiding GAS rate limits)
     Promise.all([
       verifyUserSession(),
       apiCall('getEvaluationRules', {}, true), // silent: true prevents the loader from showing
       apiCall('getDashboardData', {}, true),
       apiCall('getMaterials', { type: 'word' }, true),
-      apiCall('getMaterials', { type: 'pdf' }, true),
-      apiCall('getMaterials', { type: 'audio' }, true),
-      apiCall('getMaterials', { type: 'pitman' }, true),
       apiCall('getMaterials', { type: 'typingtest' }, true)
-    ]).then(([sessionRes, ruleRes, dashRes, wordRes, pdfRes, audioRes, pitmanRes, typingRes]) => {
+    ]).then(([sessionRes, ruleRes, dashRes, wordRes, typingRes]) => {
       if (ruleRes && ruleRes.success && ruleRes.rulesMap) {
         allEvaluationRules = ruleRes.rulesMap;
         localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
@@ -1627,12 +1645,9 @@ async function initApp() {
         if (typeof renderHomework === 'function') renderHomework();
       }
       
-      // 👉 Populate global materials cache for instant tab and exam switching
+      // Populate initial global materials cache for words & typing tests
       materialsData = [
         ...(wordRes && wordRes.success ? wordRes.materials || [] : []),
-        ...(pdfRes && pdfRes.success ? pdfRes.materials || [] : []),
-        ...(audioRes && audioRes.success ? audioRes.materials || [] : []),
-        ...(pitmanRes && pitmanRes.success ? pitmanRes.materials || [] : []),
         ...(typingRes && typingRes.success ? typingRes.materials || [] : [])
       ];
 
@@ -1836,7 +1851,9 @@ function handleEvalCategoryChange() {
     } else {
       targetSubtabs.forEach(stb => {
         const opt = document.createElement('option');
-        opt.value = `${cat}_${stb.SubtabName}`;
+        // 👉 Sanitize subtab name with underscores to match saved rule keys consistently
+        const safeSubName = String(stb.SubtabName || '').replace(/[^a-zA-Z0-9_]/g, '_');
+        opt.value = `${cat}_${safeSubName}`;
         opt.innerText = stb.SubtabName;
         subtabSelect.appendChild(opt);
       });
@@ -1871,11 +1888,11 @@ const defaultEvaluationRule = {
   defaultTextSize: 15,
   deductPunctuation: 0,
   deductCapital: 0,
-  deductWord: 0,
-  deductWrong: 0,
-  deductOmission: 0,
-  deductExtraWord: 0,
-  deductParaNotChanged: 0,
+  deductWord: 0,         
+  deductWrong: 1.0,      // 🌟 Unified deduction for Spelling, Wrong Word, Wrong Typed, Singular/Plural
+  deductOmission: 1.0,   // Omission / Word Left
+  deductExtraWord: 0.5,
+  deductParaNotChanged: 1.0,
   copyPasteMode: 'yes',
   funcKeysMode: 'yes',
   wordCountRule: '1word',
@@ -1940,13 +1957,12 @@ function loadSelectedEvaluationRulesIntoForm() {
   setVal('eval-ignore-paragraph-change', rules.ignoreParagraphChange, 'yes');
   setVal('eval-repeat-passage', rules.repeatPassage, 'yes');
   setVal('eval-default-text-size', rules.defaultTextSize, 15);
-  setVal('eval-deduct-punctuation', rules.deductPunctuation, 0);
+setVal('eval-deduct-punctuation', rules.deductPunctuation, 0);
   setVal('eval-deduct-capital', rules.deductCapital, 0); 
-  setVal('eval-deduct-word', rules.deductWord, 0);
-  setVal('eval-deduct-wrong', rules.deductWrong, 0);
-  setVal('eval-deduct-omission', rules.deductOmission, 0);
+  setVal('eval-deduct-omission', rules.deductOmission, 0);     
+  setVal('eval-deduct-wrong', rules.deductWrong, 0);       // 🌟 Unified input field
   setVal('eval-deduct-extra-word', rules.deductExtraWord, 0);          
-  setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged, 0); 
+  setVal('eval-deduct-para-not-changed', rules.deductParaNotChanged, 0);
   setVal('eval-copypaste-mode', rules.copyPasteMode, 'yes');
   setVal('eval-func-keys-mode', rules.funcKeysMode, 'yes');
   setVal('eval-word-count-rule', rules.wordCountRule, '1word');
@@ -1989,10 +2005,9 @@ async function saveEvaluationRulesSettings() {
     ignoreParagraphChange: document.getElementById('eval-ignore-paragraph-change')?.value || 'yes',
     repeatPassage: document.getElementById('eval-repeat-passage')?.value || 'yes',
     defaultTextSize: getNumVal('eval-default-text-size', 15),
-    deductPunctuation: getNumVal('eval-deduct-punctuation', 0),
+deductPunctuation: getNumVal('eval-deduct-punctuation', 0),
     deductCapital: getNumVal('eval-deduct-capital', 0), 
-    deductWord: getNumVal('eval-deduct-word', 0),
-    deductWrong: getNumVal('eval-deduct-wrong', 0),
+    deductWrong: getNumVal('eval-deduct-wrong', 0),            // 🌟 Unified rule key
     deductOmission: getNumVal('eval-deduct-omission', 0),
     deductExtraWord: getNumVal('eval-deduct-extra-word', 0),
     deductParaNotChanged: getNumVal('eval-deduct-para-not-changed', 0),
@@ -2031,7 +2046,7 @@ async function saveEvaluationRulesSettings() {
   }
 }
 
-function navigateTo(tabName, pushHistory = true) {
+async function navigateTo(tabName, pushHistory = true) {
   if (!currentUser) {
     switchAuthTab('login');
     return;
@@ -2059,31 +2074,70 @@ function navigateTo(tabName, pushHistory = true) {
     details: 'Navigated to ' + tabName
   }, true);
 
-  // 👉 Smart caching checks: only fetch from server if local data is empty
+  // 👉 Smart caching & on-demand lazy-loading checks
   if (tabName === 'dashboard') {
     if (!window.globalData || !window.globalData.announcements) loadDashboardData();
   }
+  
   if (tabName === 'words') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'word')) loadMaterials('word');
+    if (!window.materialsData || !materialsData.some(m => m.type === 'word')) {
+      const res = await apiCall('getMaterials', { type: 'word' }, true);
+      if (res && res.success && res.materials) {
+        materialsData.push(...res.materials);
+        if (typeof renderWordsView === 'function') renderWordsView();
+      }
+    }
   }
+  
   if (tabName === 'pdf') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'pdf')) loadMaterials('pdf');
+    if (!window.materialsData || !materialsData.some(m => m.type === 'pdf')) {
+      const res = await apiCall('getMaterials', { type: 'pdf' }, true);
+      if (res && res.success && res.materials) {
+        materialsData.push(...res.materials);
+        if (typeof renderPdfView === 'function') renderPdfView();
+      }
+    }
   }
+  
   if (tabName === 'audio') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'audio')) loadMaterials('audio');
+    if (!window.materialsData || !materialsData.some(m => m.type === 'audio')) {
+      const res = await apiCall('getMaterials', { type: 'audio' }, true);
+      if (res && res.success && res.materials) {
+        materialsData.push(...res.materials);
+        if (typeof renderAudioView === 'function') renderAudioView();
+      }
+    }
   }
+  
   if (tabName === 'pitman') {
-    if (!window.materialsData || !materialsData.some(m => m.type === 'pitman')) loadMaterials('pitman');
+    if (!window.materialsData || !materialsData.some(m => m.type === 'pitman')) {
+      const res = await apiCall('getMaterials', { type: 'pitman' }, true);
+      if (res && res.success && res.materials) {
+        materialsData.push(...res.materials);
+        if (typeof renderPitmanView === 'function') renderPitmanView();
+      }
+    }
   }
+  
   if (tabName === 'typingtest') {
-    if (!window.materialsData || materialsData.length === 0) loadMaterials('typingtest');
+    if (!window.materialsData || !materialsData.some(m => m.type === 'typingtest')) {
+      const res = await apiCall('getMaterials', { type: 'typingtest' }, true);
+      if (res && res.success && res.materials) {
+        materialsData.push(...res.materials);
+        if (res.subtabs) subtabsData = res.subtabs;
+        if (typeof renderTypingTestView === 'function') renderTypingTestView();
+      }
+    }
   }
+  
   if (tabName === 'test') {
     if (!window.allTestHistoryList || allTestHistoryList.length === 0) loadTestHistory();
   }
+  
   if (tabName === 'feedback') {
     loadUserFeedback();
   }
+  
   if (tabName === 'admin') {
     loadAdminData();
     populateEvalCategoryDropdown();
@@ -3839,10 +3893,11 @@ function renderWords() {
       }
     }
 
-async function submitStenoTest() {
+async function submitStenoTest(event) {
+  if (event) event.preventDefault();
+
   if (testTimerInterval) clearInterval(testTimerInterval);
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  document.getElementById('active-test-modal').style.display = 'none';
 
   const userInputElem = document.getElementById('test-user-input');
   const typedText = userInputElem ? userInputElem.value.trim() : '';
@@ -3872,11 +3927,22 @@ async function submitStenoTest() {
   const refTextEval = rules.ignoreParagraphChange === 'yes' ? referenceText.replace(/[\r\n]+/g, ' ') : referenceText;
   const userTextEval = rules.ignoreParagraphChange === 'yes' ? typedText.replace(/[\r\n]+/g, ' ') : typedText;
 
-  // Helper function to cleanly separate alphanumeric word from surrounding punctuation
+  // 🌟 Helper function to parse tokens and stem words for singular/plural matching
   const parseToken = (token) => {
     const clean = token.replace(/^[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+|[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+$/g, '');
     const punct = (token.match(/[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]/g) || []).join('');
-    return { raw: token, word: clean.toLowerCase(), punct: punct };
+    
+    let lower = clean.toLowerCase();
+    let stem = lower;
+    if (lower.endsWith('ies') && lower.length > 3) {
+      stem = lower.slice(0, -3) + 'y';
+    } else if (lower.endsWith('es') && lower.length > 3) {
+      stem = lower.slice(0, -2);
+    } else if (lower.endsWith('s') && !lower.endsWith('ss') && lower.length > 2) {
+      stem = lower.slice(0, -1);
+    }
+
+    return { raw: token, word: lower, stem: stem, punct: punct };
   };
 
   const refTokens = refTextEval.split(/\s+/).filter(Boolean).map(parseToken);
@@ -3886,7 +3952,7 @@ async function submitStenoTest() {
   const totalTypedCharacter = userTextEval.length;
   const totalTypedWords = userTokens.length;
 
-  // 👉 1. STROKE-TO-WORD RULE: Support 1 word as 1 word OR 5 strokes as 1 word
+  // 👉 STROKE-TO-WORD RULE: Support 1 word as 1 word OR 5 strokes as 1 word
   const totalWordsOriginal = (rules.wordCountRule === '5stroke') 
     ? Math.round(totalCharacter / 5) 
     : refTokens.length;
@@ -3896,7 +3962,7 @@ async function submitStenoTest() {
   const meetsMinGrossStroke = totalTypedCharacter >= requiredGrossStrokes;
 
   if (!meetsMinGrossStroke) {
-    showToast(`Warning: Minimum gross stroke required is ${requiredGrossStrokes} (${minGrossStrokePct}% of ${totalCharacter} strokes). You typed ${totalTypedCharacter}.`);
+    showToast(`Warning: Minimum gross stroke required is ${requiredGrossStrokes} (${minGrossStrokePct}\% of ${totalCharacter} strokes). You typed ${totalTypedCharacter}.`);
   }
 
   if (rules.initialWords && totalTypedWords < rules.initialWords) {
@@ -3909,7 +3975,8 @@ async function submitStenoTest() {
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (refTokens[i - 1].word === userTokens[j - 1].word) {
+      // 🌟 Matches if exact word OR singular/plural stem matches
+      if (refTokens[i - 1].word === userTokens[j - 1].word || refTokens[i - 1].stem === userTokens[j - 1].stem) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
@@ -3918,7 +3985,7 @@ async function submitStenoTest() {
   }
 
   let i = m, j = n;
-  let wrongTypedCount = 0; // Spelling/Wrong words
+  let wrongTypedCount = 0; // Spelling/Wrong words/Singular-Plural
   let capitalErrorCount = 0;
   let wordLeftCount = 0;   // Omissions
   let extraTypedCount = 0; // Extra words
@@ -3927,11 +3994,10 @@ async function submitStenoTest() {
   let punctuationWrongCount = 0;
 
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && refTokens[i - 1].word === userTokens[j - 1].word) {
+    if (i > 0 && j > 0 && (refTokens[i - 1].word === userTokens[j - 1].word || refTokens[i - 1].stem === userTokens[j - 1].stem)) {
       if (refTokens[i - 1].raw !== userTokens[j - 1].raw) {
         capitalErrorCount++;
       }
-      // Check punctuation difference when word spelling is correct
       if (refTokens[i - 1].punct !== userTokens[j - 1].punct) {
         if (!refTokens[i - 1].punct && userTokens[j - 1].punct) punctuationExtraCount++;
         else if (refTokens[i - 1].punct && !userTokens[j - 1].punct) punctuationLeftCount++;
@@ -3940,7 +4006,6 @@ async function submitStenoTest() {
       i--;
       j--;
     } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1]) {
-      // Accurate spelling/wrong word substitution detection
       wrongTypedCount++;
       if (refTokens[i - 1].punct !== userTokens[j - 1].punct) {
         punctuationWrongCount++;
@@ -3956,7 +4021,7 @@ async function submitStenoTest() {
       if (refTokens[i - 1].punct) punctuationLeftCount++;
       i--;
     } else {
-      wrongTypedCount++; // Spelling error fallback
+      wrongTypedCount++;
       if (refTokens[i - 1].punct !== userTokens[j - 1].punct) {
         punctuationWrongCount++;
       }
@@ -3968,16 +4033,16 @@ async function submitStenoTest() {
   const matchingWords = dp[m][n];
   const totalPunctuationErrors = punctuationLeftCount + punctuationExtraCount + punctuationWrongCount;
 
-  // 👉 Custom Deductions Setup
+  // 👉 FETCH ADMIN CUSTOM DEDUCTION WEIGHTS / MULTIPLIERS
   const totalMarks = rules.totalMarks !== undefined ? parseFloat(rules.totalMarks) : 100;
+  const deductWrong = rules.deductWrong !== undefined ? parseFloat(rules.deductWrong) : 1.0;
+  const deductOmission = rules.deductOmission !== undefined ? parseFloat(rules.deductOmission) : 1.0;
+  const deductPunctuation = rules.deductPunctuation !== undefined ? parseFloat(rules.deductPunctuation) : 0.5;
+  const deductCapital = rules.deductCapital !== undefined ? parseFloat(rules.deductCapital) : 0.25;
+  const deductExtraWord = rules.deductExtraWord !== undefined ? parseFloat(rules.deductExtraWord) : 0.5;
+  const deductParaNotChanged = rules.deductParaNotChanged !== undefined ? parseFloat(rules.deductParaNotChanged) : 1.0;
 
-  const deductWrong = rules.deductWrong !== undefined ? rules.deductWrong : 1.0;
-  const deductOmission = rules.deductOmission !== undefined ? rules.deductOmission : 1.0;
-  const deductPunctuation = rules.deductPunctuation !== undefined ? rules.deductPunctuation : 0.5;
-  const deductCapital = rules.deductCapital !== undefined ? rules.deductCapital : 0.25;
-  const deductExtraWord = rules.deductExtraWord !== undefined ? rules.deductExtraWord : 0.5;
-  const deductParaNotChanged = rules.deductParaNotChanged !== undefined ? rules.deductParaNotChanged : 1.0;
-
+  // Calculate weighted deductions per error category
   const wrongTypedDeduction = (wrongTypedCount * deductWrong).toFixed(2);
   const wordLeftDeduction = (wordLeftCount * deductOmission).toFixed(2);
   const punctuationDeduction = (totalPunctuationErrors * deductPunctuation).toFixed(2);
@@ -3985,36 +4050,27 @@ async function submitStenoTest() {
   const extraDeduction = (extraTypedCount * deductExtraWord).toFixed(2);
   const paraDeduction = (paraNotChangedCount * deductParaNotChanged).toFixed(2);
 
-  let errorDeductions = parseFloat(wrongTypedDeduction) + 
+  // 👉 TOTAL WEIGHTED ERROR POINTS
+  const totalErrorCount = parseFloat(wrongTypedDeduction) + 
                         parseFloat(wordLeftDeduction) + 
                         parseFloat(punctuationDeduction) + 
                         parseFloat(capitalDeduction) + 
                         parseFloat(extraDeduction) + 
                         parseFloat(paraDeduction);
   
-  // 👉 2. GRACE PERCENTAGE & EXCESS PENALTY LOGIC
-  const ignoreErrorPct = rules.ignoreErrorPct !== undefined ? parseFloat(rules.ignoreErrorPct) : 5;
+  // 👉 ERROR RELAXED % & PENALTY VALUE LOGIC
+  const ignoreErrorPct = rules.ignoreErrorPct !== undefined ? parseFloat(rules.ignoreErrorPct) : 0;
   const penaltyValue = rules.penaltyValue !== undefined ? parseFloat(rules.penaltyValue) : 1.0;
 
-  // Aggregate total error count
-  const totalErrorCount = wrongWordsCount + wordsLeftCount + extraWordsCount + totalPunctuationErrors + capitalErrorCount;
-  
-  // Free allowed error threshold based on percentage of master words
   const allowedFreeErrors = totalWordsOriginal * (ignoreErrorPct / 100);
+  const excessErrors = Math.max(0, totalErrorCount - allowedFreeErrors);
+  const effectivePenalizedErrors = excessErrors * penaltyValue;
 
-  // If mistakes exceed the grace threshold, penalize only the excess mistakes using penaltyValue
-  if (totalErrorCount > allowedFreeErrors) {
-    const excessErrors = totalErrorCount - allowedFreeErrors;
-    errorDeductions += (excessErrors * penaltyValue);
-  }
+  const effectiveWordsScored = Math.max(0, totalWordsOriginal - effectivePenalizedErrors);
 
-  // 👉 ACCURACY CALCULATION
-  const calculatedAccuracyScore = Math.max(0, Math.min(totalMarks, totalMarks - errorDeductions));
-  const accuracyPercentage = ((calculatedAccuracyScore / totalMarks) * 100).toFixed(2);
+  const accuracyPercentage = ((effectiveWordsScored / totalWordsOriginal) * 100).toFixed(2);
   const errorPercentage = (100 - parseFloat(accuracyPercentage)).toFixed(2);
-
-  // 👉 MARKS OBTAINED
-  const marksObtained = calculatedAccuracyScore.toFixed(2);
+  const marksObtained = ((effectiveWordsScored / totalWordsOriginal) * totalMarks).toFixed(2);
 
   const passingAccuracy = rules.passingAccuracy !== undefined ? rules.passingAccuracy : 85;
   const passingMarks = rules.passingMarks !== undefined ? rules.passingMarks : 40;
@@ -4067,7 +4123,6 @@ async function submitStenoTest() {
     evaluationRules: rules
   };
 
-  // 🛡️ Safety Backup: Store payload in localStorage instantly before network request
   localStorage.setItem('steno_pending_submission', JSON.stringify(payload));
 
   const res = await apiCall('saveTestHistory', payload);
@@ -4078,6 +4133,9 @@ async function submitStenoTest() {
   } else {
     showToast(res.message || 'Server is busy processing many tests. Your work is saved locally.');
   }
+
+  const modalElem = document.getElementById('active-test-modal');
+  if (modalElem) modalElem.style.display = 'none';
 
   loadTestHistory();
 }
@@ -4297,10 +4355,15 @@ function paginateHistory(direction) {
 }
 
 function openTestComparison(indexOrItem) {
-  // 👉 Safely resolve the history item using the index or direct object & cache it globally for toggles
-  window._currentComparisonItem = (typeof indexOrItem === 'object' && indexOrItem !== null) 
-    ? indexOrItem 
-    : cachedTestHistory[indexOrItem];
+  if (typeof indexOrItem === 'object' && indexOrItem !== null) {
+    window._currentComparisonItem = indexOrItem;
+  } else {
+    window._currentComparisonItem = 
+      (typeof cachedTestHistory !== 'undefined' && cachedTestHistory && cachedTestHistory[indexOrItem]) || 
+      (typeof allTestHistoryList !== 'undefined' && allTestHistoryList && allTestHistoryList[indexOrItem]) || 
+      (typeof adminData !== 'undefined' && adminData && adminData.history && adminData.history[indexOrItem]) ||
+      (typeof globalData !== 'undefined' && globalData && globalData.history && globalData.history[indexOrItem]);
+  }
 
   const historyItem = window._currentComparisonItem;
 
@@ -4313,23 +4376,33 @@ function openTestComparison(indexOrItem) {
   const body = document.getElementById('modal-viewport');
   const titleEl = document.getElementById('modal-title');
   
-  // 👉 Defensive property access supporting both uppercase and lowercase keys
   const examNameVal = historyItem.ExamName || historyItem.examName || '-';
-  const dateVal = formatLocalDate(historyItem.Date || historyItem.date || historyItem.TypingDate || '');
+  const dateVal = typeof formatLocalDate === 'function' 
+    ? formatLocalDate(historyItem.Date || historyItem.date || historyItem.TypingDate || '') 
+    : (historyItem.Date || historyItem.date || historyItem.TypingDate || '-');
   
   if (titleEl) {
     titleEl.innerText = `Detailed Test Comparison : ${examNameVal} (${dateVal})`;
   }
 
-  // 👉 Defensive extraction of reference and user transcription text
   const refText = historyItem.ReferenceText || historyItem.referenceText || '';
   const userText = historyItem.UserTranscription || historyItem.userTranscription || '';
 
-  // Helper function to cleanly separate alphanumeric word from surrounding punctuation
   const parseToken = (token) => {
     const clean = token.replace(/^[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+|[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]+$/g, '');
     const punct = (token.match(/[.,\/#!$%\^&\*;:{}=\-_`~()\[\]?+"]/g) || []).join('');
-    return { raw: token, word: clean.toLowerCase(), punct: punct };
+    
+    let lower = clean.toLowerCase();
+    let stem = lower;
+    if (lower.endsWith('ies') && lower.length > 3) {
+      stem = lower.slice(0, -3) + 'y';
+    } else if (lower.endsWith('es') && lower.length > 3) {
+      stem = lower.slice(0, -2);
+    } else if (lower.endsWith('s') && !lower.endsWith('ss') && lower.length > 2) {
+      stem = lower.slice(0, -1);
+    }
+
+    return { raw: token, word: lower, stem: stem, punct: punct };
   };
 
   const refTokens = refText.split(/\s+/).filter(Boolean).map(parseToken);
@@ -4346,7 +4419,7 @@ function openTestComparison(indexOrItem) {
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (refTokens[i - 1].word === userTokens[j - 1].word) {
+      if (refTokens[i - 1].word === userTokens[j - 1].word || refTokens[i - 1].stem === userTokens[j - 1].stem) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
@@ -4365,23 +4438,21 @@ function openTestComparison(indexOrItem) {
   let computedPunctuationErrors = { extra: 0, left: 0, wrong: 0 };
 
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && refTokens[i - 1].word === userTokens[j - 1].word) {
+    if (i > 0 && j > 0 && (refTokens[i - 1].word === userTokens[j - 1].word || refTokens[i - 1].stem === userTokens[j - 1].stem)) {
       const refT = refTokens[i - 1];
       const userT = userTokens[j - 1];
 
       const isCapErr = refT.raw !== userT.raw;
-      if (isCapErr) {
-        computedCapitalErrors++;
-      }
+      if (isCapErr) computedCapitalErrors++;
 
       if (refT.punct !== userT.punct) {
         if (!refT.punct && userT.punct) computedPunctuationErrors.extra++;
         else if (refT.punct && !userT.punct) computedPunctuationErrors.left++;
         else computedPunctuationErrors.wrong++;
 
-        annotatedUserHtml.unshift(`<span style="background: rgba(6, 182, 212, 0.2); color: var(--accent); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Punctuation Error">${userT.raw} <small>(Punct Error)</small></span>`);
+        annotatedUserHtml.unshift(`<span style="background: rgba(6, 182, 212, 0.2); color: var(--accent); padding: 2px 4px; border-radius: 4px; margin: 0 2px;">${userT.raw} <small>(Punct Error)</small></span>`);
       } else if (isCapErr) {
-        annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Capitalization Error">${userT.raw} <small>(Ref: ${refT.raw})</small></span>`);
+        annotatedUserHtml.unshift(`<span style="background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;">${userT.raw} <small>(Ref: ${refT.raw})</small></span>`);
       } else {
         annotatedUserHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${userT.raw}</span>`);
       }
@@ -4395,7 +4466,7 @@ function openTestComparison(indexOrItem) {
       const userT = userTokens[j - 1];
       if (refT.punct !== userT.punct) computedPunctuationErrors.wrong++;
 
-      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Spelling / Wrong Word"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
+      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refT.raw}</span>`);
       i--;
       j--;
@@ -4403,14 +4474,14 @@ function openTestComparison(indexOrItem) {
       computedExtraWords++;
       if (userTokens[j - 1].punct) computedPunctuationErrors.extra++;
 
-      annotatedUserHtml.unshift(`<span style="background: rgba(139, 92, 246, 0.25); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Extra Typed Word"><s>${userTokens[j - 1].raw}</s> <small>(Extra)</small></span>`);
+      annotatedUserHtml.unshift(`<span style="background: rgba(139, 92, 246, 0.25); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;"><s>${userTokens[j - 1].raw}</s> <small>(Extra)</small></span>`);
       j--;
     } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
       computedWordsLeft++;
       if (refTokens[i - 1].punct) computedPunctuationErrors.left++;
 
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refTokens[i - 1].raw}</span>`);
-      annotatedUserHtml.unshift(`<span style="color: var(--danger); font-weight: bold; margin: 0 2px;" title="Word Left / Omission">(Left) <s>${refTokens[i - 1].raw}</s></span>`);
+      annotatedUserHtml.unshift(`<span style="color: var(--danger); font-weight: bold; margin: 0 2px;">(Left) <s>${refTokens[i - 1].raw}</s></span>`);
       i--;
     } else {
       computedWrongWords++; 
@@ -4418,7 +4489,7 @@ function openTestComparison(indexOrItem) {
       const userT = userTokens[j - 1];
       if (refT.punct !== userT.punct) computedPunctuationErrors.wrong++;
 
-      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Spelling / Wrong Word"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
+      annotatedUserHtml.unshift(`<span style="background: rgba(239, 68, 68, 0.3); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;"><s>${userT.raw}</s> <strong style="color:var(--success);">[${refT.raw}]</strong></span>`);
       annotatedRefHtml.unshift(`<span style="color: inherit; margin: 0 2px;">${refT.raw}</span>`);
       i--;
       j--;
@@ -4439,29 +4510,31 @@ function openTestComparison(indexOrItem) {
     
     const totalPunctErrorCount = computedPunctuationErrors.extra + computedPunctuationErrors.left + computedPunctuationErrors.wrong;
 
-    // 👉 Extract rules saved with this test history, or fallback to current tab rules / defaults
-    const rules = historyItem.evaluationRules || getEvaluationRulesForTab(activeTestSubtabKey) || {
-      deductWrong: 1.0,
-      deductOmission: 1.0,
-      deductExtraWord: 0.5,
-      deductParaNotChanged: 1.0,
-      deductCapital: 0.25,
-      deductPunctuation: 0.5
-    };
+    const rules = historyItem.evaluationRules || (typeof getEvaluationRulesForTab === 'function' ? getEvaluationRulesForTab(typeof activeTestSubtabKey !== 'undefined' ? activeTestSubtabKey : '') : {}) || {};
+    const deductWrong = rules.deductWrong ?? 1.0;
+    const deductOmission = rules.deductOmission ?? 1.0;
+    const deductExtraWord = rules.deductExtraWord ?? 0.5;
+    const deductParaNotChanged = rules.deductParaNotChanged ?? 1.0;
+    const deductCapital = rules.deductCapital ?? 0.25;
+    const deductPunctuation = rules.deductPunctuation ?? 0.5;
 
-    const wrongDeduction = historyItem.wrongTypedDeduction ?? (wrongWordsCount * (rules.deductWrong ?? 1.0)).toFixed(2);
-    const wordLeftDeduction = historyItem.wordLeftDeduction ?? (wordsLeftCount * (rules.deductOmission ?? rules.deductWord ?? 1.0)).toFixed(2);
-    const extraDeduction = historyItem.extraDeduction ?? (extraWordsCount * (rules.deductExtraWord ?? 0.5)).toFixed(2);
-    const paraDeduction = historyItem.paraDeduction ?? (paraNotChangedCount * (rules.deductParaNotChanged ?? 1.0)).toFixed(2);
-    const capitalDeduction = historyItem.capitalDeduction ?? (capitalErrorCount * (rules.deductCapital ?? 0.25)).toFixed(2);
-    const punctuationDeduction = historyItem.punctuationDeduction ?? (totalPunctErrorCount * (rules.deductPunctuation ?? 0.5)).toFixed(2);
+    const wrongDeduction = historyItem.wrongTypedDeduction ?? (wrongWordsCount * deductWrong).toFixed(2);
+    const wordLeftDeduction = historyItem.wordLeftDeduction ?? (wordsLeftCount * deductOmission).toFixed(2);
+    const extraDeduction = historyItem.extraDeduction ?? (extraWordsCount * deductExtraWord).toFixed(2);
+    const paraDeduction = historyItem.paraDeduction ?? (paraNotChangedCount * deductParaNotChanged).toFixed(2);
+    const capitalDeduction = historyItem.capitalDeduction ?? (capitalErrorCount * deductCapital).toFixed(2);
+    const punctuationDeduction = historyItem.punctuationDeduction ?? (totalPunctErrorCount * deductPunctuation).toFixed(2);
 
     const passageTitle = historyItem.PassageTitle || historyItem.passageTitle || historyItem.Title || '-';
     const timeDuration = historyItem.TimeDuration || historyItem.timeDuration || '5 Mins';
-    const timeTaken = historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || '-';
-    const errorRelaxed = historyItem.ErrorRelaxed || historyItem.errorRelaxed || '5%';
-    const penaltyWord = historyItem.PenaltyWord || historyItem.penaltyWord || '1.0';
+    const timeTaken = historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || historyItem.timeUsed || '-';
+    
+    const errorRelaxed = historyItem.ErrorRelaxed || historyItem.errorRelaxed || `${rules.ignoreErrorPct !== undefined ? rules.ignoreErrorPct : 0}%`;
+    const penaltyWord = historyItem.PenaltyWord || historyItem.penaltyWord || `${rules.penaltyValue !== undefined ? rules.penaltyValue : 1.0}`;
     const status = historyItem.Status || historyItem.status || 'FAILED';
+
+    const adminGross = historyItem.GrossSpeed || historyItem.grossSpeed || 0;
+    const adminNet = historyItem.NetSpeed || historyItem.netSpeed || 0;
 
     body.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 16px; padding: 20px; width: 100vw; height: calc(100vh - 50px); max-width: 1400px; margin: 0 auto; overflow-y: auto;">
@@ -4486,50 +4559,8 @@ function openTestComparison(indexOrItem) {
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Status:</strong> <span class="role-badge" style="background: ${status === 'PASSED' ? 'var(--success)' : 'var(--danger)'};">${status}</span></div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Accuracy:</strong> ${accuracy}%</div>
             <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Marks Obtained:</strong> ${marksObtainedVal} / ${totalMarksVal}</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Gross Speed:</strong> ${historyItem.GrossSpeed || historyItem.grossSpeed || 0} WPM</div>
-            <div style="background: var(--border); padding: 10px; border-radius: 6px;"><strong>Net Speed:</strong> ${historyItem.NetSpeed || historyItem.netSpeed || 0} WPM</div>
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-          <div class="card" style="border-left: 4px solid var(--info, #3b82f6); padding: 14px;">
-            <h5 style="color: var(--info, #3b82f6); margin-bottom: 6px;"><i class="fa-solid fa-file-lines"></i> Material Stats</h5>
-            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Total Words: <strong>${totalWordsMaterial}</strong><br>Total Strokes: <strong>${totalStrokesMaterial}</strong></p>
-          </div>
-          <div class="card" style="border-left: 4px solid var(--secondary); padding: 14px;">
-            <h5 style="color: var(--secondary); margin-bottom: 6px;"><i class="fa-solid fa-keyboard"></i> User Typed Stats</h5>
-            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Words Typed: <strong>${totalWordsUser}</strong><br>Strokes Typed: <strong>${totalStrokesUser}</strong></p>
-          </div>
-          <div class="card" style="border-left: 4px solid var(--primary); padding: 14px;">
-            <h5 style="color: var(--primary); margin-bottom: 6px;"><i class="fa-solid fa-rotate-left"></i> Backspaces Used: ${totalBackspaces}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Total backspace keypresses</p>
-          </div>
-          <div class="card" style="border-left: 4px solid var(--danger); padding: 14px;">
-            <h5 style="color: var(--danger); margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Spelling Errors: ${wrongWordsCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${wrongDeduction}</strong></p>
-          </div>
-          <div class="card" style="border-left: 4px solid var(--warning); padding: 14px;">
-            <h5 style="color: var(--warning); margin-bottom: 6px;"><i class="fa-solid fa-book-bookmark"></i> Words Left: ${wordsLeftCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${wordLeftDeduction}</strong></p>
-          </div>
-          <div class="card" style="border-left: 4px solid #7c3aed; padding: 14px;">
-            <h5 style="color: #7c3aed; margin-bottom: 6px;"><i class="fa-solid fa-plus"></i> Extra Words: ${extraWordsCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${extraDeduction}</strong></p>
-          </div>
-          <div class="card" style="border-left: 4px solid #06b6d4; padding: 14px;">
-            <h5 style="color: #06b6d4; margin-bottom: 6px;"><i class="fa-solid fa-paragraph"></i> Paragraph Changes: ${paraNotChangedCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Marks Deducted: <strong>-${paraDeduction}</strong></p>
-          </div>
-          <div class="card" style="border-left: 4px solid #b45309; padding: 14px;">
-            <h5 style="color: #b45309; margin-bottom: 6px;"><i class="fa-solid fa-font"></i> Capital Errors: ${capitalErrorCount}</h5>
-            <p style="font-size: 13px; color: var(--text-muted);">Marks Deducted: <strong>-${capitalDeduction}</strong></p>
-          </div>
-          <div class="card" style="border-left: 4px solid var(--accent); padding: 14px;">
-            <h5 style="color: var(--accent); margin-bottom: 6px;"><i class="fa-solid fa-pencil"></i> Punctuation Errors: ${totalPunctErrorCount}</h5>
-            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
-              Extra: ${computedPunctuationErrors.extra} | Left: ${computedPunctuationErrors.left} | Wrong: ${computedPunctuationErrors.wrong}<br>
-              Marks Deducted: <strong>-${punctuationDeduction}</strong>
-            </p>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;" id="modal-gross-speed-metric"><strong>Gross Speed:</strong> ${adminGross} WPM</div>
+            <div style="background: var(--border); padding: 10px; border-radius: 6px;" id="modal-net-speed-metric"><strong>Net Speed:</strong> ${adminNet} WPM</div>
           </div>
         </div>
 
@@ -4549,52 +4580,62 @@ function openTestComparison(indexOrItem) {
   }
   if (modal) {
     modal.style.display = 'flex';
-    toggleFullscreen();
+    if (typeof toggleFullscreen === 'function') {
+      toggleFullscreen();
+    }
   }
 }
 
-// 👉 Helper function for toggling speed view inside the modal evaluation summary
 function toggleModalSpeedView() {
   const isChecked = document.getElementById('modal-toggle-time-used')?.checked || false;
   const historyItem = window._currentComparisonItem;
 
   if (!historyItem) return;
 
-  const adminGross = historyItem.GrossSpeed || historyItem.grossSpeed || 0;
-  const adminNet = historyItem.NetSpeed || historyItem.netSpeed || 0;
+  const adminGross = parseFloat(historyItem.GrossSpeed || historyItem.grossSpeed || 0);
+  const adminNet = parseFloat(historyItem.NetSpeed || historyItem.netSpeed || 0);
 
-  // 1. Extract Admin Allotted Time in minutes
   let adminMinutes = 5;
   const timeDurStr = String(historyItem.TimeDuration || historyItem.timeDuration || '5').toLowerCase();
   const durMatch = timeDurStr.match(/([\d.]+)/);
   if (durMatch && durMatch[1]) adminMinutes = parseFloat(durMatch[1]);
   if (!adminMinutes || adminMinutes <= 0) adminMinutes = 5;
 
-  // 2. Extract User Time Taken in minutes
   let userMinutes = adminMinutes;
-  const timeTakenStr = String(historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || '').toLowerCase();
+  const timeTakenStr = String(historyItem.TimeTaken || historyItem.timeTaken || historyItem.TimeUsed || historyItem.timeUsed || '').toLowerCase();
   const takenMatch = timeTakenStr.match(/([\d.]+)/);
   if (takenMatch && takenMatch[1]) userMinutes = parseFloat(takenMatch[1]);
   if (!userMinutes || userMinutes <= 0) userMinutes = 0.01;
 
-  const totalTyped = parseFloat(historyItem.TotalTypedWords || historyItem.totalTypedWords || historyItem.TotalWord || historyItem.totalWord || 0);
+  let totalTyped = parseFloat(
+    historyItem.TotalTypedWords || 
+    historyItem.totalTypedWords || 
+    historyItem.TotalWord || 
+    historyItem.totalWord || 0
+  );
+
+  if (!totalTyped && historyItem.ReferenceText) {
+    totalTyped = historyItem.ReferenceText.split(/\s+/).filter(Boolean).length;
+  }
+
   const accuracy = parseFloat(historyItem.AccuracyPercentage || historyItem.accuracyPercentage || 0);
   const matchingWords = Math.round(adminNet * userMinutes) || Math.round((accuracy / 100) * (totalTyped || 100));
 
-  // Compute User Time-Based Speeds
   const userGross = Math.round(totalTyped / userMinutes);
   const userNet = Math.round(matchingWords / userMinutes);
 
-  const grid = document.getElementById('modal-summary-metrics-grid');
-  if (!grid) return;
+  // Directly locate or update the metric elements inside the comparison modal grid
+  const grossMetricElem = document.getElementById('modal-gross-speed-metric');
+  const netMetricElem = document.getElementById('modal-net-speed-metric');
 
-  const items = grid.children;
-  if (items.length >= 12) {
-    items[10].innerHTML = isChecked 
+  if (grossMetricElem) {
+    grossMetricElem.innerHTML = isChecked 
       ? `<strong>User Gross Speed:</strong> ${userGross} WPM` 
       : `<strong>Gross Speed:</strong> ${adminGross} WPM`;
-      
-    items[11].innerHTML = isChecked 
+  }
+
+  if (netMetricElem) {
+    netMetricElem.innerHTML = isChecked 
       ? `<strong>User Net Speed:</strong> ${userNet} WPM` 
       : `<strong>Net Speed:</strong> ${adminNet} WPM`;
   }
@@ -6219,69 +6260,141 @@ function handleTestKeyDown(event) {
       updateImageTransform();
     }
 
-    function renderAdminEvaluationRulesTable() {
-      const container = document.getElementById('admin-eval-rules-table-container');
-      if (!container) return;
+let currentEvalRulesPage = 1;
+const EVAL_RULES_PER_PAGE = 30;
 
-      const keys = Object.keys(allEvaluationRules || {});
-      if (keys.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No evaluation rules saved yet.</div>`;
-        return;
-      }
+function renderAdminEvaluationRulesTable() {
+  const container = document.getElementById('admin-eval-rules-table-container');
+  const pageIndicator = document.getElementById('admin-eval-rules-page-indicator');
+  const searchInput = document.getElementById('admin-search-eval-rules');
+  const categoryFilterSelect = document.getElementById('admin-filter-eval-category');
+  
+  if (!container) return;
 
-      let html = `<table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
-        <tr style="background:var(--border);">
-          <th>Rule Key / Subtab</th>
-          <th>Total Marks</th>
-          <th>Passing Marks</th>
-          <th>Passing Accuracy</th>
-          <th>Backspace</th>
-          <th>Actions</th>
-        </tr>`;
+  const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-      keys.forEach(key => {
-        const rule = allEvaluationRules[key];
-        html += `<tr>
-          <td><strong>${key}</strong></td>
-          <td>${rule.totalMarks || 100}</td>
-          <td>${rule.passingMarks || 40}</td>
-          <td>${rule.passingAccuracy || 85}%</td>
-          <td>${(rule.backspaceMode || 'on').toUpperCase()}</td>
-          <td>
-            <button class="btn btn-primary btn-sm" onclick="loadSpecificSavedRule('${key}')">Edit</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteEvaluationRuleByKey('${key}')">Delete</button>
-          </td>
-        </tr>`;
-      });
+  // When search is active, auto-shift category filter to 'ALL'
+  if (search && categoryFilterSelect) {
+    categoryFilterSelect.value = 'ALL';
+  }
 
-      html += `</table>`;
-      container.innerHTML = html;
-    }
+  const categoryFilter = categoryFilterSelect ? categoryFilterSelect.value : 'ALL';
+  let keys = Object.keys(allEvaluationRules || {});
 
-    async function deleteEvaluationRuleByKey(key) {
-      if (!confirm(`Are you sure you want to delete evaluation rules for [ ${key} ]?`)) return;
-      delete allEvaluationRules[key];
-      localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-      
-      if (typeof populateSavedRulesQuickDropdown === 'function') {
-        populateSavedRulesQuickDropdown();
-      }
-      if (typeof renderAdminEvaluationRulesTable === 'function') {
-        renderAdminEvaluationRulesTable();
-      }
+  // Search across the entire set of rules (matching rule keys or content)
+  if (search) {
+    keys = keys.filter(key => {
+      const rule = allEvaluationRules[key];
+      const ruleStr = JSON.stringify(rule).toLowerCase();
+      return key.toLowerCase().includes(search) || ruleStr.includes(search);
+    });
+  }
 
-      const res = await apiCall('saveEvaluationRules', {
-        ruleKey: key,
-        ruleJson: ''
-      });
+  // Filter by category selection
+  if (categoryFilter !== 'ALL') {
+    keys = keys.filter(key => key.toLowerCase().startsWith(categoryFilter.toLowerCase()));
+  }
 
-      loadSelectedEvaluationRulesIntoForm();
-      if (res.success) {
-        showToast('Evaluation rule deleted and synced successfully.');
-      } else {
-        showToast('Deleted locally, but backend sync failed.');
-      }
-    }
+  if (keys.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted);">No evaluation rules saved yet.</div>`;
+    if (pageIndicator) pageIndicator.innerText = `Page 1 of 1 (0 entries)`;
+    return;
+  }
+
+  // Pagination Slicing (30 items per page)
+  const totalPages = Math.ceil(keys.length / EVAL_RULES_PER_PAGE) || 1;
+  if (currentEvalRulesPage > totalPages) currentEvalRulesPage = totalPages;
+  if (currentEvalRulesPage < 1) currentEvalRulesPage = 1;
+
+  const startIndex = (currentEvalRulesPage - 1) * EVAL_RULES_PER_PAGE;
+  const paginatedKeys = keys.slice(startIndex, startIndex + EVAL_RULES_PER_PAGE);
+
+  if (pageIndicator) {
+    pageIndicator.innerText = `Page ${currentEvalRulesPage} of ${totalPages} (${keys.length} total rules)`;
+  }
+
+  let html = `<table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px;">
+    <tr style="background:var(--border);">
+      <th>Rule Key / Subtab</th>
+      <th>Total Marks</th>
+      <th>Passing Marks</th>
+      <th>Passing Accuracy</th>
+      <th>Backspace</th>
+      <th>Actions</th>
+    </tr>`;
+
+  paginatedKeys.forEach(key => {
+    const rule = allEvaluationRules[key];
+    html += `<tr>
+      <td><strong>${key}</strong></td>
+      <td>${rule.totalMarks || 100}</td>
+      <td>${rule.passingMarks || 40}</td>
+      <td>${rule.passingAccuracy || 85}%</td>
+      <td>${(rule.backspaceMode || 'on').toUpperCase()}</td>
+      <td>
+        <button class="btn btn-primary btn-sm" onclick="loadSpecificSavedRule('${key}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEvaluationRuleByKey('${key}')">Delete</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</table>`;
+  container.innerHTML = html;
+}
+
+function paginateEvalRules(direction) {
+  const searchInput = document.getElementById('admin-search-eval-rules');
+  const categoryFilterSelect = document.getElementById('admin-filter-eval-category');
+  
+  const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const categoryFilter = categoryFilterSelect ? categoryFilterSelect.value : 'ALL';
+  let keys = Object.keys(allEvaluationRules || {});
+
+  if (search) {
+    keys = keys.filter(key => {
+      const rule = allEvaluationRules[key];
+      const ruleStr = JSON.stringify(rule).toLowerCase();
+      return key.toLowerCase().includes(search) || ruleStr.includes(search);
+    });
+  }
+  if (categoryFilter !== 'ALL') {
+    keys = keys.filter(key => key.toLowerCase().startsWith(categoryFilter.toLowerCase()));
+  }
+
+  const totalPages = Math.ceil(keys.length / EVAL_RULES_PER_PAGE) || 1;
+
+  if (direction === 1 && currentEvalRulesPage < totalPages) {
+    currentEvalRulesPage++;
+  } else if (direction === -1 && currentEvalRulesPage > 1) {
+    currentEvalRulesPage--;
+  }
+  renderAdminEvaluationRulesTable();
+}
+
+async function deleteEvaluationRuleByKey(key) {
+  if (!confirm(`Are you sure you want to delete evaluation rules for [ ${key} ]?`)) return;
+  delete allEvaluationRules[key];
+  localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
+  
+  if (typeof populateSavedRulesQuickDropdown === 'function') {
+    populateSavedRulesQuickDropdown();
+  }
+  if (typeof renderAdminEvaluationRulesTable === 'function') {
+    renderAdminEvaluationRulesTable();
+  }
+
+  const res = await apiCall('saveEvaluationRules', {
+    ruleKey: key,
+    ruleJson: ''
+  });
+
+  loadSelectedEvaluationRulesIntoForm();
+  if (res.success) {
+    showToast('Evaluation rule deleted and synced successfully.');
+  } else {
+    showToast('Deleted locally, but backend sync failed.');
+  }
+}
 
     function autoCalculateAudioWordsAndStrokes() {
       const text = document.getElementById('adm-upload-audio-passage').value || '';
