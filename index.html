@@ -939,7 +939,10 @@
   <!-- 2. Admin Users Tab -->
   <div id="admin-sub-users" class="admin-tab-body" style="display: none;">
     <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; align-items: center; justify-content: space-between;">
-      <input type="text" id="admin-search-users" class="form-control" placeholder="Search user..." oninput="currentAdminUserPage = 1; renderAdminUsers()" style="max-width: 280px;">
+      <input type="text" id="admin-search-users" class="form-control" placeholder="Search user..." 
+  onfocus="document.getElementById('admin-filter-user-role').value='ALL'; document.getElementById('admin-filter-user-status').value='ALL'; currentAdminUserPage = 1; renderAdminUsers();" 
+  oninput="document.getElementById('admin-filter-user-role').value='ALL'; document.getElementById('admin-filter-user-status').value='ALL'; currentAdminUserPage = 1; renderAdminUsers();" 
+  style="max-width: 280px;">
       <div style="display: flex; gap: 8px;">
         <select id="admin-filter-user-role" class="form-control" onchange="currentAdminUserPage = 1; renderAdminUsers()" style="width: 140px;">
           <option value="ALL">All Roles</option>
@@ -1044,9 +1047,9 @@
 
   <!-- 5. Admin Evaluation Rules Tab -->
   <div id="admin-sub-evaluation" class="admin-tab-body" style="display: none;">
-    <div class="card" style="max-width: 800px;">
-      <h4>Exam & Evaluation Rules & Settings</h4>
-      <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Configure, edit, or delete custom evaluation rules.</p>
+    <div class="card" style="max-width: 850px; margin: 0 auto;">
+      <h4 style="margin-bottom: 5px; color: var(--secondary);">⚙️ Exam & Evaluation Rules & Settings</h4>
+      <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">Configure, edit, or delete custom evaluation rules and marking parameters.</p>
       
       <div class="form-group" style="margin-bottom: 15px; background: var(--border); padding: 12px; border-radius: 8px;">
         <label style="color: var(--primary); font-weight: 700;">📂 Manage Saved Rules (Select to Edit / Delete)</label>
@@ -1070,53 +1073,188 @@
         </div>
       </div>
 
-      <form id="admin-eval-rules-form" onsubmit="event.preventDefault(); saveEvaluationRulesSettings();" style="display: flex; flex-direction: column; gap: 12px;">
-        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-          <div class="form-group" style="flex: 1; min-width: 200px;">
-            <label>⏱️ Typing Test Time Limit (Minutes) <span class="required-star">*</span></label>
-            <input type="number" id="eval-time-limit" class="form-control" value="5" min="1" max="180">
+      <form id="admin-eval-rules-form" onsubmit="event.preventDefault(); saveEvaluationRulesSettings();" style="display: flex; flex-direction: column; gap: 14px;">
+        
+        <!-- SECTION 1: Time, Marks & Accuracy -->
+        <div style="background: var(--background); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+          <h5 style="margin-bottom: 10px; color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-clock"></i> General Exam Limits & Marks</h5>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>⏱️ Time Limit (Minutes) <span class="required-star">*</span></label>
+              <input type="number" id="eval-time-limit" class="form-control" value="5" min="1" max="180">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>f. Total Marks</label>
+              <input type="number" id="eval-total-marks" class="form-control" value="100" min="10" max="500">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>g. Passing Marks</label>
+              <input type="number" id="eval-passing-marks" class="form-control" value="40" min="1" max="500">
+            </div>
           </div>
-          <div class="form-group" style="flex: 1; min-width: 200px;">
-            <label>e. Backspace Mode</label>
-            <select id="eval-backspace-mode" class="form-control">
-              <option value="on">Backspace ON (Allowed)</option>
-              <option value="off">Backspace OFF (Blocked)</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-          <div class="form-group" style="flex: 1; min-width: 200px;">
-            <label>f. Total Marks</label>
-            <input type="number" id="eval-total-marks" class="form-control" value="100" min="10" max="500">
-          </div>
-          <div class="form-group" style="flex: 1; min-width: 200px;">
-            <label>g. Passing Marks</label>
-            <input type="number" id="eval-passing-marks" class="form-control" value="40" min="1" max="500">
-          </div>
-        </div>
-
-        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-          <div class="form-group" style="flex: 1; min-width: 200px;">
-            <label>h. Passing Accuracy (% Accuracy)</label>
-            <input type="number" id="eval-passing-accuracy" class="form-control" value="85" min="1" max="100" step="0.5">
-          </div>
-          <div class="form-group" style="flex: 1; min-width: 200px;">
-            <label>w. Minimum Gross Stroke % (to Pass)</label>
-            <input type="number" id="eval-min-gross-stroke-pct" class="form-control" value="100" min="0" max="200" step="1">
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>h. Passing Accuracy (%)</label>
+              <input type="number" id="eval-passing-accuracy" class="form-control" value="85" min="1" max="100" step="0.5">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>w. Min Gross Stroke % (to Pass)</label>
+              <input type="number" id="eval-min-gross-stroke-pct" class="form-control" value="100" min="0" max="200" step="1">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>r. Min Time Period (Seconds)</label>
+              <input type="number" id="eval-min-time" class="form-control" value="0" min="0">
+            </div>
           </div>
         </div>
 
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-          <button type="submit" class="btn btn-primary">Save Evaluation Rules</button>
+        <!-- SECTION 2: Granular Marks Deduction Parameters -->
+        <div style="background: var(--background); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+          <h5 style="margin-bottom: 10px; color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-calculator"></i> Marks Deduction Parameters (i)</h5>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>Punctuation Error Deduction</label>
+              <input type="number" id="eval-deduct-punctuation" class="form-control" value="0.5" min="0" max="10" step="0.25">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>Capital Letter Error Deduction</label>
+              <input type="number" id="eval-deduct-capital" class="form-control" value="0.25" min="0" max="10" step="0.25">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>Spelling / Wrong Word Deduction</label>
+              <input type="number" id="eval-deduct-wrong" class="form-control" value="1.0" min="0" max="10" step="0.25">
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>Omission / Word Left Deduction</label>
+              <input type="number" id="eval-deduct-omission" class="form-control" value="1.0" min="0" max="10" step="0.25">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>Extra Words Typed Deduction</label>
+              <input type="number" id="eval-deduct-extra-word" class="form-control" value="0.5" min="0" max="10" step="0.25">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>Paragraph Not Changed Deduction</label>
+              <input type="number" id="eval-deduct-para-not-changed" class="form-control" value="1.0" min="0" max="10" step="0.25">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: Error Relaxations, Penalties & Counting Rules -->
+        <div style="background: var(--background); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+          <h5 style="margin-bottom: 10px; color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-sliders"></i> Error Relaxation & Word Counting Rules</h5>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>p. Error % Ignored (Grace Limit)</label>
+              <input type="number" id="eval-ignore-error-pct" class="form-control" value="0" min="0" max="50" step="0.5">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>p. Penalty Multiplier Value</label>
+              <input type="number" id="eval-penalty-value" class="form-control" value="1.0" min="0" max="10" step="0.1">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>q. Min Initial Words Required</label>
+              <input type="number" id="eval-initial-words" class="form-control" value="0" min="0">
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>o. Word Counting Rule</label>
+              <select id="eval-word-count-rule" class="form-control">
+                <option value="1word">One Word as One Word</option>
+                <option value="5stroke">5 Strokes as One Word</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>x. Paragraph Change Check</label>
+              <select id="eval-ignore-paragraph-change" class="form-control">
+                <option value="yes">Yes (Neglect Paragraph Changes)</option>
+                <option value="no">No (Strict Paragraph Checking)</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>Option: Repeat Passage</label>
+              <select id="eval-repeat-passage" class="form-control">
+                <option value="yes">Yes (Allow Repeating Passage)</option>
+                <option value="no">No (Disable Passage Repeating)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 4: Security & Exam Controls -->
+        <div style="background: var(--background); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+          <h5 style="margin-bottom: 10px; color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-shield-halved"></i> Security & Exam Controls</h5>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>e. Backspace Mode</label>
+              <select id="eval-backspace-mode" class="form-control">
+                <option value="on">Backspace ON (Allowed)</option>
+                <option value="off">Backspace OFF (Blocked)</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>m. Copy & Paste Working</label>
+              <select id="eval-copypaste-mode" class="form-control">
+                <option value="yes">Copy & Paste Allowed</option>
+                <option value="no">Copy & Paste Disabled</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>n. Function Keys (F1-F12)</label>
+              <select id="eval-func-keys-mode" class="form-control">
+                <option value="yes">Function Keys Allowed</option>
+                <option value="no">Function Keys Disabled</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 5: Display & Layout Settings -->
+        <div style="background: var(--background); padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+          <h5 style="margin-bottom: 10px; color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-desktop"></i> Display & Layout Settings</h5>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>u. Auto Scroll Mode</label>
+              <select id="eval-autoscroll-mode" class="form-control">
+                <option value="on">Auto Scroll ON</option>
+                <option value="off">Auto Scroll OFF</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>v. Highlight Word / Character</label>
+              <select id="eval-highlight-mode" class="form-control">
+                <option value="on">Highlight Enabled</option>
+                <option value="off">Highlight Disabled</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
+              <label>t. Default Text Size (px)</label>
+              <input type="number" id="eval-default-text-size" class="form-control" value="15" min="10" max="30">
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px;">
+            <div class="form-group" style="flex: 1; min-width: 250px; margin-bottom: 0;">
+              <label>s. Layout Position (Material Source)</label>
+              <select id="eval-layout-position" class="form-control">
+                <option value="top">Material Top, User Box Bottom</option>
+                <option value="left">Material Left, User Box Right</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 6px;">
+          <button type="submit" class="btn btn-primary" style="flex: 1;">Save Evaluation Rules</button>
           <button type="button" class="btn btn-danger" onclick="deleteSelectedEvaluationRules()">Delete / Reset Rule</button>
         </div>
       </form>
     </div>
 
-    <div style="margin-top: 20px; max-width: 800px;">
+    <div style="margin-top: 25px; max-width: 850px; margin-left: auto; margin-right: auto;">
       <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px;">
-        <h4>Existing Uploaded / Saved Evaluation Rules</h4>
+        <h4 style="color: var(--secondary); margin: 0;">Existing Uploaded / Saved Evaluation Rules</h4>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <input type="text" id="admin-search-eval-rules" class="form-control" placeholder="Search rules..." oninput="currentEvalRulesPage = 1; renderAdminEvaluationRulesTable();" style="max-width: 220px;">
           <select id="admin-filter-eval-category" class="form-control" onchange="currentEvalRulesPage = 1; renderAdminEvaluationRulesTable();" style="max-width: 180px;">
@@ -1164,7 +1302,6 @@
         <button class="btn btn-primary" onclick="handleSaveBannerSettings()">Save Banner Settings</button>
         <button class="btn btn-secondary" onclick="deleteBannerItem('active')">Reset Banner</button>
       </div>
-      
       <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--secondary); border-top: 1px solid var(--border); padding-top: 15px;">Active Banner Status</h4>
       <div id="admin-banners-table-container" style="overflow-x: auto;"></div>
     </div>
@@ -1176,7 +1313,10 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
         <h4 style="color: var(--secondary);">🏆 Admin Datewise Complete Leaderboard</h4>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <input type="text" id="admin-search-leaderboard" class="form-control" placeholder="Search user or exam..." oninput="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 200px;">
+          <input type="text" id="admin-search-leaderboard" class="form-control" placeholder="Search user or exam..." 
+  onfocus="document.getElementById('admin-filter-leaderboard-status').value='ALL'; currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" 
+  oninput="document.getElementById('admin-filter-leaderboard-status').value='ALL'; currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" 
+  style="max-width: 200px;">
           <select id="admin-filter-leaderboard-status" class="form-control" onchange="currentAdminLeaderboardPage = 1; renderAdminLeaderboard();" style="max-width: 140px;">
             <option value="ALL">All Statuses</option>
             <option value="PASSED">Passed Only</option>
@@ -1203,7 +1343,10 @@
       <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px;">
         <h4 style="color: var(--secondary); margin: 0;">💁‍♂️ User Feedbacks & Queries</h4>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <input type="text" id="admin-search-feedback" class="form-control" placeholder="Search feedback..." oninput="currentAdminFeedbackPage = 1; renderAdminFeedback()" style="max-width: 250px;">
+          <input type="text" id="admin-search-feedback" class="form-control" placeholder="Search feedback..." 
+  onfocus="document.getElementById('admin-filter-feedback-status').value='ALL'; currentAdminFeedbackPage = 1; renderAdminFeedback();" 
+  oninput="document.getElementById('admin-filter-feedback-status').value='ALL'; currentAdminFeedbackPage = 1; renderAdminFeedback();" 
+  style="max-width: 250px;">
           <select id="admin-filter-feedback-status" class="form-control" onchange="currentAdminFeedbackPage = 1; renderAdminFeedback()" style="max-width: 160px;">
             <option value="ALL">All Statuses</option>
             <option value="replied">Replied</option>
@@ -3015,36 +3158,35 @@ function startTypingExam(item) {
 
     // 👉 FIX 2: Updated keydown handler to track both Backspace and Delete keys
 function handleTestKeyDown(event) {
-      if (isTestPaused) {
-        event.preventDefault();
-        return;
-      }
+  if (isTestPaused) {
+    event.preventDefault();
+    return;
+  }
 
-      // Safely fetch rules from active window scope or subtab lookup
-      const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
+  const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
 
-      // 1. Check for Backspace or Delete keypresses (supports key, code, and legacy keyCode)
-      const isBackspaceOrDelete = 
-        event.key === 'Backspace' || event.key === 'Delete' || 
-        event.code === 'Backspace' || event.code === 'Delete' || 
-        event.keyCode === 8 || event.keyCode === 46;
+  // 1. Check for Backspace or Delete keypresses
+  const isBackspaceOrDelete = 
+    event.key === 'Backspace' || event.key === 'Delete' || 
+    event.code === 'Backspace' || event.code === 'Delete' || 
+    event.keyCode === 8 || event.keyCode === 46;
 
-      if (isBackspaceOrDelete) {
-        if (rules.backspaceMode === 'off') {
-          event.preventDefault();
-          showToast('Backspace and Delete keys are disabled for this exam under admin rules.');
-          return;
-        } else {
-          testBackspaces++;
-        }
-      }
-
-      // 2. Check for Function Keys (F1 - F12) restriction
-      if (rules.funcKeysMode === 'no' && event.key && event.key.startsWith('F') && event.key.length > 1) {
-        event.preventDefault();
-        showToast('Function keys are disabled under current exam rules.');
-      }
+  if (isBackspaceOrDelete) {
+    if (rules.backspaceMode === 'off') {
+      event.preventDefault();
+      showToast('Backspace and Delete keys are disabled for this exam under admin rules.');
+      return;
+    } else {
+      testBackspaces++;
     }
+  }
+
+  // 2. Check for Function Keys (F1 - F12) restriction
+  if (rules.funcKeysMode === 'no' && event.key && event.key.startsWith('F') && event.key.length > 1) {
+    event.preventDefault();
+    showToast('Function keys are disabled under current exam rules.');
+  }
+}
 
 // 👉 Pitman Zoom-In, Zoom-Out, and Reset helper functions
 
@@ -3216,7 +3358,6 @@ const cleanPitmanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_
       
       const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
 
-// REPLACE THIS BLOCK INSIDE startPitmanTest():
 // REPLACE THIS BLOCK INSIDE startPitmanTest():
   mainBody.innerHTML = `
     <div style="display: flex; gap: 16px; width: 100%; max-width: 1200px; flex: 1; align-items: stretch; flex-wrap: wrap; overflow-y: auto; padding-bottom: 20px;">
@@ -3842,7 +3983,7 @@ async function submitStenoTest(event) {
   const meetsMinGrossStroke = totalTypedCharacter >= requiredGrossStrokes;
 
   if (!meetsMinGrossStroke) {
-    showToast(`Warning: Minimum gross stroke required is ${requiredGrossStrokes} (${minGrossStrokePct}\% of ${totalCharacter} strokes). You typed ${totalTypedCharacter}.`);
+    showToast(`Warning: Minimum gross stroke required is ${requiredGrossStrokes} (${minGrossStrokePct}% of ${totalCharacter} strokes). You typed ${totalTypedCharacter}.`);
   }
 
   if (rules.initialWords && totalTypedWords < rules.initialWords) {
@@ -3948,9 +4089,10 @@ async function submitStenoTest(event) {
 
   const effectiveWordsScored = Math.max(0, totalWordsOriginal - effectivePenalizedErrors);
 
-  const accuracyPercentage = ((effectiveWordsScored / totalWordsOriginal) * 100).toFixed(2);
+  // 🌟 Safe Accuracy and Marks calculations (prevents NaN if totalWordsOriginal is 0)
+  const accuracyPercentage = totalWordsOriginal > 0 ? ((effectiveWordsScored / totalWordsOriginal) * 100).toFixed(2) : '0.00';
   const errorPercentage = (100 - parseFloat(accuracyPercentage)).toFixed(2);
-  const marksObtained = ((effectiveWordsScored / totalWordsOriginal) * totalMarks).toFixed(2);
+  const marksObtained = totalWordsOriginal > 0 ? ((effectiveWordsScored / totalWordsOriginal) * totalMarks).toFixed(2) : '0.00';
 
   const passingAccuracy = rules.passingAccuracy !== undefined ? rules.passingAccuracy : 85;
   const passingMarks = rules.passingMarks !== undefined ? rules.passingMarks : 40;
@@ -4656,42 +4798,12 @@ async function handleFeedbackSubmit() {
 
 async function loadAdminData() {
   const res = await apiCall('getAdminData');
-  if (res.success) {
-    adminData = res;
-    document.getElementById('admin-violation-count').innerText = res.violationCount || 0;
-    
-    // --> LOAD EVALUATION RULES FROM BACKEND <--
-    if (res.evaluationRulesMap && Object.keys(res.evaluationRulesMap).length > 0) {
-      for (var rKey in res.evaluationRulesMap) {
-        allEvaluationRules[rKey] = res.evaluationRulesMap[rKey];
-      }
-      localStorage.setItem('steno_all_eval_rules', JSON.stringify(allEvaluationRules));
-    }
-
-    renderAdminUsers();
-    renderAdminLogs();
-    renderAdminFeedback();
-    populateAdminSubtabsDropdown();
-    renderAdminMaterialsTable();
-    renderAdminSubtabsTable();
-    renderAdminBannersTable();
-    renderAdminLeaderboard();
-    populateEvalCategoryDropdown();
-    loadSelectedEvaluationRulesIntoForm();
-
-    if (typeof renderAdminEvaluationRulesTable === 'function') {
-      renderAdminEvaluationRulesTable();
-    }
-  }
-}
-
-async function loadAdminData() {
-  const res = await apiCall('getAdminData');
   if (res && res.success) {
     adminData = res;
     const violationElem = document.getElementById('admin-violation-count');
     if (violationElem) violationElem.innerText = res.violationCount || 0;
     
+    // --> LOAD EVALUATION RULES FROM BACKEND <--
     if (res.evaluationRulesMap && Object.keys(res.evaluationRulesMap).length > 0) {
       for (var rKey in res.evaluationRulesMap) {
         allEvaluationRules[rKey] = res.evaluationRulesMap[rKey];
@@ -4778,15 +4890,27 @@ function renderAdminLeaderboard() {
 
   const selectedDate = dateInput ? dateInput.value : getLocalDateString();
   const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  
+  if (search) {
+    if (statusFilterSelect) statusFilterSelect.value = 'ALL';
+  }
+
   const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
   
   const allHistory = (adminData && adminData.history) ? adminData.history : (globalData.history || []);
   
-  let filtered = allHistory.filter(h => {
-    const rawDate = h.Date || h.date || h.typingDate || h.timestamp;
-    const hDate = formatLocalDate(rawDate);
-    return hDate === selectedDate;
-  });
+  let filtered = [];
+  if (search) {
+    // 👉 When searching, search across ALL date records instead of restricting to selectedDate
+    filtered = [...allHistory];
+  } else {
+    // 👉 Filter by selectedDate only when search box is empty
+    filtered = allHistory.filter(h => {
+      const rawDate = h.Date || h.date || h.typingDate || h.timestamp;
+      const hDate = formatLocalDate(rawDate);
+      return hDate === selectedDate;
+    });
+  }
 
   if (search) {
     filtered = filtered.filter(h => {
@@ -4861,7 +4985,13 @@ function paginateAdminLeaderboard(direction) {
   const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
   const allHistory = (adminData && adminData.history) ? adminData.history : (globalData.history || []);
 
-  let filtered = allHistory.filter(h => formatLocalDate(h.Date || h.date) === selectedDate);
+  let filtered = [];
+  if (search) {
+    filtered = [...allHistory];
+  } else {
+    filtered = allHistory.filter(h => formatLocalDate(h.Date || h.date) === selectedDate);
+  }
+
   if (search) {
     filtered = filtered.filter(h => String(h.UserName || '').toLowerCase().includes(search) || String(h.ExamName || '').toLowerCase().includes(search));
   }
@@ -4891,6 +5021,13 @@ function paginateAdminLeaderboard(direction) {
       const statusFilterSelect = document.getElementById('admin-filter-user-status');
 
       const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      
+      // 👉 Automatically change filters to 'ALL' whenever search is clicked or typed into
+      if (search) {
+        if (roleFilterSelect) roleFilterSelect.value = 'ALL';
+        if (statusFilterSelect) statusFilterSelect.value = 'ALL';
+      }
+
       const activeRole = roleFilterSelect ? roleFilterSelect.value : 'ALL';
       const activeStatus = statusFilterSelect ? statusFilterSelect.value : 'ALL';
 
@@ -5078,17 +5215,26 @@ function renderAdminFeedback() {
   const statusFilterSelect = document.getElementById('admin-filter-feedback-status');
 
   const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+  // 👉 If search query exists, automatically change filter select to 'ALL'
+  if (search && statusFilterSelect) {
+    statusFilterSelect.value = 'ALL';
+  }
+
   const statusFilter = statusFilterSelect ? statusFilterSelect.value : 'ALL';
 
+  // 👉 Search across ALL feedback records globally
   if (search) {
     feedbackList = feedbackList.filter(f => {
       const user = String(f.UserName || f.userName || f.user || '').toLowerCase();
       const msg = String(f.Message || f.message || '').toLowerCase();
       const cat = String(f.Category || f.category || '').toLowerCase();
-      return user.includes(search) || msg.includes(search) || cat.includes(search);
+      const id = String(f.ID || f.id || '').toLowerCase();
+      return user.includes(search) || msg.includes(search) || cat.includes(search) || id.includes(search);
     });
   }
 
+  // Filter by status dropdown
   if (statusFilter === 'replied') {
     feedbackList = feedbackList.filter(f => {
       const resp = f.AdminResponse || f.adminResponse || f.response;
@@ -5908,7 +6054,7 @@ function openUniversalMediaViewer(rawUrl, title) {
         }
       }
 
-      // 1. YouTube Detection
+      // 1. YouTube Detection -> Converted to Audio-Only Voice Mode (Video Hidden)
       if (url.includes('youtube.com') || url.includes('youtu.be')) {
         let videoId = '';
         if (url.includes('watch?v=')) {
@@ -5920,11 +6066,26 @@ function openUniversalMediaViewer(rawUrl, title) {
         } else if (url.includes('shorts/')) {
           videoId = url.split('shorts/')[1]?.split('?')[0];
         }
+        
         if (videoId) {
           mediaHtml = `
-            <div style="position: relative; width: 100%; height: 100%;">
-              <div style="position: absolute; top: 0; right: 0; width: 180px; height: 65px; z-index: 25; pointer-events: auto; background: transparent;"></div>
-              <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" style="width:100%; height:100%; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; width: 100%; height: 100%; background: #0f172a; color: #fff; padding: 20px; position: relative;">
+              <div style="font-size: 48px; color: var(--primary); margin-bottom: 5px;">
+                <i class="fa-solid fa-headphones-simple"></i>
+              </div>
+              <div style="font-weight: 800; font-size: 16px; text-align: center; max-width: 85%;">${title || 'YouTube Audio Dictation'}</div>
+              <div style="font-size: 12px; color: #10b981; background: rgba(16, 185, 129, 0.15); padding: 6px 14px; border-radius: 20px; font-weight: 600;">
+                <i class="fa-solid fa-circle-dot"></i> Playing in Audio-Only Voice Mode (Video Hidden)
+              </div>
+              
+              <!-- Hidden YouTube Iframe streaming audio in the background -->
+              <iframe id="hidden-youtube-audio" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1" style="width: 1px; height: 1px; opacity: 0; position: absolute; pointer-events: none; border: none;" allow="autoplay"></iframe>
+              
+              <div style="display: flex; gap: 12px; align-items: center; margin-top: 15px;">
+                <button class="btn btn-secondary" onclick="restartYouTubeAudio('${videoId}')">
+                  <i class="fa-solid fa-rotate-right"></i> Replay Audio
+                </button>
+              </div>
             </div>
           `;
         }
@@ -5959,7 +6120,7 @@ function openUniversalMediaViewer(rawUrl, title) {
         if (url.match(/\.(mp4|webm|ogg|mov)$/i)) {
           mediaHtml = `<video controls autoplay style="max-width:100%; max-height:100%;"><source src="${url}" type="video/mp4">Your browser does not support video playback.</video>`;
         } else if (url.match(/\.(mp3|wav|m4a|aac)$/i)) {
-          mediaHtml = `<audio controls autoplay style="width: 80%;"><source src="${url}">Your browser does not support audio playback.</audio>`;
+          mediaHtml = `<div style="display:flex; justify-content:center; align-items:center; width:100%; height:100%; background:#0f172a;"><audio controls autoplay style="width: 80%;"><source src="${url}"></audio></div>`;
         } else {
           mediaHtml = `
             <div style="position: relative; width: 100%; height: 100%;">
@@ -6005,7 +6166,19 @@ function openUniversalMediaViewer(rawUrl, title) {
       }
     }
 
+    function restartYouTubeAudio(videoId) {
+      const iframe = document.getElementById('hidden-youtube-audio');
+      if (iframe) {
+        iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
+        showToast('Audio restarted.');
+      }
+    }
+
     function closeUniversalMediaModal() {
+      const audioElem = document.getElementById('universal-audio-player');
+      if (audioElem) {
+        audioElem.pause();
+      }
       const modal = document.getElementById('universal-media-modal');
       const viewport = document.getElementById('universal-modal-viewport');
       if (viewport) viewport.innerHTML = '';
@@ -6070,11 +6243,12 @@ async function openPdfModal(pdfUrl, title) {
     body.innerHTML = `
       <div class="watermark-text-container" style="position: relative; width: 100vw; height: calc(100vh - 50px); background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
         <div class="global-watermark-layer" style="opacity: 0.16; z-index: 10; pointer-events: none;"></div>
-        <!-- Blocking banner covering the top-right pop-out/open-in-new-tab buttons inside Google Drive viewer -->
-        <div style="position: absolute; top: 0; right: 0; width: 180px; height: 65px; z-index: 25; pointer-events: auto; background: #ffffff;"></div>
         
-        <!-- Zoomable wrapper for PDF content -->
-        <div id="pdf-zoomable-wrapper" style="width: 100%; height: 100%; transform: scale(1); transform-origin: center center; transition: transform 0.15s ease; position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; flex: 1;">
+        <!-- 👉 Full-width top blocking banner (width: 100%) to completely trap pop-out/download buttons at any zoom level -->
+        <div style="position: absolute; top: 0; left: 0; right: 0; width: 100%; height: 70px; z-index: 25; pointer-events: auto; background: #ffffff;"></div>
+        
+        <!-- Zoomable wrapper for PDF content (transform-origin set to top center so top bar never drifts down) -->
+        <div id="pdf-zoomable-wrapper" style="width: 100%; height: 100%; transform: scale(1); transform-origin: top center; transition: transform 0.15s ease; position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; flex: 1;">
           <!-- Inner container forcing white background on sides/letterboxing -->
           <div style="width: 100%; height: 100%; background: #ffffff !important; color-scheme: light !important; display: flex; align-items: center; justify-content: center; position: relative;">
             <iframe src="${finalEmbedUrl}" style="width: 100%; height: 100%; border: none; background: #ffffff !important; color-scheme: light !important;" allowfullscreen></iframe>
@@ -6153,32 +6327,6 @@ function resetPdfZoom() {
       }
     }
 
-function handleTestKeyDown(event) {
-      if (isTestPaused) {
-        event.preventDefault();
-        return;
-      }
-
-      // Safeguard against undefined rules by checking global state or fetching from subtab key
-      const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
-
-      // 1. Backspace & Delete restriction rule
-      if (event.key === 'Backspace' || event.key === 'Delete') {
-        if (rules.backspaceMode === 'off') {
-          event.preventDefault();
-          showToast('Backspace/Delete is disabled for this test/subtab under admin rules.');
-          return;
-        } else {
-          testBackspaces++;
-        }
-      }
-
-      // 2. Function keys restriction rule (F1-F12)
-      if (rules.funcKeysMode === 'no' && event.key && event.key.startsWith('F') && event.key.length > 1) {
-        event.preventDefault();
-        showToast('Function keys are disabled under exam rules.');
-      }
-    }
 
     function handleTestPaste(event) {
       const rules = window.currentExamRules || getEvaluationRulesForTab(activeTestSubtabKey) || {};
@@ -6508,10 +6656,10 @@ function startAudioDictationTestById(id) {
   }
 
   // 2. Bind Active Evaluation Rules for Audio Subtab
-const cleanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
+  const cleanSubtab = item.Subtab ? item.Subtab.replace(/[^a-zA-Z0-9_]/g, '_') : 'General';
   activeTestSubtabKey = item.Subtab ? `audio_${cleanSubtab}` : 'audio';
 
-const rules = getEvaluationRulesForTab(activeTestSubtabKey);
+  const rules = getEvaluationRulesForTab(activeTestSubtabKey);
   if (!rules) {
     showToast('Error: Admin-specified evaluation rule is missing for evaluation.');
     return;
@@ -6521,7 +6669,7 @@ const rules = getEvaluationRulesForTab(activeTestSubtabKey);
   testDurationMinutes = item.TimeLimit ? parseInt(item.TimeLimit) : (rules.timeLimit || 5);
   testBackspaces = 0;
   testStartTime = Date.now();
-  currentReferenceText = item.ThumbnailUrl || item.ContentOrUrl || ''; // Master transcription text stored in ThumbnailUrl for audio items
+  currentReferenceText = item.ThumbnailUrl || item.ContentOrUrl || ''; 
 
   isTestPaused = false;
   isTypingTimerStarted = false;
@@ -6533,16 +6681,27 @@ const rules = getEvaluationRulesForTab(activeTestSubtabKey);
 
   mainBody.innerHTML = `
     <div style="display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 1000px; margin: 0 auto; flex: 1;">
-      <div style="background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); text-align: center;">
-        <h5 style="margin-bottom: 10px; color: var(--secondary);">🔊 Listen to Audio Dictation</h5>
-        <audio id="active-audio-exam-player" controls autoplay style="width: 100%; max-width: 600px;">
+      
+      <!-- Exam Hall Sound Toggle Control & Hidden Dictation Audio Player -->
+      <div style="background: var(--surface); padding: 12px 16px; border-radius: var(--radius); border: 1px solid var(--border); display: flex; align-items: center;">
+        
+        <!-- Exam Hall Sound Toggle Control -->
+        <div style="width: 100%; display: flex; justify-content: flex-start;">
+          <div style="display: flex; align-items: center; gap: 8px; background: var(--background); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
+            <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
+            <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 16px; height: 16px;">
+          </div>
+        </div>
+
+        <!-- Hidden Audio Element for Dictation Playback -->
+        <audio id="active-audio-exam-player" autoplay style="display: none;">
           <source src="${audioFileUrl}" type="audio/mpeg">
           Your browser does not support audio playback.
         </audio>
       </div>
+
       <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
         <label style="font-weight: 700; color: var(--secondary);">Type Your Transcription:</label>
-        <!-- 👉 UPDATED: Changed min-height to 280px and resize from none to vertical -->
         <textarea id="test-user-input" 
                   class="form-control" 
                   spellcheck="false" 
