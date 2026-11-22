@@ -907,12 +907,15 @@ export function renderPitmanList(filterSubtab = 'ALL') {
         
         const rawLogo = String(item.LogoUrl || '').trim();
         const rawThumb = String(item.ThumbnailUrl || '').trim();
-        // Keep the Pitman card cover thumbnail distinct from the actual Pitman Shorthand Plate material (ThumbnailUrl)
-        // so the shorthand exam plate is only revealed inside the Pitman Test workspace.
+        const rawContent = String(item.ContentOrUrl || '').trim();
+        const isVideoLink = (u) => /\.(mp4|webm|mkv|mov|avi|m3u8)(\?.*)?$/i.test(u) || /youtube\.com|youtu\.be|vimeo\.com/i.test(u);
+        // Keep the Pitman card cover thumbnail distinct from the actual Pitman Shorthand Plate material (ThumbnailUrl) and video/content URL
         const hasDistinctCoverLogo = Boolean(
           rawLogo !== '' &&
           rawLogo !== '-' &&
-          rawLogo !== rawThumb
+          rawLogo.toLowerCase() !== rawThumb.toLowerCase() &&
+          rawLogo.toLowerCase() !== rawContent.toLowerCase() &&
+          !isVideoLink(rawLogo)
         );
         const logoTarget = hasDistinctCoverLogo ? rawLogo : DEFAULT_LOGO_URL;
         
@@ -1174,8 +1177,15 @@ export function renderWords() {
       const canView = perms.canView;
       const canDownload = perms.canDownload;
 
-      const thumbTarget = (w.ThumbnailUrl && w.ThumbnailUrl !== '-' && w.ThumbnailUrl.trim() !== '') ? w.ThumbnailUrl : (w.ContentOrUrl || '');
-      const fullTarget = (w.ContentOrUrl && w.ContentOrUrl !== '-' && w.ContentOrUrl.trim() !== '') ? w.ContentOrUrl : thumbTarget;
+      const rawWordThumb = String(w.ThumbnailUrl || '').trim();
+      const rawWordLogo = String(w.LogoUrl || '').trim();
+      const rawWordContent = String(w.ContentOrUrl || '').trim();
+      const isVidUrl = (u) => /\.(mp4|webm|mkv|mov|avi|m3u8)(\?.*)?$/i.test(u) || /youtube\.com|youtu\.be|vimeo\.com/i.test(u);
+      const isValidDistinctThumb = (u) => Boolean(u && u !== '-' && u.toLowerCase() !== rawWordContent.toLowerCase() && !isVidUrl(u));
+      const thumbTarget = isValidDistinctThumb(rawWordThumb)
+        ? rawWordThumb
+        : (isValidDistinctThumb(rawWordLogo) ? rawWordLogo : DEFAULT_LOGO_URL);
+      const fullTarget = (rawWordContent && rawWordContent !== '-') ? rawWordContent : thumbTarget;
 
       const thumbUrl = getUniversalUrl(thumbTarget, 'image') || DEFAULT_LOGO_URL;
       const fullContentUrl = getUniversalUrl(fullTarget, 'image') || DEFAULT_LOGO_URL;
@@ -2833,14 +2843,30 @@ export function openTestComparison(indexOrItem) {
   const modal = document.getElementById('reader-modal');
   const body = document.getElementById('modal-viewport');
   const titleEl = document.getElementById('modal-title');
+  const inlineControls = document.getElementById('reader-modal-inline-controls');
+  if (inlineControls) inlineControls.innerHTML = '';
+  if (typeof window.toggleCompactViewerChrome === 'function') {
+    window.toggleCompactViewerChrome('reader', false);
+  }
+  if (modal) {
+    modal.style.removeProperty('background-color');
+    modal.style.removeProperty('color-scheme');
+    modal.style.background = 'var(--background)';
+  }
+  if (body) {
+    body.style.overflow = 'auto';
+    body.style.overflowY = 'auto';
+    body.style.overflowX = 'hidden';
+    body.style.overscrollBehavior = 'contain';
+  }
   
-  const examNameVal = historyItem.ExamName || historyItem.examName || '-';
+  const examNameVal = String(historyItem.ExamName || historyItem.examName || '-');
   const dateVal = typeof formatLocalDate === 'function' 
     ? formatLocalDate(historyItem.Date || historyItem.date || historyItem.TypingDate || '') 
-    : (historyItem.Date || historyItem.date || historyItem.TypingDate || '-');
+    : String(historyItem.Date || historyItem.date || historyItem.TypingDate || '-');
 
   // 👉 REQUIREMENT #9: Dedicated CBT Exam Scorecard & Question-by-Question Review Modal (Not Typing Result!)
-  const isCbtExamRecord = Boolean(historyItem.isCbtExam) || String(examNameVal).toLowerCase().includes('cbt');
+  const isCbtExamRecord = Boolean(historyItem.isCbtExam) || examNameVal.toLowerCase().includes('cbt');
   if (isCbtExamRecord) {
     if (titleEl) {
       titleEl.innerText = `🖥️ CBT Exam Scorecard & Question Review : ${examNameVal} (${dateVal || '-'})`;
@@ -2937,7 +2963,10 @@ export function openTestComparison(indexOrItem) {
         </div>
       `;
     }
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+      modal.style.display = 'flex';
+      enterImmersiveFullscreenLock('comparison');
+    }
     return;
   }
   
@@ -2945,9 +2974,11 @@ export function openTestComparison(indexOrItem) {
     titleEl.innerText = `Detailed Test Comparison : ${examNameVal} (${dateVal || '-'})`;
   }
 
-  const refText = historyItem.ReferenceText || historyItem.referenceText || '';
-  const userText = historyItem.UserTranscription || historyItem.userTranscription || historyItem.TypedText || historyItem.typedText || '';
-  const rules = historyItem.evaluationRules || (typeof getEvaluationRulesForTab === 'function' ? getEvaluationRulesForTab(typeof portalState.activeTestSubtabKey !== 'undefined' ? portalState.activeTestSubtabKey : '') : {}) || {};
+  const refText = String(historyItem.ReferenceText ?? historyItem.referenceText ?? historyItem.OriginalText ?? historyItem.originalText ?? '');
+  const userText = String(historyItem.UserTranscription ?? historyItem.userTranscription ?? historyItem.TypedText ?? historyItem.typedText ?? '');
+  const rules = (historyItem.evaluationRules && typeof historyItem.evaluationRules === 'object')
+    ? historyItem.evaluationRules
+    : ((typeof getEvaluationRulesForTab === 'function' ? getEvaluationRulesForTab(typeof portalState.activeTestSubtabKey !== 'undefined' ? portalState.activeTestSubtabKey : '') : {}) || {});
 
   const isStenoExam = examNameVal.toLowerCase().includes('audio') ||
                       examNameVal.toLowerCase().includes('steno') ||
@@ -3020,22 +3051,31 @@ export function openTestComparison(indexOrItem) {
 
   const m = refTokens.length;
   const n = userTokens.length;
-  const dp = Array(m + 1).fill(0).map(() => Array(n + 1).fill(0));
+  const dpStride = n + 1;
+  const useFastFlatDp = (m * n) <= 2500000;
+  const dpFlat = useFastFlatDp ? new Int32Array((m + 1) * dpStride) : null;
+  const dpGet = (ri, cj) => (dpFlat ? dpFlat[ri * dpStride + cj] : 0);
 
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const rTok = refTokens[i - 1];
-      const uTok = userTokens[j - 1];
-      const isSingPlur = isCompSingularPluralPair(rTok.word, uTok.word, rTok.stem, uTok.stem);
-      const isVerbMatch = rTok.verbRoot && uTok.verbRoot && (
-        rTok.verbRoot === uTok.verbRoot ||
-        rTok.verbRoot + 'e' === uTok.verbRoot ||
-        uTok.verbRoot + 'e' === rTok.verbRoot
-      );
-      if (rTok.word === uTok.word || isSingPlur || rTok.stem === uTok.stem || isVerbMatch) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+  if (dpFlat) {
+    for (let ri = 1; ri <= m; ri++) {
+      const rTok = refTokens[ri - 1];
+      const rowOff = ri * dpStride;
+      const prevOff = (ri - 1) * dpStride;
+      for (let cj = 1; cj <= n; cj++) {
+        const uTok = userTokens[cj - 1];
+        const isSingPlur = isCompSingularPluralPair(rTok.word, uTok.word, rTok.stem, uTok.stem);
+        const isVerbMatch = rTok.verbRoot && uTok.verbRoot && (
+          rTok.verbRoot === uTok.verbRoot ||
+          rTok.verbRoot + 'e' === uTok.verbRoot ||
+          uTok.verbRoot + 'e' === rTok.verbRoot
+        );
+        if (rTok.word === uTok.word || isSingPlur || rTok.stem === uTok.stem || isVerbMatch) {
+          dpFlat[rowOff + cj] = dpFlat[prevOff + (cj - 1)] + 1;
+        } else {
+          const upVal = dpFlat[prevOff + cj];
+          const leftVal = dpFlat[rowOff + (cj - 1)];
+          dpFlat[rowOff + cj] = upVal >= leftVal ? upVal : leftVal;
+        }
       }
     }
   }
@@ -3097,6 +3137,7 @@ export function openTestComparison(indexOrItem) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
+  let fastMatchedCount = 0;
   while (i > 0 || j > 0) {
     const rTok = i > 0 ? refTokens[i - 1] : null;
     const uTok = j > 0 ? userTokens[j - 1] : null;
@@ -3108,6 +3149,7 @@ export function openTestComparison(indexOrItem) {
     );
 
     if (i > 0 && j > 0 && (rTok.word === uTok.word || isSingPlur || rTok.stem === uTok.stem || isVerbMatch)) {
+      fastMatchedCount++;
       const refT = rTok;
       const userT = uTok;
       const safeRefRaw = escCompHtml(refT.raw);
@@ -3137,8 +3179,8 @@ export function openTestComparison(indexOrItem) {
       const picked = selectHighestMistakeForComparison(candidates);
       const clickWordAttr = `onclick="seekPostDictationReviewWord(${i - 1}, ${refTokens.length}, '${escCompJs(refT.cleanRaw)}')" style="cursor: pointer;`;
       if (!picked) {
-        sectionWiseMistakeDetails.correctWords.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw });
-        annotatedUserHtml.unshift(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to jump to audio timestamp &amp; view Pitman Shorthand Outline for '${safeRefClean}'">${safeUserRaw}</span>`);
+        sectionWiseMistakeDetails.correctWords.push({ pos: i, userWord: userT.raw, refWord: refT.raw });
+        annotatedUserHtml.push(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to jump to audio timestamp &amp; view Pitman Shorthand Outline for '${safeRefClean}'">${safeUserRaw}</span>`);
       } else {
         const chosen = picked.highest;
         const skippedNote = picked.skipped.length > 0
@@ -3146,29 +3188,29 @@ export function openTestComparison(indexOrItem) {
           : '';
         if (chosen.type === 'singular_plural') {
           computedSingularPluralErrors++;
-          sectionWiseMistakeDetails.singularPlural.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductSingularPlural });
-          annotatedUserHtml.unshift(`<span ${clickWordAttr} background: rgba(14, 165, 233, 0.22); color: #0369a1; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view outline • Singular/Plural Error: Expected '${safeRefClean}' (-${deductSingularPlural})${escCompHtml(skippedNote)}">${safeUserRaw} <small>(Singular/Plural: ${safeRefClean}${picked.skipped.length ? ' • Highest Counted' : ''})</small></span>`);
+          sectionWiseMistakeDetails.singularPlural.push({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductSingularPlural });
+          annotatedUserHtml.push(`<span ${clickWordAttr} background: rgba(14, 165, 233, 0.22); color: #0369a1; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view outline • Singular/Plural Error: Expected '${safeRefClean}' (-${deductSingularPlural})${escCompHtml(skippedNote)}">${safeUserRaw} <small>(Singular/Plural: ${safeRefClean}${picked.skipped.length ? ' • Highest Counted' : ''})</small></span>`);
         } else if (chosen.type === 'verb') {
           computedVerbFormErrors++;
-          sectionWiseMistakeDetails.verbErrors.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductVerbForm });
-          annotatedUserHtml.unshift(`<span ${clickWordAttr} background: rgba(236, 72, 153, 0.22); color: #be185d; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view outline • Verb Form Error: Expected '${safeRefClean}' (-${deductVerbForm})${escCompHtml(skippedNote)}">${safeUserRaw} <small>(Verb Form: ${safeRefClean}${picked.skipped.length ? ' • Highest Counted' : ''})</small></span>`);
+          sectionWiseMistakeDetails.verbErrors.push({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductVerbForm });
+          annotatedUserHtml.push(`<span ${clickWordAttr} background: rgba(236, 72, 153, 0.22); color: #be185d; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view outline • Verb Form Error: Expected '${safeRefClean}' (-${deductVerbForm})${escCompHtml(skippedNote)}">${safeUserRaw} <small>(Verb Form: ${safeRefClean}${picked.skipped.length ? ' • Highest Counted' : ''})</small></span>`);
         } else if (chosen.type === 'capital') {
           computedCapitalErrors++;
-          sectionWiseMistakeDetails.capitalErrors.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductCapital });
-          annotatedUserHtml.unshift(`<span ${clickWordAttr} background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view outline • Capitalization Error: Expected '${safeRefClean}' (-${deductCapital})${escCompHtml(skippedNote)}">${safeUserRaw} <small>(Cap Rule: ${safeRefClean}${picked.skipped.length ? ' • Highest Counted' : ''})</small></span>`);
+          sectionWiseMistakeDetails.capitalErrors.push({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductCapital });
+          annotatedUserHtml.push(`<span ${clickWordAttr} background: rgba(245, 158, 11, 0.25); color: #b45309; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view outline • Capitalization Error: Expected '${safeRefClean}' (-${deductCapital})${escCompHtml(skippedNote)}">${safeUserRaw} <small>(Cap Rule: ${safeRefClean}${picked.skipped.length ? ' • Highest Counted' : ''})</small></span>`);
         } else if (chosen.type === 'punct') {
           if (chosen.subType === 'extra') computedPunctuationErrors.extra++;
           else if (chosen.subType === 'left') computedPunctuationErrors.left++;
           else computedPunctuationErrors.wrong++;
-          sectionWiseMistakeDetails.punctErrors.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw, subType: chosen.subType, deduct: deductPunctuation });
-          annotatedUserHtml.unshift(`<span ${clickWordAttr} background: rgba(6, 182, 212, 0.2); color: var(--accent); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view outline • Punctuation Error (-${deductPunctuation})${escCompHtml(skippedNote)}">${safeUserRaw} <small>(Punct Error${picked.skipped.length ? ' • Highest Counted' : ''})</small></span>`);
+          sectionWiseMistakeDetails.punctErrors.push({ pos: i, userWord: userT.raw, refWord: refT.raw, subType: chosen.subType, deduct: deductPunctuation });
+          annotatedUserHtml.push(`<span ${clickWordAttr} background: rgba(6, 182, 212, 0.2); color: var(--accent); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view outline • Punctuation Error (-${deductPunctuation})${escCompHtml(skippedNote)}">${safeUserRaw} <small>(Punct Error${picked.skipped.length ? ' • Highest Counted' : ''})</small></span>`);
         }
       }
 
-      annotatedRefHtml.unshift(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to hear '${safeRefClean}' &amp; view Pitman Shorthand Outline">${safeRefRaw}</span>`);
+      annotatedRefHtml.push(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to hear '${safeRefClean}' &amp; view Pitman Shorthand Outline">${safeRefRaw}</span>`);
       i--;
       j--;
-    } else if (i > 0 && j > 0 && dp[i][j] === dp[i - 1][j - 1]) {
+    } else if (i > 0 && j > 0 && (!useFastFlatDp || dpGet(i, j) === dpGet(i - 1, j - 1))) {
       const refT = refTokens[i - 1];
       const userT = userTokens[j - 1];
       const safeRefRaw = escCompHtml(refT.raw);
@@ -3182,17 +3224,17 @@ export function openTestComparison(indexOrItem) {
       const picked = selectHighestMistakeForComparison(candidates);
       if (picked.highest.type === 'punct') {
         computedPunctuationErrors.wrong++;
-        sectionWiseMistakeDetails.punctErrors.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw, subType: 'wrong', deduct: deductPunctuation });
+        sectionWiseMistakeDetails.punctErrors.push({ pos: i, userWord: userT.raw, refWord: refT.raw, subType: 'wrong', deduct: deductPunctuation });
       } else {
         computedWrongWords++;
-        sectionWiseMistakeDetails.wrongWords.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductWrong });
+        sectionWiseMistakeDetails.wrongWords.push({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductWrong });
       }
       const skippedNote = picked.skipped.length > 0 ? ` | Skipped lower mistake: ${picked.skipped.map(s => s.label).join(', ')}` : '';
-      annotatedUserHtml.unshift(`<span ${clickWordAttr} background: rgba(239, 68, 68, 0.25); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio timestamp &amp; view Shorthand Outline • Spelling / Wrong Word (-${picked.highest.deduct})${escCompHtml(skippedNote)}"><s>${safeUserRaw}</s> <strong style="color:var(--success);">[${safeRefRaw}]</strong></span>`);
-      annotatedRefHtml.unshift(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to hear '${safeRefClean}' &amp; view Pitman Shorthand Outline">${safeRefRaw}</span>`);
+      annotatedUserHtml.push(`<span ${clickWordAttr} background: rgba(239, 68, 68, 0.25); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio timestamp &amp; view Shorthand Outline • Spelling / Wrong Word (-${picked.highest.deduct})${escCompHtml(skippedNote)}"><s>${safeUserRaw}</s> <strong style="color:var(--success);">[${safeRefRaw}]</strong></span>`);
+      annotatedRefHtml.push(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to hear '${safeRefClean}' &amp; view Pitman Shorthand Outline">${safeRefRaw}</span>`);
       i--;
       j--;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+    } else if (j > 0 && (i === 0 || (useFastFlatDp && dpGet(i, j - 1) >= dpGet(i - 1, j)))) {
       const extraRaw = escCompHtml(userTokens[j - 1].raw);
       const extraCleanJs = escCompJs(userTokens[j - 1].cleanRaw);
       const clickWordAttr = `onclick="seekPostDictationReviewWord(${Math.max(0, i - 1)}, ${refTokens.length}, '${extraCleanJs}')" style="cursor: pointer;`;
@@ -3203,14 +3245,14 @@ export function openTestComparison(indexOrItem) {
       const picked = selectHighestMistakeForComparison(candidates);
       if (picked.highest.type === 'punct') {
         computedPunctuationErrors.extra++;
-        sectionWiseMistakeDetails.punctErrors.unshift({ pos: j, userWord: userTokens[j - 1].raw, refWord: '(Extra Punctuation)', subType: 'extra', deduct: deductPunctuation });
+        sectionWiseMistakeDetails.punctErrors.push({ pos: j, userWord: userTokens[j - 1].raw, refWord: '(Extra Punctuation)', subType: 'extra', deduct: deductPunctuation });
       } else {
         computedExtraWords++;
-        sectionWiseMistakeDetails.extraWords.unshift({ pos: j, userWord: userTokens[j - 1].raw, refWord: '(Extra Word Added)', deduct: deductExtraWord });
+        sectionWiseMistakeDetails.extraWords.push({ pos: j, userWord: userTokens[j - 1].raw, refWord: '(Extra Word Added)', deduct: deductExtraWord });
       }
-      annotatedUserHtml.unshift(`<span ${clickWordAttr} background: rgba(139, 92, 246, 0.22); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio timestamp • Extra Typed Word"><s>${extraRaw}</s> <small>(Extra)</small></span>`);
+      annotatedUserHtml.push(`<span ${clickWordAttr} background: rgba(139, 92, 246, 0.22); color: #7c3aed; padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio timestamp • Extra Typed Word"><s>${extraRaw}</s> <small>(Extra)</small></span>`);
       j--;
-    } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+    } else if (i > 0 && (j === 0 || (useFastFlatDp && dpGet(i, j - 1) < dpGet(i - 1, j)))) {
       const leftRaw = escCompHtml(refTokens[i - 1].raw);
       const leftCleanHtml = escCompHtml(refTokens[i - 1].cleanRaw);
       const leftCleanJs = escCompJs(refTokens[i - 1].cleanRaw);
@@ -3222,13 +3264,13 @@ export function openTestComparison(indexOrItem) {
       const picked = selectHighestMistakeForComparison(candidates);
       if (picked.highest.type === 'punct') {
         computedPunctuationErrors.left++;
-        sectionWiseMistakeDetails.punctErrors.unshift({ pos: i, userWord: '(Omitted Punct)', refWord: refTokens[i - 1].raw, subType: 'left', deduct: deductPunctuation });
+        sectionWiseMistakeDetails.punctErrors.push({ pos: i, userWord: '(Omitted Punct)', refWord: refTokens[i - 1].raw, subType: 'left', deduct: deductPunctuation });
       } else {
         computedWordsLeft++;
-        sectionWiseMistakeDetails.omittedWords.unshift({ pos: i, userWord: '(Omitted / Not Typed)', refWord: refTokens[i - 1].raw, deduct: deductOmission });
+        sectionWiseMistakeDetails.omittedWords.push({ pos: i, userWord: '(Omitted / Not Typed)', refWord: refTokens[i - 1].raw, deduct: deductOmission });
       }
-      annotatedRefHtml.unshift(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to hear '${leftCleanHtml}' &amp; view Shorthand Outline">${leftRaw}</span>`);
-      annotatedUserHtml.unshift(`<span ${clickWordAttr} color: var(--danger); font-weight: bold; margin: 0 2px;" title="Click to jump to audio timestamp &amp; view Shorthand Outline • Word Left / Omission">(Left) <s>${leftRaw}</s></span>`);
+      annotatedRefHtml.push(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to hear '${leftCleanHtml}' &amp; view Shorthand Outline">${leftRaw}</span>`);
+      annotatedUserHtml.push(`<span ${clickWordAttr} color: var(--danger); font-weight: bold; margin: 0 2px;" title="Click to jump to audio timestamp &amp; view Shorthand Outline • Word Left / Omission">(Left) <s>${leftRaw}</s></span>`);
       i--;
     } else {
       const refT = refTokens[i - 1];
@@ -3244,21 +3286,28 @@ export function openTestComparison(indexOrItem) {
       const picked = selectHighestMistakeForComparison(candidates);
       if (picked.highest.type === 'punct') {
         computedPunctuationErrors.wrong++;
-        sectionWiseMistakeDetails.punctErrors.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw, subType: 'wrong', deduct: deductPunctuation });
+        sectionWiseMistakeDetails.punctErrors.push({ pos: i, userWord: userT.raw, refWord: refT.raw, subType: 'wrong', deduct: deductPunctuation });
       } else {
         computedWrongWords++;
-        sectionWiseMistakeDetails.wrongWords.unshift({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductWrong });
+        sectionWiseMistakeDetails.wrongWords.push({ pos: i, userWord: userT.raw, refWord: refT.raw, deduct: deductWrong });
       }
-      annotatedUserHtml.unshift(`<span ${clickWordAttr} background: rgba(239, 68, 68, 0.25); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view Shorthand Outline • Spelling / Wrong Word"><s>${safeUserRaw}</s> <strong style="color:var(--success);">[${safeRefRaw}]</strong></span>`);
-      annotatedRefHtml.unshift(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to hear '${safeRefClean}' &amp; view Shorthand Outline">${safeRefRaw}</span>`);
+      annotatedUserHtml.push(`<span ${clickWordAttr} background: rgba(239, 68, 68, 0.25); color: var(--danger); padding: 2px 4px; border-radius: 4px; margin: 0 2px;" title="Click to jump to audio &amp; view Shorthand Outline • Spelling / Wrong Word"><s>${safeUserRaw}</s> <strong style="color:var(--success);">[${safeRefRaw}]</strong></span>`);
+      annotatedRefHtml.push(`<span ${clickWordAttr} color: inherit; margin: 0 2px;" title="Click to hear '${safeRefClean}' &amp; view Shorthand Outline">${safeRefRaw}</span>`);
       i--;
       j--;
     }
   }
 
+  annotatedUserHtml.reverse();
+  annotatedRefHtml.reverse();
+  Object.keys(sectionWiseMistakeDetails).forEach((k) => {
+    if (Array.isArray(sectionWiseMistakeDetails[k])) sectionWiseMistakeDetails[k].reverse();
+  });
+
+  const lcsScoreVal = useFastFlatDp ? dpGet(m, n) : fastMatchedCount;
   const matchingWords = (historyItem.CorrectWords !== undefined && historyItem.CorrectWords !== '-')
     ? historyItem.CorrectWords
-    : (historyItem.correctWords !== undefined ? historyItem.correctWords : Math.max(0, dp[m][n] - computedVerbFormErrors - computedSingularPluralErrors));
+    : (historyItem.correctWords !== undefined ? historyItem.correctWords : Math.max(0, lcsScoreVal - computedVerbFormErrors - computedSingularPluralErrors));
 
   if (body) {
     const accuracy = historyItem.AccuracyPercentage || historyItem.accuracyPercentage || 0;

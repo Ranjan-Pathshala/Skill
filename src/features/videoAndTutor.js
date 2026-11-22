@@ -1612,7 +1612,7 @@ window.addCustomWordToWeakVault = async function() {
     if (typeof window.renderWeakOutlinesVaultModalList === 'function') window.renderWeakOutlinesVaultModalList();
 
     if (existingWord) {
-      showToast(`Word "${raw}" is already available in Words & Outlines (${existingWord.Subtab || 'General'}) and added to your Vault.`);
+      showToast(`Showing "${raw}" in your Weak Outlines Vault.`);
     } else if (typeof window.checkAndSubmitWordOutlineRequest === 'function') {
       await window.checkAndSubmitWordOutlineRequest(raw, 'My Weak Outlines Vault');
     } else {

@@ -86,20 +86,34 @@ body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-question-stage {
         flex: 1 1 0% !important;
         min-width: 0 !important;
         height: 100% !important;
-        overflow-y: auto !important;
-        padding: 18px 22px !important;
+        overflow: hidden !important;
+        padding: 10px 14px !important;
         box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+
+body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-question-scroll-body {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        padding-right: 4px !important;
       }
 
 body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-palette-aside {
-        width: 310px !important;
-        max-width: 34vw !important;
-        flex: 0 0 310px !important;
+        width: 245px !important;
+        max-width: 30vw !important;
+        flex: 0 0 245px !important;
         height: 100% !important;
         overflow-y: auto !important;
-        padding: 16px !important;
+        padding: 10px 12px !important;
         box-sizing: border-box !important;
         border-left: 1px solid var(--border) !important;
+      }
+
+#cbt-active-interface #cbt-palette-aside.is-collapsed {
+        display: none !important;
       }
 
 /* 👉 Mobile Exam Focus Mode & Comprehensive Mobile UI/UX Overhaul */
@@ -342,8 +356,8 @@ body.reading-time-fullscreen-lock header,
     max-height: 100dvh !important;
     border-radius: 0 !important;
     border: none !important;
-    padding: 22px 28px !important;
-    overflow-y: auto !important;
+    padding: 10px 14px !important;
+    overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
     box-sizing: border-box !important;

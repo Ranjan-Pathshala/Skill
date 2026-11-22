@@ -55,133 +55,133 @@
         <div id="cbttest-grid" class="grid-cards"></div>
       </div>
 
-      <!-- Active Testbook-Style CBT Exam Interface (Responsive Full-Device Fit + Strict Tab-Switch Lock) -->
-      <div id="cbt-active-interface" style="display: none; flex-direction: column; background: var(--surface); border: 2px solid var(--primary); border-radius: var(--radius); overflow: hidden; box-shadow: 0 12px 35px var(--shadow); width: 100%; max-width: 100%;">
-        <!-- Top Testbook Header -->
-        <div style="background: #0f172a; color: #ffffff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;">
-          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span style="background: #2563eb; padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 11px;">LIVE CBT EXAM</span>
-            <strong id="cbt-exam-header-title" style="font-size: 14px;">Active CBT Examination</strong>
-            <span style="background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.4); padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 800;">
+      <!-- Active Testbook-Style CBT Exam Interface (Maximized Question & Options Viewport) -->
+      <div id="cbt-active-interface" style="display: none; flex-direction: column; background: var(--surface); border: none; border-radius: 0; overflow: hidden; width: 100%; max-width: 100%;">
+        <!-- Compact Single-Row Top Header -->
+        <div style="background: #0f172a; color: #ffffff; padding: 5px 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 6px; width: 100%; flex-shrink: 0;">
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
+            <span style="background: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 10px; flex-shrink: 0;">CBT</span>
+            <strong id="cbt-exam-header-title" style="font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0;">Active CBT Examination</strong>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+            <div style="background: #1e293b; padding: 3px 9px; border-radius: 14px; font-weight: 800; font-size: 12px; border: 1px solid #334155; white-space: nowrap;">
+              ⏳ <span id="cbt-timer-display" style="color: #38bdf8;">00:00</span>
+            </div>
+            <button type="button" id="cbt-header-tools-toggle-btn" class="btn btn-secondary btn-sm" onclick="window.toggleCbtHeaderToolsBar()" style="background: #1e293b; color: #e2e8f0; border: 1px solid #475569; font-size: 11px; font-weight: 700; padding: 3px 8px; min-height: 26px;" title="Toggle Hall Noise, Language, Sectional Lock &amp; Full Screen">
+              <i class="fa-solid fa-sliders"></i> <span class="rp-mobile-hide-label">Tools</span>
+            </button>
+            <button type="button" id="cbt-palette-toggle-btn" class="btn btn-secondary btn-sm" onclick="window.toggleCbtPaletteDrawer()" style="background: #1e293b; color: #93c5fd; border: 1px solid #3b82f6; font-size: 11px; font-weight: 700; padding: 3px 8px; min-height: 26px;" title="Show / Hide Question Palette">
+              <i class="fa-solid fa-table-cells"></i> <span class="rp-mobile-hide-label">Palette</span>
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" style="padding: 3px 8px; min-height: 26px; font-size: 11px;" onclick="confirmAndExitCbtExam()" title="Exit CBT"><i class="fa-solid fa-xmark"></i> <span class="rp-mobile-hide-label">Exit</span></button>
+          </div>
+        </div>
+
+        <!-- Collapsible CBT Tools Strip (Hidden by default to preserve question space) -->
+        <div id="cbt-header-tools-drawer" style="display: none; background: #1e293b; color: #f8fafc; padding: 5px 10px; border-bottom: 1px solid #334155; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; flex-shrink: 0;">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span style="background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.4); padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 800;">
               <i class="fa-solid fa-lock"></i> Tab Switch Locked
             </span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <button type="button" id="cbt-sectional-lock-sim-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtStrictSectionalLockSimulation()" style="background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); font-size: 11px; font-weight: 800; padding: 4px 10px;" title="Toggle Strict Sectional Timer (15m/Sec) & Auto-Switch Simulation">
+            <button type="button" id="cbt-sectional-lock-sim-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtStrictSectionalLockSimulation()" style="background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); font-size: 10.5px; font-weight: 800; padding: 3px 8px; min-height: 24px;" title="Toggle Strict Sectional Timer (15m/Sec) &amp; Auto-Switch Simulation">
               <i class="fa-solid fa-stopwatch"></i> <span id="cbt-sectional-lock-sim-label">Sectional Lock: AUTO</span>
             </button>
-            <div id="cbt-hall-noise-toggle-wrap" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(245,158,11,0.16); border: 1px solid rgba(245,158,11,0.42); padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #fde68a;">
+            <div id="cbt-hall-noise-toggle-wrap" style="display: inline-flex; align-items: center; gap: 5px; background: rgba(245,158,11,0.16); border: 1px solid rgba(245,158,11,0.42); padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 800; color: #fde68a;">
               <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; margin: 0; color: #fde68a;">
                 <i class="fa-solid fa-volume-high"></i> Hall Noise
                 <input type="checkbox" id="cbt-header-hall-sound-chk" class="exam-hall-sound-chk" style="cursor: pointer; width: 13px; height: 13px; margin: 0;" onchange="toggleExamHallSoundFromStatusBar(this.checked)">
               </label>
-              <select id="cbt-header-hall-profile-select" class="exam-hall-profile-select" onchange="changeExamHallNoiseProfile(this.value)" title="Hall Noise Profile" style="background: #1e293b; color: #fff; border: 1px solid #475569; padding: 1px 5px; border-radius: 6px; font-size: 10.5px; font-weight: 700; margin: 0;">
+              <select id="cbt-header-hall-profile-select" class="exam-hall-profile-select" onchange="changeExamHallNoiseProfile(this.value)" title="Hall Noise Profile" style="background: #0f172a; color: #fff; border: 1px solid #475569; padding: 1px 4px; border-radius: 5px; font-size: 10px; font-weight: 700; margin: 0;">
                 <option value="full_mix">Full Hall</option>
                 <option value="keys_only">Keyboards</option>
                 <option value="fan_hum">Fan &amp; AC</option>
                 <option value="cough_rustle">Footsteps</option>
               </select>
             </div>
-            <div style="font-size: 12px; display: flex; align-items: center; gap: 6px;">Default Lang: 
-              <select id="cbt-lang-select" onchange="window.cbtPerQuestionLangOverride={}; renderCurrentCbtQuestion();" style="background: #1e293b; color: #fff; border: 1px solid #475569; padding: 4px 8px; border-radius: 6px; font-weight: 700;">
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <div style="font-size: 11px; display: flex; align-items: center; gap: 4px;">Lang:
+              <select id="cbt-lang-select" onchange="window.cbtPerQuestionLangOverride={}; renderCurrentCbtQuestion();" style="background: #0f172a; color: #fff; border: 1px solid #475569; padding: 2px 6px; border-radius: 5px; font-weight: 700; font-size: 11px;">
                 <option value="en">English</option>
                 <option value="hi">Hindi / हिंदी</option>
               </select>
             </div>
-            <div style="background: #1e293b; padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 13px; border: 1px solid #334155;">
-              ⏳ <span id="cbt-timer-display" style="color: #38bdf8;">00:00</span>
-            </div>
-            <button type="button" id="cbt-fullscreen-toggle-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtFullScreen()" style="background: #1e293b; color: #f8fafc; border: 1px solid #475569; font-size: 11.5px; font-weight: 800; padding: 5px 10px;">
+            <button type="button" id="cbt-fullscreen-toggle-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtFullScreen()" style="background: #0f172a; color: #f8fafc; border: 1px solid #475569; font-size: 10.5px; font-weight: 700; padding: 3px 8px; min-height: 24px;">
               <i class="fa-solid fa-expand"></i> Full Screen
             </button>
-            <button type="button" class="btn btn-danger btn-sm" onclick="confirmAndExitCbtExam()"><i class="fa-solid fa-right-from-bracket"></i> Exit CBT</button>
           </div>
         </div>
 
-        <!-- Section Bar -->
-        <div id="cbt-section-tabs" style="background: var(--border); padding: 8px 12px; display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid var(--border); -webkit-overflow-scrolling: touch; width: 100%;"></div>
+        <!-- Compact Section Bar -->
+        <div id="cbt-section-tabs" style="background: var(--background); padding: 4px 10px; display: flex; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--border); -webkit-overflow-scrolling: touch; width: 100%; flex-shrink: 0;"></div>
 
         <!-- Main Responsive 2-Column CBT Body -->
-        <div class="cbt-main-split" style="display: flex; flex-direction: row; flex-wrap: wrap; min-height: 440px; width: 100%; align-items: stretch;">
-          <!-- Left Question Stage -->
-          <div class="cbt-question-stage" style="flex: 2.2 1 360px; min-width: min(100%, 320px); padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--border);">
-            <div>
-              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 14px;">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                  <strong id="cbt-question-number-label" style="font-size: 14px; color: var(--secondary);">Question 1</strong>
-                  <span id="cbt-q-time-spent-badge" style="font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: rgba(14,165,233,0.12); color: #0284c7;" class="mono-num">
-                    <i class="fa-regular fa-clock"></i> Time on Q: 0s
-                  </span>
-                  <span id="cbt-q-concept-tag-badge" style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(99,102,241,0.12); color: #4f46e5;">
-                    <i class="fa-solid fa-tag"></i> Concept
-                  </span>
-                </div>
-                <div style="display: flex; gap: 8px; font-size: 11px; font-weight: 800; align-items: center; flex-wrap: wrap;">
-                  <!-- TCS iON Dual-Language Instant Question Switcher -->
-                  <button type="button" id="cbt-tcs-ion-q-lang-btn" class="btn btn-sm btn-secondary" onclick="toggleSingleCbtQuestionLanguage()" style="padding: 3px 9px; font-size: 11px; font-weight: 800; border-color: #0284c7; color: #0284c7;" title="TCS iON Instant Single-Question Language Switcher (English ⇄ हिंदी)">
-                    <i class="fa-solid fa-language"></i> <span id="cbt-tcs-ion-q-lang-label">View Q in: EN ⇄ हिं</span>
-                  </button>
-                  <span id="cbt-pos-marks-badge" style="color: var(--success); background: rgba(16,185,129,0.12); padding: 3px 8px; border-radius: 4px;">Admin Rule Marks</span>
-                  <span id="cbt-neg-marks-badge" style="color: var(--danger); background: rgba(239,68,68,0.12); padding: 3px 8px; border-radius: 4px;">Negative Rule</span>
-                </div>
+        <div class="cbt-main-split" style="display: flex; flex-direction: row; flex-wrap: nowrap; flex: 1; min-height: 0; width: 100%; align-items: stretch; position: relative;">
+          <!-- Left Question Stage (Maximized Area) -->
+          <div class="cbt-question-stage" style="flex: 1 1 0%; min-width: 0; padding: 8px 14px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--border); overflow: hidden;">
+            <!-- Single-Line Slim Question Header + Quick Tags -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 8px; flex-shrink: 0;">
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <strong id="cbt-question-number-label" style="font-size: 13px; color: var(--secondary);">Q 1</strong>
+                <span id="cbt-q-time-spent-badge" style="font-size: 10.5px; font-weight: 800; padding: 1px 6px; border-radius: 999px; background: rgba(14,165,233,0.12); color: #0284c7;" class="mono-num">0s</span>
+                <span id="cbt-q-concept-tag-badge" style="font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: rgba(99,102,241,0.1); color: #4f46e5;">Concept</span>
+                <span id="cbt-pos-marks-badge" style="color: var(--success); background: rgba(16,185,129,0.12); padding: 1px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 800;">+1</span>
+                <span id="cbt-neg-marks-badge" style="color: var(--danger); background: rgba(239,68,68,0.12); padding: 1px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 800;">-0.25</span>
               </div>
-              <!-- Requirement #5: "Guessed vs. Sure" Confidence Tag Selector for CBT Analytics -->
-              <div style="margin-top: 0; margin-bottom: 14px; padding: 10px 14px; border-radius: 10px; background: var(--background); border: 1px dashed var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <span style="font-size: 11.5px; font-weight: 800; color: var(--secondary);">
-                  <i class="fa-solid fa-brain" style="color: #8b5cf6;"></i> Answer Confidence Tag (For Post-Exam Analytics):
-                </span>
-                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                  <button type="button" id="cbt-bookmark-question-btn" class="btn btn-sm btn-secondary" onclick="toggleCbtCurrentQuestionBookmark()" style="font-size: 11px; padding: 4px 10px; border-color: #6366f1; color: #4f46e5;"><i class="fa-regular fa-bookmark" id="cbt-bookmark-question-icon"></i> <span id="cbt-bookmark-question-btn-text">Bookmark MCQ</span></button>
-                  <button type="button" id="cbt-conf-btn-sure" class="btn btn-sm btn-secondary" onclick="setCbtQuestionConfidence('sure')" style="font-size: 11px; padding: 4px 10px;">
-                    ✅ 100% Sure Shot
-                  </button>
-                  <button type="button" id="cbt-conf-btn-guess" class="btn btn-sm btn-secondary" onclick="setCbtQuestionConfidence('guess')" style="font-size: 11px; padding: 4px 10px;">
-                    🤔 50-50 Guess / Eliminated
-                  </button>
-                </div>
+              <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+                <button type="button" id="cbt-tcs-ion-q-lang-btn" class="btn btn-sm btn-secondary" onclick="toggleSingleCbtQuestionLanguage()" style="padding: 2px 7px; min-height: 24px; font-size: 10.5px; font-weight: 800; border-color: #0284c7; color: #0284c7;" title="Switch Single Question Language (English ⇄ हिंदी)">
+                  <i class="fa-solid fa-language"></i> <span id="cbt-tcs-ion-q-lang-label">EN⇄हिं</span>
+                </button>
+                <button type="button" id="cbt-bookmark-question-btn" class="btn btn-sm btn-secondary" onclick="toggleCbtCurrentQuestionBookmark()" style="font-size: 10.5px; padding: 2px 7px; min-height: 24px; border-color: #6366f1; color: #4f46e5;" title="Bookmark MCQ"><i class="fa-regular fa-bookmark" id="cbt-bookmark-question-icon"></i> <span id="cbt-bookmark-question-btn-text" class="rp-mobile-hide-label">Save</span></button>
+                <button type="button" id="cbt-conf-btn-sure" class="btn btn-sm btn-secondary" onclick="setCbtQuestionConfidence('sure')" style="font-size: 10.5px; padding: 2px 7px; min-height: 24px;" title="Mark 100% Sure Shot">✅ Sure</button>
+                <button type="button" id="cbt-conf-btn-guess" class="btn btn-sm btn-secondary" onclick="setCbtQuestionConfidence('guess')" style="font-size: 10.5px; padding: 2px 7px; min-height: 24px;" title="Mark 50-50 Guess">🤔 50-50</button>
               </div>
-              <div id="cbt-question-text" style="font-size: 15px; font-weight: 600; line-height: 1.65; color: var(--text); margin-bottom: 18px; white-space: pre-wrap; word-break: break-word;"></div>
-              <div id="cbt-options-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
 
-              </div>
+            <!-- Spacious Scrollable Question Stem & Options Area -->
+            <div class="cbt-question-scroll-body" style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px;">
+              <div id="cbt-question-text" style="font-size: 15.5px; font-weight: 600; line-height: 1.6; color: var(--text); margin-bottom: 12px; white-space: pre-wrap; word-break: break-word;"></div>
+              <div id="cbt-options-list" style="display: flex; flex-direction: column; gap: 7px; padding-bottom: 8px;"></div>
+            </div>
 
-            <!-- Bottom Question Action Controls -->
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--border); padding-top: 14px; margin-top: 20px;">
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="cbtMarkForReviewAndNext()" style="border-color: #7c3aed; color: #7c3aed;"><i class="fa-solid fa-bookmark"></i> Mark Review & Next</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="cbtClearResponse()"><i class="fa-solid fa-eraser"></i> Clear</button>
+            <!-- Compact Sticky Bottom Question Action Controls -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; border-top: 1px solid var(--border); padding-top: 7px; margin-top: 6px; flex-shrink: 0;">
+              <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="cbtMarkForReviewAndNext()" style="border-color: #7c3aed; color: #7c3aed; padding: 5px 9px; font-size: 11.5px; min-height: 32px;"><i class="fa-solid fa-bookmark"></i> Review</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="cbtClearResponse()" style="padding: 5px 9px; font-size: 11.5px; min-height: 32px;"><i class="fa-solid fa-eraser"></i> Clear</button>
               </div>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="cbtNavigatePrev()">‹ Previous</button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="cbtSaveAndNext()" style="padding: 8px 18px;">Save & Next ›</button>
+              <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="cbtNavigatePrev()" style="padding: 5px 10px; font-size: 11.5px; min-height: 32px;">‹ Prev</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="cbtSaveAndNext()" style="padding: 5px 14px; font-size: 11.5px; min-height: 32px;">Save &amp; Next ›</button>
+                <button type="button" class="btn btn-success btn-sm" onclick="submitCbtExam()" style="padding: 5px 11px; font-size: 11.5px; min-height: 32px;"><i class="fa-solid fa-paper-plane"></i> Submit</button>
               </div>
             </div>
           </div>
 
-          <!-- Right Testbook Question Palette -->
-          <div id="cbt-palette-aside" class="cbt-palette-aside" style="flex: 1 1 260px; min-width: min(100%, 260px); background: var(--background); padding: 16px; display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-              <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 12px;">
-                <i class="fa-solid fa-user-check fa-lg" style="color: var(--primary);"></i>
-                <div>
-                  <div id="cbt-candidate-name" style="font-weight: 800; font-size: 13px;">Candidate</div>
-                  <div style="font-size: 11px; color: var(--text-muted);">Strict Exam Lock Mode</div>
+          <!-- Collapsible Right Testbook Question Palette -->
+          <div id="cbt-palette-aside" class="cbt-palette-aside" style="flex: 0 0 245px; width: 245px; background: var(--background); padding: 10px 12px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div style="min-height: 0; display: flex; flex-direction: column; flex: 1;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 7px; min-width: 0;">
+                  <i class="fa-solid fa-user-check" style="color: var(--primary);"></i>
+                  <div id="cbt-candidate-name" style="font-weight: 800; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Candidate</div>
                 </div>
+                <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; min-height: 24px; font-size: 10.5px;" onclick="window.toggleCbtPaletteDrawer(false)" title="Hide Palette">✕</button>
               </div>
 
-              <!-- Palette Status Legend -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
-                <div style="display:flex; align-items:center; gap:6px;"><span id="cbt-count-answered" style="background:#10b981; color:#fff; width:22px; height:22px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; font-weight:700;">0</span> Answered</div>
-                <div style="display:flex; align-items:center; gap:6px;"><span id="cbt-count-not-answered" style="background:#ef4444; color:#fff; width:22px; height:22px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; font-weight:700;">0</span> Not Answered</div>
-                <div style="display:flex; align-items:center; gap:6px;"><span id="cbt-count-not-visited" style="background:#94a3b8; color:#fff; width:22px; height:22px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; font-weight:700;">0</span> Not Visited</div>
-                <div style="display:flex; align-items:center; gap:6px;"><span id="cbt-count-review" style="background:#7c3aed; color:#fff; width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700;">0</span> Marked Review</div>
+              <!-- Compact Palette Status Legend -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 10.5px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
+                <div style="display:flex; align-items:center; gap:5px;"><span id="cbt-count-answered" style="background:#10b981; color:#fff; width:19px; height:19px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:10px;">0</span> Ans</div>
+                <div style="display:flex; align-items:center; gap:5px;"><span id="cbt-count-not-answered" style="background:#ef4444; color:#fff; width:19px; height:19px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:10px;">0</span> Skip</div>
+                <div style="display:flex; align-items:center; gap:5px;"><span id="cbt-count-not-visited" style="background:#94a3b8; color:#fff; width:19px; height:19px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:10px;">0</span> Unseen</div>
+                <div style="display:flex; align-items:center; gap:5px;"><span id="cbt-count-review" style="background:#7c3aed; color:#fff; width:19px; height:19px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:10px;">0</span> Review</div>
               </div>
 
-              <div style="font-weight: 700; font-size: 12px; margin-bottom: 8px; color: var(--secondary);">Question Palette:</div>
-              <div id="cbt-palette-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 8px; max-height: 220px; overflow-y: auto; padding: 4px;"></div>
+              <div style="font-weight: 700; font-size: 11px; margin-bottom: 6px; color: var(--secondary);">Question Palette:</div>
+              <div id="cbt-palette-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 5px; flex: 1; overflow-y: auto; padding: 2px; align-content: start;"></div>
             </div>
 
-            <button class="btn btn-primary" style="width: 100%; margin-top: 16px; background: #10b981;" onclick="submitCbtExam()"><i class="fa-solid fa-paper-plane"></i> Submit CBT Test</button>
+            <button class="btn btn-primary btn-sm" style="width: 100%; margin-top: 8px; background: #10b981; font-size: 12px;" onclick="submitCbtExam()"><i class="fa-solid fa-paper-plane"></i> Submit CBT Test</button>
           </div>
         </div>
       </div>

@@ -21,7 +21,7 @@
       <button type="button" class="rp-viewer-ico-btn" onclick="window.toggleCompactViewerChrome('embedded-image', false)" title="Show Controls"><i class="fa-solid fa-sliders"></i></button>
       <button type="button" class="rp-viewer-ico-btn rp-viewer-close-btn" onclick="closeEmbeddedImageModal()" title="Close"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <div class="modal-body" id="embedded-image-scroll-stage" style="flex: 1; min-height: 0; display: block; text-align: center; background: #f8fafc; position: relative; overflow: auto; padding: 6px; cursor: grab;">
+    <div class="modal-body" id="embedded-image-scroll-stage" style="flex: 1; min-height: 0; display: block; text-align: center; background: #f8fafc; position: relative; overflow: auto; overscroll-behavior: contain; padding: 6px; cursor: grab;">
       <div id="zoomable-image-wrapper" style="display: inline-block; width: 100%; min-width: 100%; position: relative; z-index: 5; text-align: center;">
         <img id="embedded-modal-img" src="" draggable="false" style="width: auto; max-width: 98%; max-height: calc(100dvh - 54px); object-fit: contain; display: inline-block; margin: 0 auto; box-shadow: 0 4px 18px rgba(0,0,0,0.1); background: #fff; border-radius: 4px; transition: width 0.15s ease;" onerror="this.src='https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_'">
       </div>
@@ -48,7 +48,7 @@
       </div>
       <!-- Complete Dynamic Watermark Layer -->
       <div class="global-watermark-layer" style="opacity: 0.14; z-index: 10; pointer-events: none;"></div>
-      <div class="modal-body" id="modal-viewport" style="flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0; position: relative; background: var(--background); overflow: hidden; -webkit-overflow-scrolling: touch;"></div>
+      <div class="modal-body" id="modal-viewport" style="flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0; position: relative; background: var(--background); overflow: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;"></div>
     </div>
   </div>
 
@@ -77,59 +77,53 @@
     </div>
   </div>
 
-  <!-- Exam Selection Modal when clicking "Transcribe Now" (Card Format + Full Rule Details Below) -->
-  <div class="modal-backdrop" id="transcribe-exam-select-modal" style="background: rgba(15, 23, 42, 0.88); z-index: 6200; display: none; align-items: center; justify-content: center; padding: 16px;">
-    <div class="modal-content" style="background: var(--surface); width: 100%; max-width: 820px; max-height: 90vh; overflow-y: auto; border-radius: 18px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.45); border: 1px solid var(--border);">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-        <div>
-          <div style="font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 2px;">Commission Evaluation Engine</div>
-          <h4 style="margin: 0; color: var(--secondary); font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Select Evaluation Rule for Transcription
+  <!-- Exam Selection Modal when clicking "Transcribe Now" (Spacious Full-Height Flex Layout with Top CTA) -->
+  <div class="modal-backdrop" id="transcribe-exam-select-modal" style="background: rgba(15, 23, 42, 0.88); z-index: 6200; display: none; align-items: center; justify-content: center; padding: 8px;">
+    <div class="modal-content" style="background: var(--surface); width: 96vw; max-width: 1040px; height: 92dvh; max-height: 94dvh; display: flex; flex-direction: column; overflow: hidden; border-radius: 14px; padding: 10px 14px; box-shadow: 0 24px 60px rgba(0,0,0,0.45); border: 1px solid var(--border); gap: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 8px; flex-shrink: 0; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+          <h4 style="margin: 0; color: var(--secondary); font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 7px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Select Evaluation Rule
           </h4>
+          <span id="transcribe-rule-match-count" style="font-size: 11px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">0 rules</span>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="closeTranscribeExamSelector()">✕ Close</button>
+        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+          <button type="button" class="btn btn-success btn-sm" style="padding: 6px 14px; font-size: 12px; font-weight: 800; box-shadow: 0 4px 12px rgba(16,185,129,0.28);" onclick="confirmExamAndStartTranscription()">
+            <i class="fa-solid fa-keyboard"></i> Transcribe Now &rarr;
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding: 5px 10px; font-size: 11.5px;" onclick="closeTranscribeExamSelector()" title="Close">✕</button>
+        </div>
       </div>
 
-      <!-- Search, Quick Filter Chips & Sort Bar for Large Rule Libraries -->
-      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 10px 12px; background: var(--background); border: 1px solid var(--border); border-radius: 12px;">
-        <div style="position: relative; flex: 1; min-width: 220px;">
-          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 12px; pointer-events: none;"></i>
-          <input type="text" id="transcribe-rule-search-input" class="form-control" placeholder="Search exam rule by name, commission, minutes, or accuracy..." style="padding: 7px 32px 7px 32px; font-size: 12.5px; min-height: 36px; margin: 0;" autocomplete="off">
-          <button type="button" id="transcribe-rule-search-clear-btn" style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;" title="Clear search">✕</button>
+      <!-- Compact Single-Row Search, Filter & Sort Bar -->
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: var(--background); border: 1px solid var(--border); border-radius: 10px; flex-shrink: 0;">
+        <div style="position: relative; flex: 1; min-width: 170px;">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 11px; pointer-events: none;"></i>
+          <input type="text" id="transcribe-rule-search-input" class="form-control" placeholder="Search exam rule, minutes, or accuracy..." style="padding: 5px 26px 5px 27px; font-size: 12px; min-height: 30px; margin: 0;" autocomplete="off">
+          <button type="button" id="transcribe-rule-search-clear-btn" style="display: none; position: absolute; right: 7px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 11px;" title="Clear search">✕</button>
         </div>
-        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-          <select id="transcribe-rule-filter-select" class="form-control" style="width: auto; min-width: 140px; padding: 6px 10px; font-size: 12px; min-height: 36px; margin: 0;">
-            <option value="all">Filter: All Rules</option>
-            <option value="short">Duration ≤ 10 Mins</option>
-            <option value="long">Duration &gt; 10 Mins</option>
-            <option value="bs_locked">Backspace Restricted</option>
-            <option value="5stroke">5-Stroke Formula</option>
-            <option value="1space">1-Space Formula</option>
-          </select>
-          <select id="transcribe-rule-sort-select" class="form-control" style="width: auto; min-width: 135px; padding: 6px 10px; font-size: 12px; min-height: 36px; margin: 0;">
-            <option value="name_asc">Sort: Name (A–Z)</option>
-            <option value="time_asc">Sort: Shortest First</option>
-            <option value="time_desc">Sort: Longest First</option>
-            <option value="acc_desc">Sort: Strictest Pass %</option>
-          </select>
-          <span id="transcribe-rule-match-count" style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">0 rules</span>
-        </div>
+        <select id="transcribe-rule-filter-select" class="form-control" style="width: auto; min-width: 115px; padding: 4px 8px; font-size: 11.5px; min-height: 30px; margin: 0;">
+          <option value="all">All Rules</option>
+          <option value="short">≤ 10 Mins</option>
+          <option value="long">&gt; 10 Mins</option>
+          <option value="bs_locked">BS Restricted</option>
+          <option value="5stroke">5-Stroke</option>
+          <option value="1space">1-Space</option>
+        </select>
+        <select id="transcribe-rule-sort-select" class="form-control" style="width: auto; min-width: 110px; padding: 4px 8px; font-size: 11.5px; min-height: 30px; margin: 0;">
+          <option value="name_asc">Name (A–Z)</option>
+          <option value="time_asc">Shortest</option>
+          <option value="time_desc">Longest</option>
+          <option value="acc_desc">Strictest %</option>
+        </select>
       </div>
 
       <!-- Hidden select preserved for backward compatibility -->
       <select id="transcribe-exam-dropdown" class="form-control" style="display: none;" onchange="previewSelectedTranscribeExamRule()"></select>
-      <!-- Scrollable Interactive Rule Cards Grid (Handles 50+ Rules Cleanly) -->
-      <div id="transcribe-exam-cards-grid" class="rp-interactive-card-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 12px; max-height: 34vh; overflow-y: auto; padding: 4px 2px;"></div>
-      <!-- Complete Rule Details Panel Shown Directly Below Clicked Card -->
-      <div id="transcribe-exam-rule-preview" style="background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 14px; font-size: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 14px; margin-bottom: 14px;"></div>
-      <div style="display: flex; gap: 10px; justify-content: flex-end; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 12px;">
-        <button type="button" class="btn btn-secondary" onclick="closeTranscribeExamSelector()">
-          <i class="fa-solid fa-arrow-left"></i> Back
-        </button>
-        <button type="button" class="btn btn-primary" style="padding: 10px 22px; font-weight: 800; box-shadow: 0 6px 16px rgba(37,99,235,0.28);" onclick="confirmExamAndStartTranscription()">
-          <i class="fa-solid fa-keyboard"></i> Confirm Rule &amp; Launch Transcription
-        </button>
-      </div>
+      <!-- Compact Collapsible Rule Preview Bar (Pinned right above cards when inspecting) -->
+      <div id="transcribe-exam-rule-preview" style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px; font-size: 11.5px; max-height: 24vh; overflow-y: auto; flex-shrink: 0; gap: 6px 10px;"></div>
+      <!-- Spacious Flex-1 Scrollable Rule Cards Grid -->
+      <div id="transcribe-exam-cards-grid" class="eval-rule-cards-grid rp-interactive-card-grid" style="flex: 1; min-height: 180px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; align-content: start;"></div>
     </div>
   </div>
 

@@ -538,6 +538,8 @@ export function triggerAdminRenderer(subTab) {
     if (typeof loadShorthandPadsFromServer === 'function') loadShorthandPadsFromServer('admin', false);
   }
   if (subTab === 'banner') {
+    if (bannerSelectedCards.size === 0) bannerSelectedCards.add('topbanner');
+    renderBannerPromoCardSelectionState();
     renderAdminBannersTable();
     renderAdminDateBannersTable();
     loadDashboardBannerIntoAdminForm();
@@ -5661,6 +5663,29 @@ export async function handleAdminMaterialUpload() {
         return;
       }
 
+      const rawContentVal = document.getElementById('adm-upload-url').value.trim() || '-';
+      const rawThumbInput = document.getElementById('adm-upload-thumb')?.value.trim() || '';
+      if (
+        type.toLowerCase() !== 'audio' &&
+        rawThumbInput &&
+        rawThumbInput !== '-' &&
+        rawContentVal &&
+        rawContentVal !== '-' &&
+        /^https?:\/\//i.test(rawContentVal) &&
+        rawThumbInput.toLowerCase() === rawContentVal.toLowerCase()
+      ) {
+        showToast('⚠️ Thumbnail URL and Video / Material URL must be different. Please enter a separate cover image URL.');
+        return;
+      }
+      if (
+        type.toLowerCase() !== 'audio' &&
+        rawThumbInput &&
+        (/\.(mp4|webm|mkv|mov|avi|m3u8)(\?.*)?$/i.test(rawThumbInput) || /youtube\.com\/watch|youtu\.be\/|youtube\.com\/shorts/i.test(rawThumbInput))
+      ) {
+        showToast('⚠️ Please paste an image URL in the Thumbnail field (not a video link).');
+        return;
+      }
+
       const payload = {
         id: editingMaterialId || undefined,
         materialType: type,
@@ -5668,8 +5693,8 @@ export async function handleAdminMaterialUpload() {
         subtab: subtabVal,
         category: categoryVal,
         cbtEvalRuleKey: selectedCbtEvalRuleKey || undefined,
-        contentOrUrl: document.getElementById('adm-upload-url').value.trim() || '-',
-        thumbnailUrl: (type.toLowerCase() === 'audio') ? audioPassage : (document.getElementById('adm-upload-thumb')?.value.trim() || DEFAULT_LOGO_URL),
+        contentOrUrl: rawContentVal,
+        thumbnailUrl: (type.toLowerCase() === 'audio') ? audioPassage : (rawThumbInput || DEFAULT_LOGO_URL),
         logoUrl: logoUrl,
         accessLevel: accessVal,
         targetBatch: targetBatchVal,
@@ -6766,7 +6791,17 @@ export async function handleSaveBannerSettings() {
       };
 
       const res = await apiCall('updateBannerSettings', bannerPayload);
-      showToast(isExpired ? 'Stop Time has already passed — Banner automatically marked as Disabled.' : (res.message || 'Top banners updated successfully.'));
+      // Mirror Logged-Out scrolling banner text into dateSpecificBanners cloud store so getPublicStats delivers it on every device before login
+      try {
+        const dbMap = getDateSpecificBannersMap();
+        if (bannerPayload.loggedOutText) {
+          dbMap['__LOGGED_OUT_BANNER__'] = { date: '__LOGGED_OUT_BANNER__', text: bannerPayload.loggedOutText, updatedAt: new Date().toISOString() };
+        } else {
+          delete dbMap['__LOGGED_OUT_BANNER__'];
+        }
+        saveDateSpecificBannersMap(dbMap, true);
+      } catch (e) {}
+      showToast(isExpired ? 'Stop Time has already passed — Banner automatically marked as Disabled.' : (res.message || 'Logged-In & Logged-Out top banners updated successfully.'));
       if (!portalState.adminData) portalState.adminData = {};
       portalState.adminData.banner = bannerPayload;
       portalState.globalData.banner = bannerPayload;
@@ -6785,6 +6820,10 @@ export function renderAdminBannersTable() {
           banner = (typeof portalState.adminData.banner === 'string') ? JSON.parse(portalState.adminData.banner) : { ...portalState.adminData.banner };
         }
         const cached = JSON.parse(localStorage.getItem('steno_public_top_banner') || '{}') || {};
+        const dbMap = getDateSpecificBannersMap();
+        const cloudLoggedOut = dbMap['__LOGGED_OUT_BANNER__'];
+        const cloudLoggedOutTxt = cloudLoggedOut ? (typeof cloudLoggedOut === 'object' ? cloudLoggedOut.text : String(cloudLoggedOut)) : '';
+        if (!banner.loggedOutText && cloudLoggedOutTxt) banner.loggedOutText = cloudLoggedOutTxt;
         if (!banner.loggedOutText && cached.loggedOutText) banner.loggedOutText = cached.loggedOutText;
       } catch (e) {
         console.error("Error parsing banner data:", e);
@@ -6846,7 +6885,14 @@ export async function deleteBannerItem(id, skipConfirm = false) {
       }
       const emptyBanner = { enabled: false, startTime: '', stopTime: '', text: '', loggedOutText: '' };
       const res = await apiCall('updateBannerSettings', emptyBanner);
-      showToast(res.message || 'Top Banner reset.');
+      try {
+        const dbMap = getDateSpecificBannersMap();
+        if (dbMap['__LOGGED_OUT_BANNER__']) {
+          delete dbMap['__LOGGED_OUT_BANNER__'];
+          saveDateSpecificBannersMap(dbMap, true);
+        }
+      } catch (e) {}
+      showToast(res.message || 'Top Banners reset.');
       if (!portalState.adminData) portalState.adminData = {};
       portalState.adminData.banner = emptyBanner;
       if (portalState.globalData) portalState.globalData.banner = emptyBanner;
@@ -6901,7 +6947,7 @@ export function renderAdminDateBannersTable() {
       const container = document.getElementById('admin-date-banners-table-container');
       if (!container) return;
       const map = getDateSpecificBannersMap();
-      const keys = Object.keys(map).sort().reverse();
+      const keys = Object.keys(map).filter(k => !String(k).startsWith('__')).sort().reverse();
       const todayIso = getLocalDateString();
 
       if (keys.length === 0) {
@@ -7640,9 +7686,10 @@ window.addAdminFeeLedgerEntry = function() {
     const amtEl = document.getElementById('admin-fee-amount-paid');
     const studentName = (nameEl ? nameEl.value : '').trim();
     const studentId = (idEl ? idEl.value : '').trim() || ('STU-' + Math.floor(100 + Math.random() * 900));
-    const amountPaid = parseFloat(amtEl ? amtEl.value : '0') || 0;
-    if (!studentName || amountPaid <= 0) {
-      if (typeof showToast === 'function') showToast('⚠️ Enter Student Name and valid Amount Paid.');
+    const rawAmtStr = String(amtEl ? amtEl.value : '').trim();
+    const amountPaid = rawAmtStr === '' ? 0 : parseFloat(rawAmtStr);
+    if (!studentName || Number.isNaN(amountPaid) || amountPaid < 0) {
+      if (typeof showToast === 'function') showToast('⚠️ Enter Student Name and valid Amount Paid (₹0 or more).');
       return;
     }
     const entry = {
@@ -7654,7 +7701,7 @@ window.addAdminFeeLedgerEntry = function() {
       totalFee: amountPaid,
       amountPaid,
       balanceDue: 0,
-      paymentMode: 'UPI',
+      paymentMode: amountPaid === 0 ? 'Free / ₹0 Fee' : 'UPI',
       validUntil: new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10)
     };
     window.__enterpriseSuiteState.feeLedgerItems.unshift(entry);
@@ -7744,7 +7791,7 @@ window.togglePinEvaluationRule = function (ruleKey) {
     return list;
   };
 
-export const bannerSelectedCards = new Set();
+export const bannerSelectedCards = new Set(['topbanner']);
 
 export function renderBannerPromoCardSelectionState() {
     const map = {

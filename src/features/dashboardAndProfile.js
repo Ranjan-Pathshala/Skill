@@ -116,49 +116,114 @@ export function setupAuthenticatedUI() {
 export function resolveUserParentDetails(userObj) {
       const u = userObj || portalState.currentUser || {};
       const prefs = (u.preferences && typeof u.preferences === 'object') ? u.preferences : (getUserCustomPreferences() || {});
-      const rawParentName = String(u.parentName || u.ParentName || prefs.parentName || '').trim();
-      const rawParentMobile = String(u.parentMobile || u.ParentMobile || prefs.parentMobile || '').replace(/\D/g, '').slice(-10);
-      const rawParentEmail = String(u.parentEmail || u.ParentEmail || prefs.parentEmail || '').trim();
-      const hasCustomParent = Boolean(rawParentName || rawParentMobile || rawParentEmail);
       const fallbackName = String(u.name || u.Name || '').trim();
       const fallbackMobile = String(u.mobile || u.Mobile || '').replace(/\D/g, '').slice(-10);
-      const fallbackEmail = String(u.email || u.Email || '').trim();
+      const fallbackEmail = String(u.email || u.Email || '').trim().toLowerCase();
+      const rawParentName = String(u.parentName || u.ParentName || prefs.parentName || '').trim();
+      const rawParentMobile = String(u.parentMobile || u.ParentMobile || prefs.parentMobile || '').replace(/\D/g, '').slice(-10);
+      const rawParentEmail = String(u.parentEmail || u.ParentEmail || prefs.parentEmail || '').trim().toLowerCase();
+      const explicitlySame = prefs.parentIsDifferent === false;
+      const differsFromStudent = !explicitlySame && Boolean(
+        (rawParentName && rawParentName.toLowerCase() !== fallbackName.toLowerCase()) ||
+        (rawParentMobile && rawParentMobile !== fallbackMobile) ||
+        (rawParentEmail && rawParentEmail !== fallbackEmail)
+      );
+      const hasCustomParent = Boolean(prefs.parentIsDifferent === true || differsFromStudent);
       return {
-        parentName: rawParentName || fallbackName,
-        parentMobile: rawParentMobile || fallbackMobile,
-        parentEmail: rawParentEmail || fallbackEmail,
-        isFallback: !hasCustomParent
+        parentName: hasCustomParent ? (rawParentName || fallbackName) : fallbackName,
+        parentMobile: hasCustomParent ? (rawParentMobile || fallbackMobile) : fallbackMobile,
+        parentEmail: hasCustomParent ? (rawParentEmail || fallbackEmail) : fallbackEmail,
+        isFallback: !hasCustomParent,
+        isDifferent: hasCustomParent
       };
     }
 
-export function syncProfileParentDetailsInputs() {
-      if (!portalState.currentUser) return;
-      const resolved = resolveUserParentDetails(portalState.currentUser);
+export function applyParentInputsLockState(isDifferent) {
       const pn = document.getElementById('prof-parent-name');
       const pm = document.getElementById('prof-parent-mobile');
       const pe = document.getElementById('prof-parent-email');
       const badge = document.getElementById('prof-parent-fallback-badge');
+      [pn, pm, pe].forEach((inp) => {
+        if (!inp) return;
+        inp.readOnly = !isDifferent;
+        inp.style.opacity = isDifferent ? '1' : '0.78';
+        inp.style.background = isDifferent ? '' : 'var(--background)';
+        inp.style.cursor = isDifferent ? '' : 'not-allowed';
+      });
+      if (badge) {
+        badge.textContent = isDifferent ? 'Different Parent Details' : 'Same as Student Details';
+        badge.style.color = isDifferent ? '#059669' : '#0284c7';
+      }
+    }
+
+export function toggleParentDetailsDifferentMode(isDifferent) {
+      const u = portalState.currentUser || {};
+      const chk = document.getElementById('prof-parent-different-chk');
+      const pn = document.getElementById('prof-parent-name');
+      const pm = document.getElementById('prof-parent-mobile');
+      const pe = document.getElementById('prof-parent-email');
+      const diffFlag = Boolean(isDifferent);
+      if (chk) chk.checked = diffFlag;
+
+      const stuName = String(document.getElementById('prof-name')?.value || u.name || u.Name || '').trim();
+      const stuMobile = String(document.getElementById('prof-mobile')?.value || u.mobile || u.Mobile || '').replace(/\D/g, '').slice(-10);
+      const stuEmail = String(document.getElementById('prof-email')?.value || u.email || u.Email || '').trim().toLowerCase();
+
+      applyParentInputsLockState(diffFlag);
+      if (!diffFlag) {
+        // Mirror student details immediately
+        if (pn) pn.value = stuName;
+        if (pm) pm.value = stuMobile;
+        if (pe) pe.value = stuEmail;
+      } else {
+        // Clear mirrored student values so user can enter distinct parent details cleanly
+        if (pn && pn.value.trim().toLowerCase() === stuName.toLowerCase()) pn.value = '';
+        if (pm && pm.value.replace(/\D/g, '').slice(-10) === stuMobile) pm.value = '';
+        if (pe && pe.value.trim().toLowerCase() === stuEmail) pe.value = '';
+        if (pn) pn.focus();
+      }
+    }
+window.toggleParentDetailsDifferentMode = toggleParentDetailsDifferentMode;
+
+export function syncProfileParentDetailsInputs() {
+      if (!portalState.currentUser) return;
+      const resolved = resolveUserParentDetails(portalState.currentUser);
+      const chk = document.getElementById('prof-parent-different-chk');
+      const pn = document.getElementById('prof-parent-name');
+      const pm = document.getElementById('prof-parent-mobile');
+      const pe = document.getElementById('prof-parent-email');
+      if (chk) chk.checked = Boolean(resolved.isDifferent);
       if (pn) pn.value = resolved.parentName || '';
       if (pm) pm.value = resolved.parentMobile || '';
       if (pe) pe.value = resolved.parentEmail || '';
-      if (badge) {
-        badge.textContent = resolved.isFallback ? 'Using Student Details' : 'Custom Parent Saved';
-        badge.style.color = resolved.isFallback ? '#b45309' : '#059669';
-      }
+      applyParentInputsLockState(Boolean(resolved.isDifferent));
     }
 
 export async function saveParentDetailsFromProfile() {
       if (!portalState.currentUser) return;
-      const pn = String(document.getElementById('prof-parent-name')?.value || '').trim();
-      const pm = String(document.getElementById('prof-parent-mobile')?.value || '').replace(/\D/g, '').slice(-10);
-      const pe = String(document.getElementById('prof-parent-email')?.value || '').trim().toLowerCase();
-      if (pm && pm.length !== 10) {
-        showToast('⚠️ Parent Mobile Number must be 10 digits (or leave blank to use your mobile).');
-        return;
-      }
-      if (pe && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pe)) {
-        showToast('⚠️ Please enter a valid Parent Email ID (or leave blank to use your email).');
-        return;
+      const chk = document.getElementById('prof-parent-different-chk');
+      const isDifferent = Boolean(chk && chk.checked);
+      const stuName = String(portalState.currentUser.name || portalState.currentUser.Name || '').trim();
+      const stuMobile = String(portalState.currentUser.mobile || portalState.currentUser.Mobile || '').replace(/\D/g, '').slice(-10);
+      const stuEmail = String(portalState.currentUser.email || portalState.currentUser.Email || '').trim().toLowerCase();
+
+      const pn = isDifferent ? String(document.getElementById('prof-parent-name')?.value || '').trim() : '';
+      const pm = isDifferent ? String(document.getElementById('prof-parent-mobile')?.value || '').replace(/\D/g, '').slice(-10) : '';
+      const pe = isDifferent ? String(document.getElementById('prof-parent-email')?.value || '').trim().toLowerCase() : '';
+
+      if (isDifferent) {
+        if (!pn && !pm && !pe) {
+          showToast('⚠️ Please enter Parent / Guardian details or uncheck the "different" box to use your own details.');
+          return;
+        }
+        if (pm && pm.length !== 10) {
+          showToast('⚠️ Parent Mobile Number must be 10 digits.');
+          return;
+        }
+        if (pe && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pe)) {
+          showToast('⚠️ Please enter a valid Parent Email ID.');
+          return;
+        }
       }
       const res = await apiCall('saveParentDetails', {
         userId: portalState.currentUser.userId,
@@ -167,15 +232,16 @@ export async function saveParentDetailsFromProfile() {
         parentEmail: pe
       });
       if (res && res.success) {
-        const effName = res.parentName || pn || portalState.currentUser.name || '';
-        const effMobile = res.parentMobile || pm || portalState.currentUser.mobile || '';
-        const effEmail = res.parentEmail || pe || portalState.currentUser.email || '';
-        portalState.currentUser.parentName = effName;
-        portalState.currentUser.parentMobile = effMobile;
-        portalState.currentUser.parentEmail = effEmail;
-        portalState.currentUser.parentIsFallback = Boolean(res.parentIsFallback);
+        const effName = isDifferent ? (res.parentName || pn || stuName) : stuName;
+        const effMobile = isDifferent ? (res.parentMobile || pm || stuMobile) : stuMobile;
+        const effEmail = isDifferent ? (res.parentEmail || pe || stuEmail) : stuEmail;
+        portalState.currentUser.parentName = isDifferent ? effName : '';
+        portalState.currentUser.parentMobile = isDifferent ? effMobile : '';
+        portalState.currentUser.parentEmail = isDifferent ? effEmail : '';
+        portalState.currentUser.parentIsFallback = !isDifferent;
         portalState.currentUser.preferences = {
           ...(portalState.currentUser.preferences || {}),
+          parentIsDifferent: isDifferent,
           parentName: pn,
           parentMobile: pm,
           parentEmail: pe
@@ -191,7 +257,7 @@ export async function saveParentDetailsFromProfile() {
           }));
         } catch (e) {}
         syncProfileParentDetailsInputs();
-        showToast(res.message || '✅ Parent / Guardian details saved!');
+        showToast(isDifferent ? (res.message || '✅ Separate Parent / Guardian details saved!') : '✅ Parent / Guardian details set to mirror your own details.');
       } else {
         showToast((res && res.message) || '⚠️ Could not save Parent details.');
       }
@@ -1017,8 +1083,13 @@ export function renderPromoBanner() {
         ? { ...cachedBanner, ...serverBanner }
         : cachedBanner;
 
+      const loggedOutBannerEntry = dateBannersMap['__LOGGED_OUT_BANNER__'];
       const rawLoggedInText = String((banner && banner.text) || '').trim();
-      const rawLoggedOutText = String((banner && banner.loggedOutText) || '').trim();
+      const rawLoggedOutText = String(
+        (banner && banner.loggedOutText) ||
+        (loggedOutBannerEntry && (typeof loggedOutBannerEntry === 'object' ? loggedOutBannerEntry.text : loggedOutBannerEntry)) ||
+        ''
+      ).trim();
       const hasLoggedInText = Boolean(rawLoggedInText && rawLoggedInText !== '-');
       const hasLoggedOutText = Boolean(rawLoggedOutText && rawLoggedOutText !== '-');
 
@@ -2808,29 +2879,45 @@ export function renderHomework() {
   });
 }
 
+export function isVideoOrMediaContentUrl(rawUrl) {
+      const s = String(rawUrl || '').trim().toLowerCase();
+      if (!s) return false;
+      if (/\.(mp4|webm|mkv|mov|avi|m3u8|ogv|m4v|mp3|wav|ogg|m4a|aac|flac|pdf)(\?.*)?$/i.test(s)) return true;
+      if (s.includes('youtube.com/watch') || s.includes('youtu.be/') || s.includes('youtube.com/shorts') || s.includes('youtube.com/embed') || s.includes('vimeo.com/')) return true;
+      return false;
+    }
+
 export function getThumbnailUrl(item) {
       if (!item) return DEFAULT_LOGO_URL;
       const itemType = String(item.Type || item.type || '').toLowerCase();
-      const url = String(item.ContentOrUrl || '');
+      const contentUrl = String(item.ContentOrUrl || '').trim();
+      const logoRaw = String(item.LogoUrl || '').trim();
+      const thumbRaw = String(item.ThumbnailUrl || '').trim();
+
+      const isDistinctValidImageThumb = (candidate) => {
+        if (!candidate || candidate === '-') return false;
+        // Must be a URL/image path, never plain text passage
+        if (!/^https?:\/\/|^data:image\/|^\/|^\./i.test(candidate)) return false;
+        // Thumbnail URL and Video / Content URL must NEVER be identical
+        if (contentUrl && candidate.toLowerCase() === contentUrl.toLowerCase()) return false;
+        // Reject raw video/audio/pdf watch URLs mistakenly pasted as thumbnail
+        if (isVideoOrMediaContentUrl(candidate)) return false;
+        return true;
+      };
+
+      // Audio items store reference passage in ThumbnailUrl, so check distinct LogoUrl first
       if (itemType === 'audio') {
-        if (url.includes('youtube.com') || url.includes('youtu.be')) {
-          const match = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
-          if (match && match[1]) {
-            return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
-          }
+        if (isDistinctValidImageThumb(logoRaw)) {
+          return getUniversalUrl(logoRaw, 'image');
         }
         return DEFAULT_LOGO_URL;
       }
 
-      const thumbRaw = String(item.ThumbnailUrl || '').trim();
-      if (thumbRaw !== '' && thumbRaw !== '-') {
+      if (isDistinctValidImageThumb(thumbRaw)) {
         return getUniversalUrl(thumbRaw, 'image');
       }
-      if (url.includes('youtube.com') || url.includes('youtu.be')) {
-        const match = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
-        if (match && match[1]) {
-          return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`;
-        }
+      if (isDistinctValidImageThumb(logoRaw)) {
+        return getUniversalUrl(logoRaw, 'image');
       }
       return DEFAULT_LOGO_URL;
     }
@@ -2972,8 +3059,24 @@ export function renderSubtabs(type) {
   if (!container) return;
   container.innerHTML = '';
 
+  const matchingSubtabs = (Array.isArray(portalState.subtabsData) ? portalState.subtabsData : []).filter(stb =>
+    !stb.Type || String(stb.Type).toLowerCase().trim() === String(type).toLowerCase().trim()
+  );
+
+  const savedRaw = String((portalState.currentSubtabFilter && portalState.currentSubtabFilter[type]) || 'ALL').trim();
+  const matchedSaved = (savedRaw && savedRaw.toUpperCase() !== 'ALL')
+    ? matchingSubtabs.find(stb => String(stb.SubtabName || '').trim().toLowerCase() === savedRaw.toLowerCase())
+    : null;
+  // Preserve user-selected subtab during streaming/background data loads instead of shifting back to ALL
+  const activeFilter = matchedSaved
+    ? matchedSaved.SubtabName
+    : ((savedRaw && savedRaw.toUpperCase() !== 'ALL' && matchingSubtabs.length === 0) ? savedRaw : 'ALL');
+  if (portalState.currentSubtabFilter) {
+    portalState.currentSubtabFilter[type] = activeFilter;
+  }
+
   const allBtn = document.createElement('button');
-  allBtn.className = 'subtab-btn active';
+  allBtn.className = activeFilter === 'ALL' ? 'subtab-btn active' : 'subtab-btn';
   allBtn.innerText = 'All Subtabs';
   allBtn.onclick = () => {
     container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
@@ -2983,12 +3086,10 @@ export function renderSubtabs(type) {
   };
   container.appendChild(allBtn);
 
-  portalState.subtabsData.forEach(stb => {
-    // 🔍 FIX: Ensure subtab belongs to the current material type
-    if (stb.Type && String(stb.Type).toLowerCase().trim() !== String(type).toLowerCase().trim()) return;
-
+  matchingSubtabs.forEach(stb => {
     const btn = document.createElement('button');
-    btn.className = 'subtab-btn';
+    const isSel = activeFilter !== 'ALL' && String(stb.SubtabName || '').trim().toLowerCase() === String(activeFilter).trim().toLowerCase();
+    btn.className = isSel ? 'subtab-btn active' : 'subtab-btn';
     btn.innerText = stb.SubtabName;
     btn.onclick = () => {
       container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
@@ -2999,7 +3100,7 @@ export function renderSubtabs(type) {
     container.appendChild(btn);
   });
 
-  renderMaterialsList(type, 'ALL');
+  renderMaterialsList(type, activeFilter);
 }
 
 export function renderPitmanSubtabs() {
@@ -3007,8 +3108,23 @@ export function renderPitmanSubtabs() {
       if (!container) return;
       container.innerHTML = '';
 
+      const matchingSubtabs = (Array.isArray(portalState.subtabsData) ? portalState.subtabsData : []).filter(stb =>
+        !stb.Type || String(stb.Type).toLowerCase().trim() === 'pitman'
+      );
+
+      const savedRaw = String((portalState.currentSubtabFilter && portalState.currentSubtabFilter.pitman) || 'ALL').trim();
+      const matchedSaved = (savedRaw && savedRaw.toUpperCase() !== 'ALL')
+        ? matchingSubtabs.find(stb => String(stb.SubtabName || '').trim().toLowerCase() === savedRaw.toLowerCase())
+        : null;
+      const activeFilter = matchedSaved
+        ? matchedSaved.SubtabName
+        : ((savedRaw && savedRaw.toUpperCase() !== 'ALL' && matchingSubtabs.length === 0) ? savedRaw : 'ALL');
+      if (portalState.currentSubtabFilter) {
+        portalState.currentSubtabFilter.pitman = activeFilter;
+      }
+
       const allBtn = document.createElement('button');
-      allBtn.className = 'subtab-btn active';
+      allBtn.className = activeFilter === 'ALL' ? 'subtab-btn active' : 'subtab-btn';
       allBtn.innerText = 'All Exercises';
       allBtn.onclick = () => {
         container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
@@ -3018,10 +3134,10 @@ export function renderPitmanSubtabs() {
       };
       container.appendChild(allBtn);
 
-      portalState.subtabsData.forEach(stb => {
-        if (stb.Type && String(stb.Type).toLowerCase().trim() !== 'pitman') return;
+      matchingSubtabs.forEach(stb => {
         const btn = document.createElement('button');
-        btn.className = 'subtab-btn';
+        const isSel = activeFilter !== 'ALL' && String(stb.SubtabName || '').trim().toLowerCase() === String(activeFilter).trim().toLowerCase();
+        btn.className = isSel ? 'subtab-btn active' : 'subtab-btn';
         btn.innerText = stb.SubtabName;
         btn.onclick = () => {
           container.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
@@ -3032,7 +3148,7 @@ export function renderPitmanSubtabs() {
         container.appendChild(btn);
       });
 
-      renderPitmanList('ALL');
+      renderPitmanList(activeFilter);
     }
 
 export function updateTypingWizardStepPills(activeStep = 1) {

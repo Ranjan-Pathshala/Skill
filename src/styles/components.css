@@ -372,24 +372,32 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
 
 .hidden { display: none !important; }
 
-@media (max-width: 900px) {
+@media (max-width: 1023px) {
         body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-main-split {
-          flex-direction: column !important;
-          overflow-y: auto !important;
+          flex-direction: row !important;
+          overflow: hidden !important;
+          position: relative !important;
         }
         body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-question-stage {
-          flex: 1 1 auto !important;
-          height: auto !important;
-          overflow-y: visible !important;
-          padding: 14px !important;
+          flex: 1 1 100% !important;
+          width: 100% !important;
+          height: 100% !important;
+          overflow: hidden !important;
+          padding: 8px 10px !important;
+          border-right: none !important;
         }
         body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-palette-aside {
-          width: 100% !important;
-          max-width: 100% !important;
-          flex: 0 0 auto !important;
-          height: auto !important;
-          border-left: none !important;
-          border-top: 1px solid var(--border) !important;
+          position: absolute !important;
+          top: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          width: min(290px, 84vw) !important;
+          max-width: 84vw !important;
+          height: 100% !important;
+          z-index: 40 !important;
+          box-shadow: -8px 0 28px rgba(15, 23, 42, 0.32) !important;
+          border-left: 1px solid var(--border) !important;
+          border-top: none !important;
         }
       }
 
@@ -690,30 +698,30 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
       }
     }
 
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; justify-content: flex-start; gap: 5px; position: relative; overflow: hidden; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s; box-shadow: 0 2px 8px var(--shadow); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; display: flex; flex-direction: column; justify-content: flex-start; gap: 4px; position: relative; overflow: hidden; transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s; box-shadow: 0 2px 6px var(--shadow); }
 
-.card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px var(--shadow); border-color: rgba(37, 99, 235, 0.32); }
+.card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px var(--shadow); border-color: rgba(37, 99, 235, 0.32); }
 
 table tbody tr { transition: background-color 0.15s ease; }
 
 table tbody tr:hover { background-color: rgba(37, 99, 235, 0.04); }
 
-.help-split-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; align-items: start; }
+.help-split-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
 
 /* Unified Compact Card Thumbnail Box & Image for 100% Fit Without Cropping */
     .rp-thumb-frame {
       position: relative !important;
       width: 100% !important;
-      height: 88px !important;
-      border-radius: 8px !important;
+      height: 64px !important;
+      border-radius: 7px !important;
       overflow: hidden !important;
       background: var(--background) !important;
       border: 1px solid var(--border) !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
-      margin: 0 0 6px 0 !important;
-      padding: 4px !important;
+      margin: 0 0 4px 0 !important;
+      padding: 3px !important;
       box-sizing: border-box !important;
     }
 
@@ -721,46 +729,46 @@ table tbody tr:hover { background-color: rgba(37, 99, 235, 0.04); }
       width: 100% !important; 
       height: 100% !important; 
       max-width: 100% !important;
-      max-height: 84px !important;
+      max-height: 58px !important;
       object-fit: contain !important; 
       object-position: center !important;
-      border-radius: 6px !important; 
+      border-radius: 5px !important; 
       margin: 0 !important; 
       background: transparent !important; 
       display: block !important;
     }
 
-.video-card { padding: 10px 11px !important; }
+.video-card { padding: 8px 9px !important; }
 
 .video-card .card-thumb { 
       width: 100% !important;
       height: 100% !important; 
-      max-height: 82px !important;
+      max-height: 58px !important;
       object-fit: contain !important; 
       object-position: center !important;
       background: transparent !important; 
-      border-radius: 6px !important;
+      border-radius: 5px !important;
       margin: 0 !important;
     }
 
 .stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-left: 4px solid var(--primary);
+      border-left: 3.5px solid var(--primary);
       border-radius: var(--radius);
-      padding: 16px;
+      padding: 11px 13px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 4px 12px var(--shadow);
+      box-shadow: 0 3px 10px var(--shadow);
       transition: all 0.2s ease;
     }
 
-.stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px var(--shadow); }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 5px 14px var(--shadow); }
 
 .stat-card .stat-icon {
-      width: 44px; height: 44px; border-radius: 10px; background: rgba(37,99,235,0.1);
-      display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 20px;
+      width: 36px; height: 36px; border-radius: 8px; background: rgba(37,99,235,0.1);
+      display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 16px;
     }
 
 .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(4px); }
@@ -810,9 +818,7 @@ table tbody tr:hover { background-color: rgba(37, 99, 235, 0.04); }
       .dashboard-welcome { flex-direction: column; align-items: flex-start !important; gap: 10px; padding: 16px !important; }
       .auth-container { grid-template-columns: 1fr !important; margin: 12px auto !important; }
       .profile-card-popup { position: fixed !important; top: 56px !important; left: 10px !important; right: 10px !important; width: auto !important; max-width: calc(100vw - 20px) !important; max-height: 82vh !important; overflow-y: auto !important; z-index: 9500 !important; }
-      #cbt-active-interface .cbt-main-split { flex-direction: column !important; }
-      #cbt-active-interface .cbt-question-stage { border-right: none !important; border-bottom: 1px solid var(--border); padding: 14px !important; }
-      #cbt-active-interface .cbt-palette-aside { width: 100% !important; min-width: 100% !important; }
+      #cbt-active-interface .cbt-question-stage { border-right: none !important; padding: 8px 10px !important; }
     }
 
 /* 👉 ADD THIS: Error Color Legend Badge Styling */
@@ -1000,21 +1006,21 @@ img { max-width: 100%; height: auto; }
     }
 
 .grid-cards {
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important;
-      gap: 10px !important;
+      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)) !important;
+      gap: 8px !important;
     }
 
 .video-grid-cards {
-      grid-template-columns: repeat(auto-fill, minmax(195px, 1fr)) !important;
-      gap: 10px !important;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+      gap: 8px !important;
     }
 
 .card-thumb {
-      height: 88px !important;
+      height: 58px !important;
     }
 
 .video-card .card-thumb {
-      height: 82px !important;
+      height: 58px !important;
     }
 
 /* Interactive Morphing Icon Menu Button */
@@ -1216,17 +1222,17 @@ input, textarea, [contenteditable="true"], #complete-user-typed-passage-panel {
 /* 4. Interactive Evaluation Rule Cards Grid */
   .eval-rule-cards-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
-    gap: 12px;
-    margin-top: 8px;
-    margin-bottom: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    margin-top: 4px;
+    margin-bottom: 8px;
   }
 
 .eval-rule-select-card {
     background: var(--surface, #ffffff);
-    border: 2px solid var(--border, #e2e8f0);
-    border-radius: 14px;
-    padding: 14px 16px;
+    border: 1.5px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    padding: 10px 12px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
@@ -1234,7 +1240,7 @@ input, textarea, [contenteditable="true"], #complete-user-typed-passage-panel {
     flex-direction: column;
     justify-content: space-between;
     text-align: left;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
   }
 
 .eval-rule-select-card:hover {
@@ -1894,27 +1900,27 @@ table tbody tr:hover {
 }
 
 .rp-merged-plans-body {
-  padding: 20px;
+  padding: 14px;
   background: linear-gradient(180deg, rgba(124, 58, 237, 0.03) 0%, transparent 180px);
 }
 
 .rp-merged-plans-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 11px;
 }
 
 .rp-plan-card {
   position: relative;
   overflow: hidden;
-  padding: 18px;
-  border-radius: 15px;
+  padding: 13px;
+  border-radius: 12px;
   border: 1.5px solid var(--plan-border, var(--border));
   background: var(--plan-bg, var(--surface));
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 8px 22px -12px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 6px 18px -12px rgba(15, 23, 42, 0.14);
   transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
 }
 
@@ -2591,20 +2597,20 @@ body.dark-mode header > .nav-container::before {
 
 .rp-enrolled-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
 }
 
 .rp-enrolled-card {
   position: relative;
-  border-radius: 15px;
-  padding: 18px;
+  border-radius: 12px;
+  padding: 13px;
   background: var(--background);
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   overflow: hidden;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
 }

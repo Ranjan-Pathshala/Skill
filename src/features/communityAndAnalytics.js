@@ -1086,22 +1086,25 @@ window.checkAndSubmitWordOutlineRequest = async function(optionalWord, sourceCon
       return { exists: false, empty: true };
     }
 
+    const isFromWeakVault = String(sourceContext || '').toLowerCase().includes('weak outlines vault');
     const existingItem = window.findExistingWordInWordsTabData(wordVal);
     if (existingItem) {
-      const msg = `⚠️ Word "${wordVal}" is already available in the Words & Outlines tab data (Section: ${existingItem.Subtab || 'General Outlines'})!`;
-      if (typeof showToast === 'function') showToast(msg);
-      if (statusBox) {
-        statusBox.style.display = 'block';
-        statusBox.style.background = 'rgba(245, 158, 11, 0.14)';
-        statusBox.style.border = '1px solid #f59e0b';
-        statusBox.style.color = '#b45309';
-        statusBox.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Word is already available!</strong> "${wordVal}" already exists in the <strong>Words &amp; Outlines</strong> tab under <em>${existingItem.Subtab || 'General'}</em>. Filtering to show it now...`;
-      }
-      const searchBox = document.getElementById('words-search') || document.getElementById('search-words');
-      if (searchBox && (typeof currentActiveViewName === 'undefined' || currentActiveViewName === 'words')) {
-        searchBox.value = wordVal;
-        if (typeof renderWords === 'function') renderWords();
-        else if (typeof window.renderWords === 'function') window.renderWords();
+      if (!isFromWeakVault) {
+        const msg = `⚠️ Word "${wordVal}" is already available in the Words & Outlines tab data (Section: ${existingItem.Subtab || 'General Outlines'})!`;
+        if (typeof showToast === 'function') showToast(msg);
+        if (statusBox) {
+          statusBox.style.display = 'block';
+          statusBox.style.background = 'rgba(245, 158, 11, 0.14)';
+          statusBox.style.border = '1px solid #f59e0b';
+          statusBox.style.color = '#b45309';
+          statusBox.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Word is already available!</strong> "${wordVal}" already exists in the <strong>Words &amp; Outlines</strong> tab under <em>${existingItem.Subtab || 'General'}</em>. Filtering to show it now...`;
+        }
+        const searchBox = document.getElementById('words-search') || document.getElementById('search-words');
+        if (searchBox && (typeof currentActiveViewName === 'undefined' || currentActiveViewName === 'words')) {
+          searchBox.value = wordVal;
+          if (typeof renderWords === 'function') renderWords();
+          else if (typeof window.renderWords === 'function') window.renderWords();
+        }
       }
       return { exists: true, item: existingItem };
     }
@@ -1124,14 +1127,16 @@ window.checkAndSubmitWordOutlineRequest = async function(optionalWord, sourceCon
     }, true);
 
     if (res && res.alreadyExists) {
-      const dupMsg = res.message || `⚠️ Word "${wordVal}" is already available in the Words & Outlines tab!`;
-      if (typeof showToast === 'function') showToast(dupMsg);
-      if (statusBox) {
-        statusBox.style.display = 'block';
-        statusBox.style.background = 'rgba(245, 158, 11, 0.14)';
-        statusBox.style.border = '1px solid #f59e0b';
-        statusBox.style.color = '#b45309';
-        statusBox.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${dupMsg}`;
+      if (!isFromWeakVault) {
+        const dupMsg = res.message || `⚠️ Word "${wordVal}" is already available in the Words & Outlines tab!`;
+        if (typeof showToast === 'function') showToast(dupMsg);
+        if (statusBox) {
+          statusBox.style.display = 'block';
+          statusBox.style.background = 'rgba(245, 158, 11, 0.14)';
+          statusBox.style.border = '1px solid #f59e0b';
+          statusBox.style.color = '#b45309';
+          statusBox.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${dupMsg}`;
+        }
       }
       return { exists: true, item: res.existingItem };
     }
@@ -1297,6 +1302,8 @@ const MEDIA_VIEWER_LOCK_KEYS = new Set(['pdf-modal', 'image-modal', 'reference-v
 window.enterImmersiveFullscreenLock = function(sourceKey = 'modal') {
     try {
       window._activeImmersiveLocks.add(sourceKey);
+      document.documentElement.classList.add('rp-scroll-locked');
+      document.documentElement.style.overflow = 'hidden';
       document.body.classList.add('immersive-fullscreen-lock');
       if (MEDIA_VIEWER_LOCK_KEYS.has(sourceKey)) {
         document.body.classList.add('rp-media-viewer-open');
@@ -1339,6 +1346,8 @@ window.exitImmersiveFullscreenLock = function(sourceKey = 'modal') {
       });
       if (!stillActive) {
         window._activeImmersiveLocks.clear();
+        document.documentElement.classList.remove('rp-scroll-locked');
+        document.documentElement.style.overflow = '';
         document.body.classList.remove('immersive-fullscreen-lock');
         document.body.classList.remove('rp-media-viewer-open');
         if (document.fullscreenElement && document.exitFullscreen) {
@@ -1366,6 +1375,8 @@ onDomReady(function() {
         return el && el.style.display && el.style.display !== 'none';
       }) || document.body.classList.contains('cbt-exam-fullscreen-lock');
       document.body.classList.toggle('rp-media-viewer-open', anyMediaOpen);
+      document.documentElement.classList.toggle('rp-scroll-locked', anyOpen);
+      document.documentElement.style.overflow = anyOpen ? 'hidden' : '';
       if (anyOpen) {
         document.body.classList.add('immersive-fullscreen-lock');
         if (typeof closeAllDeviceNavMenu === 'function') closeAllDeviceNavMenu(true);

@@ -222,6 +222,42 @@ export function evaluateFeeCouponLocally(cfg, rawCode, feeType, baseAmount) {
     };
   }
 
+export function isZeroFeeLedgerRecord(rec) {
+    if (!rec || typeof rec !== 'object') return false;
+    const rawAmt = Number(rec.AmountPaid);
+    if (!Number.isNaN(rawAmt) && rawAmt === 0) return true;
+    const utr = String(rec.UTR || '').trim().toUpperCase();
+    const mode = String(rec.PaymentMode || '').trim();
+    const remarks = String(rec.Remarks || '').trim();
+    const inst = String(rec.InstallmentLabel || rec.InstallmentNo || '').trim();
+    if (remarks.includes('[₹0_FREE]') || remarks.includes('[ZERO_FEE]')) return true;
+    if (utr.startsWith('FREE-')) return true;
+    if (mode.includes('₹0') || inst.includes('₹0')) return true;
+    const totalFee = Number(rec.TotalPlanFee || 0) || 0;
+    const discAmt = Number(rec.DiscountAmount || 0) || 0;
+    if (totalFee > 0 && discAmt >= totalFee) return true;
+    return false;
+  }
+
+export function getEffectiveFeeAmountPaid(rec) {
+    if (isZeroFeeLedgerRecord(rec)) return 0;
+    return Math.max(0, Number(rec && rec.AmountPaid ? rec.AmountPaid : 0) || 0);
+  }
+
+export function getEffectiveFeeRemainingBalance(rec) {
+    if (isZeroFeeLedgerRecord(rec)) return 0;
+    if (!rec || typeof rec !== 'object') return 0;
+    return Math.max(0, Number(rec.RemainingBalance !== undefined && rec.RemainingBalance !== '' && rec.RemainingBalance !== '-' ? rec.RemainingBalance : (rec.DueAmount || 0)) || 0);
+  }
+
+export function cleanFeeRemarksForDisplay(rawRemarks) {
+    const s = String(rawRemarks || '')
+      .replace(/\[₹0_FREE\]/g, '')
+      .replace(/\[ZERO_FEE\]/g, '')
+      .trim();
+    return s === '-' ? '' : s;
+  }
+
 export function computeStudentBatchInstallmentLedger(userId) {
     const map = {};
     const rows = (portalState.globalData && Array.isArray(portalState.globalData.userFeeReceipts)) ? portalState.globalData.userFeeReceipts : [];
@@ -233,9 +269,10 @@ export function computeStudentBatchInstallmentLedger(userId) {
       if (st !== 'Approved') return;
       const bName = String(r.Batch || '').trim();
       if (!bName || bName.toLowerCase() === 'rp-trail') return;
-      const paid = Math.max(0, Number(r.AmountPaid || 0) || 0);
-      const total = Math.max(paid, Number(r.TotalPlanFee || 0) || 0);
-      const rem = Math.max(0, Number(r.RemainingBalance !== undefined && r.RemainingBalance !== '' && r.RemainingBalance !== '-' ? r.RemainingBalance : (r.DueAmount || 0)) || 0);
+      const isZeroRec = isZeroFeeLedgerRecord(r);
+      const paid = getEffectiveFeeAmountPaid(r);
+      const total = isZeroRec ? 0 : Math.max(paid, Number(r.TotalPlanFee || 0) || 0);
+      const rem = getEffectiveFeeRemainingBalance(r);
       if (!map[bName]) {
         map[bName] = {
           batchName: bName,
@@ -253,8 +290,11 @@ export function computeStudentBatchInstallmentLedger(userId) {
       map[bName].installmentsPaidCount += 1;
       if (r.PlanName) map[bName].planName = r.PlanName;
       map[bName].lastReceiptNo = r.ReceiptNo || r.ReceiptID || map[bName].lastReceiptNo;
-      // Track latest remaining balance consistently
-      map[bName].remainingBalance = Math.max(0, Math.min(rem > 0 ? rem : Math.max(0, map[bName].totalPlanFee - map[bName].totalPaid), Math.max(0, map[bName].totalPlanFee - map[bName].totalPaid)));
+      if (isZeroRec) {
+        map[bName].remainingBalance = 0;
+      } else {
+        map[bName].remainingBalance = Math.max(0, Math.min(rem > 0 ? rem : Math.max(0, map[bName].totalPlanFee - map[bName].totalPaid), Math.max(0, map[bName].totalPlanFee - map[bName].totalPaid)));
+      }
     });
     return map;
   }
@@ -488,16 +528,21 @@ window.selectBatchPlanChip = function (batchIdx, planIdx) {
     const noteEl = card.querySelector('.rp-batch-active-note');
     const instBadgeEl = card.querySelector('.rp-batch-inst-badge');
     const payBtn = card.querySelector('.rp-batch-pay-cta');
-    if (priceEl) priceEl.textContent = amt > 0 ? '₹' + amt.toLocaleString('en-IN') : 'Free / Contact Admin';
+    const isZeroFreePlan = amt <= 0;
+    if (priceEl) priceEl.textContent = isZeroFreePlan ? '₹0 (Free)' : ('₹' + amt.toLocaleString('en-IN'));
     if (daysEl) daysEl.textContent = `${planName} · ${days} days validity`;
     if (noteEl && note) noteEl.textContent = note;
     if (instBadgeEl) {
       instBadgeEl.style.display = allowInst && amt > 0 ? 'inline-flex' : 'none';
     }
     if (payBtn) {
-      payBtn.disabled = amt <= 0;
+      payBtn.disabled = false;
+      const alreadyEnrolled = card.classList.contains('is-enrolled');
+      payBtn.innerHTML = isZeroFreePlan
+        ? `<i class="fa-solid fa-paper-plane"></i> Request Free (₹0)`
+        : `<i class="fa-solid fa-indian-rupee-sign"></i> ${alreadyEnrolled ? 'Renew Plan' : 'Buy Batch'}`;
       payBtn.onclick = () => window.openStudentUpiFeeCheckout('batch', bName, amt, `${bName} — ${planName}`, days, planName, 'buy-plans-upi-checkout-panel', {
-        allowInstallments: allowInst,
+        allowInstallments: allowInst && !isZeroFreePlan,
         firstInstallmentPercent: firstPct
       });
     }
@@ -630,12 +675,12 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
           </div>
           <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:10px; padding-top:14px; margin-top:14px; border-top:1px dashed rgba(124,58,237,0.25); flex-wrap:wrap;">
             <div>
-              <div class="mono-num rp-plan-price-highlight">₹${mp.amount.toLocaleString('en-IN')}</div>
+              <div class="mono-num rp-plan-price-highlight">${mp.amount > 0 ? '₹' + mp.amount.toLocaleString('en-IN') : '₹0 (Free)'}</div>
               <div style="font-size:11.5px; color:var(--text-muted); font-weight:700; margin-top:2px;"><i class="fa-regular fa-clock"></i> ${mp.validityDays} Days Validity</div>
             </div>
-            ${mp.amount > 0
-              ? `<button type="button" class="btn btn-sm rp-plan-cta-vibrant" onclick="window.openStudentUpiFeeCheckout('member', 'ALL_BATCHES', ${mp.amount}, '${safeTitle}', ${mp.validityDays}, '${safeTitle}', 'buy-plans-upi-checkout-panel')"><i class="fa-solid fa-qrcode"></i> Buy Member Plan</button>`
-              : `<span style="font-size:11.5px; font-weight:700; color:var(--text-muted);">Contact Admin</span>`}
+            <button type="button" class="btn btn-sm rp-plan-cta-vibrant" onclick="window.openStudentUpiFeeCheckout('member', 'ALL_BATCHES', ${Math.max(0, Number(mp.amount || 0))}, '${safeTitle}', ${mp.validityDays}, '${safeTitle}', 'buy-plans-upi-checkout-panel')">
+              ${mp.amount > 0 ? '<i class="fa-solid fa-qrcode"></i> Buy Member Plan' : '<i class="fa-solid fa-paper-plane"></i> Request Free (₹0)'}
+            </button>
           </div>
         </div>
       `;
@@ -690,15 +735,15 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
           </div>
           <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:8px; padding-top:14px; margin-top:14px; border-top:1px dashed var(--plan-border, var(--border)); flex-wrap:wrap;">
             <div>
-              <div class="mono-num rp-batch-active-price rp-plan-price-highlight">${firstPlan.amount > 0 ? '₹' + firstPlan.amount.toLocaleString('en-IN') : 'Contact Admin'}</div>
+              <div class="mono-num rp-batch-active-price rp-plan-price-highlight">${plans.length > 0 ? (firstPlan.amount > 0 ? '₹' + firstPlan.amount.toLocaleString('en-IN') : '₹0 (Free)') : 'Contact Admin'}</div>
               <div class="rp-batch-active-days" style="font-size:11.5px; color:var(--text-muted); font-weight:700; margin-top:2px;">${escapeHtml(firstPlan.name)} · ${firstPlan.validityDays} days validity</div>
             </div>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
               ${hasPendingBalance
                 ? `<button type="button" class="btn btn-sm btn-warning" style="background:linear-gradient(135deg,#f59e0b,#ea580c); color:#fff; border:none; border-radius:10px; font-weight:800;" onclick="window.openStudentUpiFeeCheckout('batch', '${safeB}', ${balInfo.totalPlanFee}, '${safeB} — Installment 2 / Balance', ${balInfo.validityDays}, '${safeBalPlan}', 'buy-plans-upi-checkout-panel', { mode: 'balance', remainingBalance: ${balInfo.remainingBalance}, priorPaid: ${balInfo.totalPaid}, totalPlanFee: ${balInfo.totalPlanFee} })"><i class="fa-solid fa-wallet"></i> Pay Balance ₹${balInfo.remainingBalance.toLocaleString('en-IN')}</button>`
                 : ''}
-              ${firstPlan.amount > 0
-                ? `<button type="button" class="btn btn-sm rp-plan-cta-vibrant rp-batch-pay-cta" onclick="window.openStudentUpiFeeCheckout('batch', '${safeB}', ${firstPlan.amount}, '${safeB} — ${safeFirstPlan}', ${firstPlan.validityDays}, '${safeFirstPlan}', 'buy-plans-upi-checkout-panel', { allowInstallments: ${firstPlan.allowInstallments ? 'true' : 'false'}, firstInstallmentPercent: ${firstPlan.firstInstallmentPercent || 50} })"><i class="fa-solid fa-indian-rupee-sign"></i> ${alreadyEnrolled ? 'Renew Plan' : 'Buy Batch'}</button>`
+              ${plans.length > 0
+                ? `<button type="button" class="btn btn-sm rp-plan-cta-vibrant rp-batch-pay-cta" onclick="window.openStudentUpiFeeCheckout('batch', '${safeB}', ${Math.max(0, Number(firstPlan.amount || 0))}, '${safeB} — ${safeFirstPlan}', ${firstPlan.validityDays}, '${safeFirstPlan}', 'buy-plans-upi-checkout-panel', { allowInstallments: ${firstPlan.allowInstallments && firstPlan.amount > 0 ? 'true' : 'false'}, firstInstallmentPercent: ${firstPlan.firstInstallmentPercent || 50} })">${firstPlan.amount > 0 ? `<i class="fa-solid fa-indian-rupee-sign"></i> ${alreadyEnrolled ? 'Renew Plan' : 'Buy Batch'}` : `<i class="fa-solid fa-paper-plane"></i> Request Free (₹0)`}</button>`
                 : `<span style="font-size:11px; color:var(--text-muted); font-weight:700;">Not Priced Yet</span>`}
             </div>
           </div>
@@ -853,16 +898,16 @@ export function renderStudentFeeHistoryRowsOnly() {
       const isMem = String(r.FeeType || '').toLowerCase().includes('member');
       const planTitle = r.PlanName || (isMem ? 'Member Pass' : (r.Batch || 'Batch Fee'));
       const batchSub = isMem ? 'Membership Tier' : (r.Batch || 'Batch');
-      const amt = Number(r.AmountPaid || 0) || 0;
+      const amt = getEffectiveFeeAmountPaid(r);
       const totalFee = Number(r.TotalPlanFee || 0) || 0;
-      const remBal = Math.max(0, Number(r.RemainingBalance !== undefined && r.RemainingBalance !== '' && r.RemainingBalance !== '-' ? r.RemainingBalance : (r.DueAmount || 0)) || 0);
+      const remBal = getEffectiveFeeRemainingBalance(r);
       const instLabel = String(r.InstallmentLabel || r.InstallmentNo || 'Full Payment').trim();
       const couponCode = String(r.CouponCode || '').trim();
       const discAmt = Number(r.DiscountAmount || 0) || 0;
       const utr = r.UTR || '-';
       const payDate = formatReadableFeeDate(r.Timestamp || r.PaymentDate || '-');
       const validTill = r.ValidityUntil || r.ValidUntil || '-';
-      const remarks = r.Remarks && r.Remarks !== '-' ? r.Remarks : '';
+      const remarks = cleanFeeRemarksForDisplay(r.Remarks);
       const normSt = normalizeFeeStatusDisplay(r.Status);
 
       return `
@@ -880,7 +925,9 @@ export function renderStudentFeeHistoryRowsOnly() {
             <div style="font-weight:900; color:var(--secondary);">₹${amt.toLocaleString('en-IN')}</div>
             ${remBal > 0
               ? `<div style="font-size:10.5px; font-weight:700; color:#b45309;">Bal: ₹${remBal.toLocaleString('en-IN')}</div>`
-              : (totalFee > 0 ? `<div style="font-size:10.5px; color:#047857; font-weight:700;">Paid in Full</div>` : '')}
+              : (amt === 0
+                  ? `<div style="font-size:10.5px; color:#047857; font-weight:700;">₹0 Paid (Free / Coupon)</div>`
+                  : (totalFee > 0 ? `<div style="font-size:10.5px; color:#047857; font-weight:700;">Paid in Full</div>` : ''))}
           </td>
           <td class="mono-num"><strong>${escapeHtml(utr)}</strong><div style="font-size:10.5px; color:var(--text-muted);">${escapeHtml(r.PaymentMode || 'UPI')}</div></td>
           <td>${renderFeeStatusBadgeHtml(r.Status)}</td>
@@ -1004,14 +1051,15 @@ export function buildPrintableFeeReceiptMarkup(rec) {
     const planName = rec.PlanName || (isMem ? 'Member All-Access Pass' : (rec.Batch || 'Batch Fee'));
     const batchLabel = isMem ? 'Member Tier All-Access' : (rec.Batch || '-');
     const instLabel = String(rec.InstallmentLabel || rec.InstallmentNo || 'Full Payment').trim();
-    const amountPaid = Math.max(0, Number(rec.AmountPaid || 0) || 0);
+    const amountPaid = getEffectiveFeeAmountPaid(rec);
     const discAmt = Math.max(0, Number(rec.DiscountAmount || 0) || 0);
-    const netPlanFee = Math.max(amountPaid, Number(rec.TotalPlanFee || 0) || amountPaid);
-    const originalPlanFee = netPlanFee + discAmt;
-    const remBal = Math.max(0, Number(rec.RemainingBalance !== undefined && rec.RemainingBalance !== '' && rec.RemainingBalance !== '-' ? rec.RemainingBalance : (rec.DueAmount || 0)) || 0);
+    const rawTotalPlanFee = Math.max(0, Number(rec.TotalPlanFee || 0) || 0);
+    const originalPlanFee = rawTotalPlanFee > 0 ? Math.max(rawTotalPlanFee, amountPaid + discAmt) : (amountPaid + discAmt);
+    const remBal = getEffectiveFeeRemainingBalance(rec);
     const couponCode = String(rec.CouponCode || '').trim();
-    const utr = rec.UTR || '-';
-    const payMode = rec.PaymentMode || 'UPI / QR';
+    const isZeroPaid = amountPaid === 0;
+    const utr = rec.UTR || (isZeroPaid ? 'FREE-ZERO-FEE' : '-');
+    const payMode = rec.PaymentMode || (isZeroPaid ? (couponCode ? '100% Coupon (₹0 Paid)' : 'Free Batch (₹0 Fee)') : 'UPI / QR');
     const payDate = formatReadableFeeDate(rec.Timestamp || rec.PaymentDate || '-');
     const validUntil = rec.ValidityUntil || rec.ValidUntil || '-';
     const reviewedBy = rec.ReviewedBy && rec.ReviewedBy !== '-' ? rec.ReviewedBy : 'Institute Accounts Desk';
@@ -1070,7 +1118,7 @@ export function buildPrintableFeeReceiptMarkup(rec) {
               </tr>
             ` : ''}
             <tr class="rp-receipt-total-row">
-              <td><strong>Amount Paid (${escapeHtml(instLabel)})</strong></td>
+              <td><strong>Amount Paid (${escapeHtml(instLabel)})${isZeroPaid ? ' · <span style="color:#047857; font-size:11.5px;">Zero Fee / 100% Discount</span>' : ''}</strong></td>
               <td class="mono-num" style="text-align:right; font-size:17px; font-weight:900; color:#0f172a;">₹${amountPaid.toLocaleString('en-IN')}</td>
             </tr>
             <tr>
@@ -1282,7 +1330,11 @@ export function recomputeCheckoutPayableAndQr() {
       const balDiscount = Math.max(0, Math.min(remBase, discountAmt));
       payableNow = Math.max(0, remBase - balDiscount);
       remainingAfter = 0;
-      instLabel = 'Installment 2 of 2 (Balance)';
+      instLabel = payableNow === 0 ? 'Balance Settled (₹0 Payable)' : 'Installment 2 of 2 (Balance)';
+    } else if (netPlanFee === 0) {
+      payableNow = 0;
+      remainingAfter = 0;
+      instLabel = plan.couponCode ? '100% Coupon Discount (₹0 Fee)' : 'Free Batch Enrollment (₹0 Fee)';
     } else if (plan.installmentMode === 'installment1' && plan.allowInstallments) {
       const pct = Math.max(20, Math.min(80, Number(plan.firstInstallmentPercent || 50) || 50));
       payableNow = Math.max(1, Math.round((netPlanFee * pct) / 100));
@@ -1295,18 +1347,51 @@ export function recomputeCheckoutPayableAndQr() {
     plan.remainingAfter = remainingAfter;
     plan.installmentLabel = instLabel;
 
+    const isZeroFeeNow = payableNow <= 0;
     const upiNote = `${plan.planName} ${instLabel} (${portalState.currentUser ? portalState.currentUser.userId : ''})`.slice(0, 50);
-    const upiLink = buildUpiPaymentLink(cfg.upiId, cfg.payeeName, payableNow, upiNote);
-    const qrSrc = buildQrCodeImgSrc(cfg, upiLink);
+    const upiLink = !isZeroFeeNow ? buildUpiPaymentLink(cfg.upiId, cfg.payeeName, payableNow, upiNote) : '';
+    const qrSrc = !isZeroFeeNow ? buildQrCodeImgSrc(cfg, upiLink) : '';
 
     const qrImg = document.getElementById('checkout-qr-img');
+    const upiMeta = document.getElementById('checkout-upi-payee-meta');
+    const upiActions = document.getElementById('checkout-upi-actions-wrap');
     const upiAnchor = document.getElementById('checkout-upi-link');
     const headerAmtEl = document.getElementById('checkout-header-payable-amt');
     const summaryEl = document.getElementById('checkout-fee-breakdown-summary');
+    const instWrap = document.getElementById('checkout-installment-schedule-wrap');
+    const payFieldsWrap = document.getElementById('checkout-payment-fields-wrap');
+    const zeroBanner = document.getElementById('checkout-zero-fee-banner');
+    const submitBtn = document.getElementById('student-fee-submit-btn');
+    const footerHint = document.getElementById('checkout-footer-hint');
+    const noUpiWarning = document.getElementById('checkout-missing-upi-warning');
 
-    if (qrImg && qrSrc) qrImg.src = qrSrc;
+    if (qrImg) {
+      if (isZeroFeeNow) {
+        qrImg.style.display = 'none';
+      } else if (qrSrc) {
+        qrImg.src = qrSrc;
+        qrImg.style.display = 'block';
+      }
+    }
+    if (upiMeta) upiMeta.style.display = isZeroFeeNow ? 'none' : 'block';
+    if (upiActions) upiActions.style.display = isZeroFeeNow ? 'none' : 'flex';
     if (upiAnchor && upiLink) upiAnchor.href = upiLink;
-    if (headerAmtEl) headerAmtEl.textContent = '₹' + payableNow.toLocaleString('en-IN');
+    if (instWrap) instWrap.style.display = (!isZeroFeeNow && plan.allowInstallments) ? 'block' : 'none';
+    if (payFieldsWrap) payFieldsWrap.style.display = isZeroFeeNow ? 'none' : 'flex';
+    if (zeroBanner) zeroBanner.style.display = isZeroFeeNow ? 'block' : 'none';
+    if (noUpiWarning) noUpiWarning.style.display = (!isZeroFeeNow && !cfg.upiId && !cfg.qrImageUrl) ? 'block' : 'none';
+    if (headerAmtEl) headerAmtEl.textContent = isZeroFeeNow ? '₹0 (Free)' : ('₹' + payableNow.toLocaleString('en-IN'));
+    if (submitBtn) {
+      submitBtn.disabled = (!isZeroFeeNow && !cfg.upiId && !cfg.qrImageUrl);
+      submitBtn.innerHTML = isZeroFeeNow
+        ? '<i class="fa-solid fa-paper-plane"></i> Send ₹0 Free Enrollment Request for Approval'
+        : '<i class="fa-solid fa-paper-plane"></i> Submit UTR for Admin Approval';
+    }
+    if (footerHint) {
+      footerHint.textContent = isZeroFeeNow
+        ? 'No UPI payment or UTR is needed because the total payable fee is ₹0. Once Admin approves your request, your access will activate and a ₹0 Official Fee Receipt will unlock in Fee Payment History.'
+        : 'Duplicate UTRs are automatically blocked. After Admin approves your UTR, your access will activate automatically and a printable PDF receipt will unlock in Fee Payment History.';
+    }
 
     if (summaryEl) {
       summaryEl.innerHTML = `
@@ -1322,7 +1407,7 @@ export function recomputeCheckoutPayableAndQr() {
         ` : ''}
         <div style="display:flex; justify-content:space-between; font-size:13.5px; font-weight:900; color:var(--secondary); margin-top:6px; padding-top:6px; border-top:1px dashed var(--border);">
           <span>Payable Now (${escapeHtml(instLabel)})</span>
-          <span class="mono-num" style="color:var(--primary);">₹${payableNow.toLocaleString('en-IN')}</span>
+          <span class="mono-num" style="color:${isZeroFeeNow ? '#059669' : 'var(--primary)'};">₹${payableNow.toLocaleString('en-IN')}</span>
         </div>
         ${remainingAfter > 0 ? `
           <div style="display:flex; justify-content:space-between; font-size:11.5px; color:#b45309; margin-top:4px; font-weight:700;">
@@ -1430,53 +1515,46 @@ window.openStudentUpiFeeCheckout = function (feeType, batchName, amount, planLab
       installmentLabel: isBalanceMode ? 'Installment 2 of 2 (Balance)' : 'Full Payment'
     };
 
-    if (!cfg.upiId && !cfg.qrImageUrl) {
-      panel.style.display = 'block';
-      panel.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-          <div style="font-size:13px; color:#b45309; font-weight:700;"><i class="fa-solid fa-circle-info"></i> Admin has not configured the institute UPI ID / QR Code yet. Please contact Helpdesk.</div>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('${targetPanelId}').style.display='none'">Close</button>
-        </div>
-      `;
-      return;
-    }
-
+    const isInitiallyZero = _selectedStudentFeePlan.amount <= 0;
     const firstInstPct = _selectedStudentFeePlan.firstInstallmentPercent;
     const firstInstPreviewAmt = Math.round((origAmt * firstInstPct) / 100);
     const upiNote = `${_selectedStudentFeePlan.planName} (${portalState.currentUser ? portalState.currentUser.userId : ''})`.slice(0, 50);
-    const initialUpiLink = buildUpiPaymentLink(cfg.upiId, cfg.payeeName, _selectedStudentFeePlan.amount, upiNote);
-    const initialQrSrc = buildQrCodeImgSrc(cfg, initialUpiLink);
+    const initialUpiLink = (!isInitiallyZero && cfg.upiId) ? buildUpiPaymentLink(cfg.upiId, cfg.payeeName, _selectedStudentFeePlan.amount, upiNote) : '';
+    const initialQrSrc = (!isInitiallyZero && (cfg.upiId || cfg.qrImageUrl)) ? buildQrCodeImgSrc(cfg, initialUpiLink) : '';
 
     panel.style.display = 'block';
     panel.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
         <div>
           <div style="font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:0.05em;">
-            ${options.isRenewal ? 'PLAN RENEWAL · ' : ''}UPI / QR FEE CHECKOUT
+            ${options.isRenewal ? 'PLAN RENEWAL · ' : ''}${isInitiallyZero ? 'FREE (₹0) ENROLLMENT REQUEST' : 'UPI / QR FEE CHECKOUT'}
           </div>
-          <h4 style="margin:3px 0 0 0; font-size:16px; color:var(--secondary);">${escapeHtml(_selectedStudentFeePlan.planLabel)} · <span id="checkout-header-payable-amt" class="mono-num">₹${_selectedStudentFeePlan.amount.toLocaleString('en-IN')}</span></h4>
+          <h4 style="margin:3px 0 0 0; font-size:16px; color:var(--secondary);">${escapeHtml(_selectedStudentFeePlan.planLabel)} · <span id="checkout-header-payable-amt" class="mono-num">${isInitiallyZero ? '₹0 (Free)' : ('₹' + _selectedStudentFeePlan.amount.toLocaleString('en-IN'))}</span></h4>
           <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">${escapeHtml(cfg.paymentInstructions)}</div>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('${targetPanelId}').style.display='none'"><i class="fa-solid fa-xmark"></i> Close</button>
       </div>
 
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:18px; align-items:start;">
-        <div style="display:flex; flex-direction:column; align-items:center; gap:10px; padding:14px; border-radius:10px; background:var(--background); border:1px solid var(--border);">
-          ${initialQrSrc ? `<img id="checkout-qr-img" src="${escapeHtml(initialQrSrc)}" alt="UPI Payment QR Code" style="width:196px; height:196px; object-fit:contain; border-radius:8px; border:1px solid var(--border); background:#fff; padding:6px;">` : ''}
-          <div style="text-align:center;">
+        <div id="checkout-qr-column" style="display:flex; flex-direction:column; align-items:center; gap:10px; padding:14px; border-radius:10px; background:var(--background); border:1px solid var(--border);">
+          <img id="checkout-qr-img" src="${escapeHtml(initialQrSrc)}" alt="UPI Payment QR Code" style="display:${initialQrSrc && !isInitiallyZero ? 'block' : 'none'}; width:196px; height:196px; object-fit:contain; border-radius:8px; border:1px solid var(--border); background:#fff; padding:6px;">
+          <div id="checkout-upi-payee-meta" style="display:${isInitiallyZero ? 'none' : 'block'}; text-align:center;">
             <div style="font-size:12px; font-weight:800; color:var(--secondary);">${escapeHtml(cfg.payeeName)}</div>
             ${cfg.upiId ? `<div class="mono-num" style="font-size:12.5px; font-weight:700; color:var(--primary); margin-top:2px;">${escapeHtml(cfg.upiId)}</div>` : ''}
           </div>
+          <div id="checkout-missing-upi-warning" style="display:${!isInitiallyZero && !cfg.upiId && !cfg.qrImageUrl ? 'block' : 'none'}; width:100%; padding:10px; border-radius:8px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); color:#b45309; font-size:12px; font-weight:700;">
+            <i class="fa-solid fa-circle-info"></i> Admin has not configured UPI/QR yet. If you have a 100% discount coupon, apply it on the right to enroll for ₹0!
+          </div>
           <div id="checkout-fee-breakdown-summary" style="width:100%; padding:10px 12px; border-radius:8px; background:var(--surface); border:1px solid var(--border);"></div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+          <div id="checkout-upi-actions-wrap" style="display:${isInitiallyZero ? 'none' : 'flex'}; gap:8px; flex-wrap:wrap; justify-content:center;">
             ${cfg.upiId ? `<button type="button" class="btn btn-secondary btn-sm" onclick="navigator.clipboard && navigator.clipboard.writeText('${escapeHtml(cfg.upiId).replace(/'/g, "\\'")}').then(()=>showToast('📋 UPI ID copied!'))"><i class="fa-regular fa-copy"></i> Copy UPI ID</button>` : ''}
-            ${initialUpiLink ? `<a id="checkout-upi-link" href="${escapeHtml(initialUpiLink)}" class="btn btn-primary btn-sm" style="text-decoration:none;"><i class="fa-solid fa-mobile-screen-button"></i> Pay in UPI App</a>` : ''}
+            ${cfg.upiId ? `<a id="checkout-upi-link" href="${escapeHtml(initialUpiLink)}" class="btn btn-primary btn-sm" style="text-decoration:none;"><i class="fa-solid fa-mobile-screen-button"></i> Pay in UPI App</a>` : ''}
           </div>
         </div>
 
         <div style="display:flex; flex-direction:column; gap:11px;">
           ${_selectedStudentFeePlan.allowInstallments ? `
-            <div style="padding:10px 12px; border-radius:9px; border:1px solid var(--border); background:var(--background);">
+            <div id="checkout-installment-schedule-wrap" style="padding:10px 12px; border-radius:9px; border:1px solid var(--border); background:var(--background);">
               <div style="font-size:11.5px; font-weight:800; color:var(--secondary); margin-bottom:6px;"><i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> Payment Schedule</div>
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
                 <label style="display:flex; align-items:flex-start; gap:7px; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--surface); cursor:pointer; font-size:12px; margin:0;">
@@ -1491,39 +1569,47 @@ window.openStudentUpiFeeCheckout = function (feeType, batchName, amount, planLab
             </div>
           ` : ''}
 
-          <!-- Promo / Discount Coupon Box -->
-          <div class="rp-coupon-box">
-            <label style="font-size:11.5px; font-weight:800; color:var(--secondary); display:block; margin-bottom:5px;"><i class="fa-solid fa-tag" style="color:#047857;"></i> Have a Promo / Discount Coupon?</label>
-            <div style="display:flex; gap:6px;">
-              <input type="text" id="student-fee-coupon-input" class="form-control mono-num" placeholder="Enter coupon code (e.g. SAVE100)" maxlength="32" style="text-transform:uppercase; min-height:34px; margin:0; flex:1;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="window.applyStudentFeeCoupon()" style="white-space:nowrap;">Apply</button>
+          <!-- Promo / Discount Coupon Box (hidden if plan is already ₹0 from Admin) -->
+          ${origAmt > 0 ? `
+            <div class="rp-coupon-box">
+              <label style="font-size:11.5px; font-weight:800; color:var(--secondary); display:block; margin-bottom:5px;"><i class="fa-solid fa-tag" style="color:#047857;"></i> Have a Promo / Discount Coupon?</label>
+              <div style="display:flex; gap:6px;">
+                <input type="text" id="student-fee-coupon-input" class="form-control mono-num" placeholder="Enter coupon code (e.g. SAVE100)" maxlength="32" style="text-transform:uppercase; min-height:34px; margin:0; flex:1;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.applyStudentFeeCoupon()" style="white-space:nowrap;">Apply</button>
+              </div>
+              <div id="student-fee-coupon-feedback" style="font-size:11.5px; margin-top:5px;"></div>
             </div>
-            <div id="student-fee-coupon-feedback" style="font-size:11.5px; margin-top:5px;"></div>
+          ` : ''}
+
+          <div id="checkout-zero-fee-banner" style="display:${isInitiallyZero ? 'block' : 'none'}; padding:11px 13px; border-radius:10px; background:rgba(16,185,129,0.12); border:1.5px solid rgba(16,185,129,0.4); color:#047857; font-size:12.5px; font-weight:700; line-height:1.45;">
+            <i class="fa-solid fa-circle-check"></i> Total Payable Fee is <strong>₹0</strong> — No payment or UTR details required! Click below to send your enrollment request directly for Admin Approval.
           </div>
 
           <div id="student-fee-checkout-error" style="display:none; padding:9px 12px; border-radius:8px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.35); color:#b91c1c; font-size:12px; font-weight:700;"></div>
 
-          <div class="form-group" style="margin:0;">
-            <label style="font-size:12px; font-weight:700;">12-Digit UTR / UPI Transaction Reference ID <span style="color:#ef4444;">*</span></label>
-            <input type="text" id="student-fee-utr-input" class="form-control mono-num" placeholder="e.g. 423198765432" maxlength="40" oninput="const e=document.getElementById('student-fee-checkout-error'); if(e) e.style.display='none';">
-          </div>
-          <div class="form-group" style="margin:0;">
-            <label style="font-size:12px; font-weight:700;">Payment Mode</label>
-            <select id="student-fee-mode-select" class="form-control">
-              <option value="UPI">UPI (GPay / PhonePe / Paytm / BHIM)</option>
-              <option value="QR Scan">QR Code Scan</option>
-              <option value="Bank Transfer">NEFT / IMPS / Bank Transfer</option>
-            </select>
+          <div id="checkout-payment-fields-wrap" style="display:${isInitiallyZero ? 'none' : 'flex'}; flex-direction:column; gap:11px;">
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:12px; font-weight:700;">12-Digit UTR / UPI Transaction Reference ID <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="student-fee-utr-input" class="form-control mono-num" placeholder="e.g. 423198765432" maxlength="40" oninput="const e=document.getElementById('student-fee-checkout-error'); if(e) e.style.display='none';">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:12px; font-weight:700;">Payment Mode</label>
+              <select id="student-fee-mode-select" class="form-control">
+                <option value="UPI">UPI (GPay / PhonePe / Paytm / BHIM)</option>
+                <option value="QR Scan">QR Code Scan</option>
+                <option value="Bank Transfer">NEFT / IMPS / Bank Transfer</option>
+              </select>
+            </div>
           </div>
           <div class="form-group" style="margin:0;">
             <label style="font-size:12px; font-weight:700;">Remarks (Optional)</label>
-            <input type="text" id="student-fee-remarks-input" class="form-control" placeholder="e.g. Paid via PhonePe">
+            <input type="text" id="student-fee-remarks-input" class="form-control" placeholder="${isInitiallyZero ? 'e.g. Requesting free enrollment approval' : 'e.g. Paid via PhonePe'}">
           </div>
           <button type="button" id="student-fee-submit-btn" class="btn btn-success" onclick="window.submitStudentFeeUtrPayment()">
-            <i class="fa-solid fa-paper-plane"></i> Submit UTR for Admin Approval
+            <i class="fa-solid fa-paper-plane"></i> ${isInitiallyZero ? 'Send ₹0 Free Enrollment Request for Approval' : 'Submit UTR for Admin Approval'}
           </button>
-          <div style="font-size:11px; color:var(--text-muted); line-height:1.45;">
-            Duplicate UTRs are automatically blocked. After Admin approves your UTR, your ${normFeeType === 'member' ? 'Member Plan & batch access' : `enrollment in "${escapeHtml(batchName)}"`} will activate automatically and a printable PDF receipt will unlock in Fee Payment History.
+          <div id="checkout-footer-hint" style="font-size:11px; color:var(--text-muted); line-height:1.45;">
+            Duplicate UTRs are automatically blocked. After Admin approves your request, your ${normFeeType === 'member' ? 'Member Plan & batch access' : `enrollment in "${escapeHtml(batchName)}"`} will activate automatically and a printable PDF receipt will unlock in Fee Payment History.
           </div>
         </div>
       </div>
@@ -1543,47 +1629,88 @@ window.submitStudentFeeUtrPayment = async function () {
       safeNotify(msg);
     };
 
-    const utr = String(document.getElementById('student-fee-utr-input')?.value || '').trim();
-    const normUtr = utr.toUpperCase().replace(/\s+/g, '');
-    const mode = String(document.getElementById('student-fee-mode-select')?.value || 'UPI').trim();
+    const isZeroFeeRequest = Number(_selectedStudentFeePlan.amount || 0) <= 0;
     const remarks = String(document.getElementById('student-fee-remarks-input')?.value || '').trim();
-    if (!normUtr || normUtr.length < 6) {
-      showCheckoutErr('Please enter a valid UPI UTR / Transaction Reference ID (at least 6 characters).');
-      return;
-    }
+    let utr = '';
+    let mode = '';
 
-    // Client-side Duplicate UTR Pre-Check before hitting server
-    const existingRows = (portalState.globalData && Array.isArray(portalState.globalData.userFeeReceipts)) ? portalState.globalData.userFeeReceipts : [];
-    const dupRow = existingRows.find((r) => {
-      const rUtr = String(r.UTR || '').trim().toUpperCase().replace(/\s+/g, '');
-      const rSt = normalizeFeeStatusDisplay(r.Status);
-      return rUtr && rUtr === normUtr && rSt !== 'Rejected';
-    });
-    if (dupRow) {
-      showCheckoutErr(`Duplicate UTR blocked: "${utr}" was already submitted under Receipt ${dupRow.ReceiptNo || '-'} (${normalizeFeeStatusDisplay(dupRow.Status)}).`);
-      return;
+    if (isZeroFeeRequest) {
+      utr = `FREE-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+      mode = _selectedStudentFeePlan.couponCode ? '100% Coupon (₹0 Paid)' : 'Free Batch (₹0 Fee)';
+    } else {
+      utr = String(document.getElementById('student-fee-utr-input')?.value || '').trim();
+      const normUtr = utr.toUpperCase().replace(/\s+/g, '');
+      mode = String(document.getElementById('student-fee-mode-select')?.value || 'UPI').trim();
+      if (!normUtr || normUtr.length < 6) {
+        showCheckoutErr('Please enter a valid UPI UTR / Transaction Reference ID (at least 6 characters).');
+        return;
+      }
+
+      // Client-side Duplicate UTR Pre-Check before hitting server
+      const existingRows = (portalState.globalData && Array.isArray(portalState.globalData.userFeeReceipts)) ? portalState.globalData.userFeeReceipts : [];
+      const dupRow = existingRows.find((r) => {
+        const rUtr = String(r.UTR || '').trim().toUpperCase().replace(/\s+/g, '');
+        const rSt = normalizeFeeStatusDisplay(r.Status);
+        return rUtr && rUtr === normUtr && rSt !== 'Rejected';
+      });
+      if (dupRow) {
+        showCheckoutErr(`Duplicate UTR blocked: "${utr}" was already submitted under Receipt ${dupRow.ReceiptNo || '-'} (${normalizeFeeStatusDisplay(dupRow.Status)}).`);
+        return;
+      }
     }
 
     const btn = document.getElementById('student-fee-submit-btn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="mini-spin"></span> Submitting...'; }
     try {
-      const res = await apiCall('submitStudentFeePayment', {
+      const zeroFeeBaseRemarks = remarks
+        || (_selectedStudentFeePlan.couponCode ? `100% Coupon (${_selectedStudentFeePlan.couponCode}) — ₹0 Paid` : 'Free Batch (₹0 Fee) Approval Request');
+      const finalRemarks = isZeroFeeRequest
+        ? `${zeroFeeBaseRemarks} [₹0_FREE]`.trim()
+        : remarks;
+
+      const basePayload = {
         userId: portalState.currentUser.userId,
         feeType: _selectedStudentFeePlan.feeType,
         batchName: _selectedStudentFeePlan.batchName,
         planName: _selectedStudentFeePlan.planName,
         validityDays: _selectedStudentFeePlan.validityDays,
-        amountPaid: _selectedStudentFeePlan.amount,
+        amountPaid: isZeroFeeRequest ? 0 : _selectedStudentFeePlan.amount,
         totalPlanFee: _selectedStudentFeePlan.originalAmount,
         couponCode: _selectedStudentFeePlan.couponCode || '',
         discountAmount: _selectedStudentFeePlan.discountAmount || 0,
-        installmentLabel: _selectedStudentFeePlan.installmentLabel || 'Full Payment',
+        installmentLabel: _selectedStudentFeePlan.installmentLabel || (isZeroFeeRequest ? 'Free Enrollment (₹0 Paid)' : 'Full Payment'),
         utr: utr,
         paymentMode: mode,
-        remarks: remarks
-      });
+        remarks: finalRemarks,
+        isZeroFeeRequest: isZeroFeeRequest
+      };
+
+      let res = await apiCall('submitStudentFeePayment', basePayload);
+
+      // If remote Apps Script backend enforces amountPaid > 0, retry seamlessly with sentinel amount while tagged [₹0_FREE]
+      // so the real approval request is stored on the server and displayed as ₹0 across student/admin ledgers & receipts.
+      const isPositiveAmtErr = (r) => Boolean(
+        r && !r.success && /greater\s*than\s*0|amount.*>\s*0|amount.*positive|invalid.*amount/i.test(String(r.message || ''))
+      );
+      if (isZeroFeeRequest && isPositiveAmtErr(res)) {
+        res = await apiCall('submitStudentFeePayment', {
+          ...basePayload,
+          amountPaid: 0.01,
+          remainingBalance: 0
+        });
+        if (isPositiveAmtErr(res)) {
+          res = await apiCall('submitStudentFeePayment', {
+            ...basePayload,
+            amountPaid: 1,
+            remainingBalance: 0
+          });
+        }
+      }
+
       if (res && res.success) {
-        safeNotify(res.message || '✅ Payment UTR submitted! Track approval in Fee Payment History.');
+        safeNotify(res.message || (isZeroFeeRequest
+          ? '✅ ₹0 Enrollment request sent for Admin Approval! Track status & receipt in Fee Payment History.'
+          : '✅ Payment UTR submitted! Track approval in Fee Payment History.'));
         const panel = document.getElementById(_selectedStudentFeePlan.panelId || 'buy-plans-upi-checkout-panel');
         if (panel) panel.style.display = 'none';
         if (typeof window.switchBuyPlansSubtab === 'function' && document.getElementById('buy-plans-history-mount')) {
@@ -1592,10 +1719,15 @@ window.submitStudentFeeUtrPayment = async function () {
           await window.renderProfileFeesSection(true);
         }
       } else {
-        showCheckoutErr((res && res.message) || 'Could not submit fee payment.');
+        showCheckoutErr((res && res.message) || 'Could not submit fee request.');
       }
     } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit UTR for Admin Approval'; }
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = isZeroFeeRequest
+          ? '<i class="fa-solid fa-paper-plane"></i> Send ₹0 Free Enrollment Request for Approval'
+          : '<i class="fa-solid fa-paper-plane"></i> Submit UTR for Admin Approval';
+      }
     }
   };
 
@@ -1907,7 +2039,8 @@ export function renderAdminLedgerRowsOnly() {
       const planCol = r.PlanName ? `${r.PlanName}${!isMem && r.Batch ? ' (' + r.Batch + ')' : ''}` : (isMem ? '★ Member Plan' : (r.Batch || '-'));
       const instLabel = String(r.InstallmentLabel || r.InstallmentNo || '').trim();
       const couponCode = String(r.CouponCode || '').trim();
-      const remBal = Math.max(0, Number(r.RemainingBalance !== undefined && r.RemainingBalance !== '' && r.RemainingBalance !== '-' ? r.RemainingBalance : (r.DueAmount || 0)) || 0);
+      const remBal = getEffectiveFeeRemainingBalance(r);
+      const effAmt = getEffectiveFeeAmountPaid(r);
       const isApproved = normalizeFeeStatusDisplay(r.Status) === 'Approved';
       return `
         <tr>
@@ -1920,8 +2053,10 @@ export function renderAdminLedgerRowsOnly() {
             </div>
           </td>
           <td class="mono-num">
-            <div style="font-weight:800;">₹${Number(r.AmountPaid || 0).toLocaleString('en-IN')}</div>
-            ${remBal > 0 ? `<div style="font-size:10.5px; color:#b45309; font-weight:700;">Bal ₹${remBal.toLocaleString('en-IN')}</div>` : ''}
+            <div style="font-weight:800;">₹${effAmt.toLocaleString('en-IN')}</div>
+            ${remBal > 0
+              ? `<div style="font-size:10.5px; color:#b45309; font-weight:700;">Bal ₹${remBal.toLocaleString('en-IN')}</div>`
+              : (effAmt === 0 ? `<div style="font-size:10.5px; color:#047857; font-weight:700;">₹0 Paid (Free / Coupon)</div>` : '')}
           </td>
           <td class="mono-num">${escapeHtml(r.UTR || r.PaymentMode || '-')}</td>
           <td>${renderFeeStatusBadgeHtml(r.Status)}</td>
@@ -1988,7 +2123,7 @@ window.renderAdminFeesManager = async function (forceFetch = false) {
     const ledger = (portalState.adminData && Array.isArray(portalState.adminData.feeLedger)) ? portalState.adminData.feeLedger : [];
     const approvedTotal = ledger
       .filter((r) => normalizeFeeStatusDisplay(r.Status) === 'Approved')
-      .reduce((acc, r) => acc + (Number(r.AmountPaid || 0) || 0), 0);
+      .reduce((acc, r) => acc + getEffectiveFeeAmountPaid(r), 0);
     const pendingRows = ledger.filter((r) => normalizeFeeStatusDisplay(r.Status) === 'Pending');
     const activeMembersCount = ((portalState.adminData && Array.isArray(portalState.adminData.users)) ? portalState.adminData.users : [])
       .filter((u) => String(u.Role || u.role || '').toLowerCase() === 'member' || Boolean(u.IsMemberAllAccess || u.isMemberAllAccess)).length;
@@ -2007,7 +2142,9 @@ window.renderAdminFeesManager = async function (forceFetch = false) {
           const vDays = Number(r.ValidityDays || (isMem ? 365 : 90)) || 90;
           const instLabel = String(r.InstallmentLabel || r.InstallmentNo || 'Full Payment').trim();
           const couponCode = String(r.CouponCode || '').trim();
-          const remBal = Math.max(0, Number(r.RemainingBalance !== undefined && r.RemainingBalance !== '' && r.RemainingBalance !== '-' ? r.RemainingBalance : (r.DueAmount || 0)) || 0);
+          const effAmt = getEffectiveFeeAmountPaid(r);
+          const remBal = getEffectiveFeeRemainingBalance(r);
+          const cleanRem = cleanFeeRemarksForDisplay(r.Remarks);
           const rejectReasonId = `adm-reject-reason-${pIdx}`;
 
           return `
@@ -2022,10 +2159,12 @@ window.renderAdminFeesManager = async function (forceFetch = false) {
                 </div>
               </td>
               <td class="mono-num">
-                <div style="font-weight:800;">₹${Number(r.AmountPaid || 0).toLocaleString('en-IN')}</div>
-                ${remBal > 0 ? `<div style="font-size:10.5px; color:#b45309; font-weight:700;">Bal ₹${remBal.toLocaleString('en-IN')}</div>` : ''}
+                <div style="font-weight:800;">₹${effAmt.toLocaleString('en-IN')}</div>
+                ${remBal > 0
+                  ? `<div style="font-size:10.5px; color:#b45309; font-weight:700;">Bal ₹${remBal.toLocaleString('en-IN')}</div>`
+                  : (effAmt === 0 ? `<div style="font-size:10.5px; color:#047857; font-weight:700;">₹0 Paid (Free / Coupon)</div>` : '')}
               </td>
-              <td class="mono-num"><strong>${escapeHtml(r.UTR || '-')}</strong><div style="font-size:11px; color:var(--text-muted);">${escapeHtml(r.Remarks && r.Remarks !== '-' ? r.Remarks : '')}</div></td>
+              <td class="mono-num"><strong>${escapeHtml(r.UTR || '-')}</strong><div style="font-size:11px; color:var(--text-muted);">${escapeHtml(cleanRem)}</div></td>
               <td class="mono-num" style="font-size:11.5px;">${escapeHtml(formatReadableFeeDate(r.Timestamp || r.PaymentDate || '-'))}</td>
               <td>
                 <div style="display:flex; flex-direction:column; gap:5px;">

@@ -325,7 +325,7 @@ export function renderCbtTestCatalog() {
       });
       allTests.forEach(t => addCategory(t.examCategory));
 
-      if (activeCbtCategoryFilter !== 'ALL' && !seenCatLower.has(String(activeCbtCategoryFilter).toLowerCase().trim())) {
+      if (activeCbtCategoryFilter !== 'ALL' && categories.length > 0 && !seenCatLower.has(String(activeCbtCategoryFilter).toLowerCase().trim())) {
         activeCbtCategoryFilter = 'ALL';
       }
 
@@ -668,6 +668,27 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
           }).catch(() => {});
         }
       };
+      window.toggleCbtHeaderToolsBar = function(forceShow) {
+        const drawer = document.getElementById('cbt-header-tools-drawer');
+        const btn = document.getElementById('cbt-header-tools-toggle-btn');
+        if (!drawer) return;
+        const nextShow = typeof forceShow === 'boolean' ? forceShow : (drawer.style.display === 'none' || !drawer.style.display);
+        drawer.style.display = nextShow ? 'flex' : 'none';
+        if (btn) btn.style.borderColor = nextShow ? '#38bdf8' : '#475569';
+      };
+      window.toggleCbtPaletteDrawer = function(forceOpen) {
+        const aside = document.getElementById('cbt-palette-aside');
+        const btn = document.getElementById('cbt-palette-toggle-btn');
+        if (!aside) return;
+        const currentlyHidden = aside.classList.contains('is-collapsed') || aside.classList.contains('rp-mobile-palette-collapsed');
+        const nextOpen = typeof forceOpen === 'boolean' ? forceOpen : currentlyHidden;
+        aside.classList.toggle('is-collapsed', !nextOpen);
+        aside.classList.toggle('rp-mobile-palette-collapsed', !nextOpen);
+        if (btn) btn.style.background = nextOpen ? '#2563eb' : '#1e293b';
+      };
+      window.toggleCbtHeaderToolsBar(false);
+      // Give maximum space to question & options on smaller screens by collapsing palette until requested
+      window.toggleCbtPaletteDrawer(window.innerWidth >= 1024);
       document.body.classList.add('cbt-exam-fullscreen-lock');
       const cbtToastEl = document.getElementById('center-toast');
       if (cbtToastEl) cbtToastEl.style.display = 'none';
@@ -798,14 +819,14 @@ export function renderCbtQuestion() {
         ? window.cbtPerQuestionLangOverride[activeCbtQIndex]
         : activeCbtLang;
       if (tcsLangLbl) {
-        tcsLangLbl.innerText = effectiveQLang === 'HI' ? 'Q Lang: हिंदी (Switch to EN)' : 'Q Lang: EN (हिंदी में देखें)';
+        tcsLangLbl.innerText = effectiveQLang === 'HI' ? 'हिं⇄EN' : 'EN⇄हिं';
       }
 
       const origNote = (q.originalSection && q.originalSection !== q.section) ? ` [${q.originalSection}]` : '';
       const spentSoFar = cbtQuestionTimeSpentSecMap[activeCbtQIndex] || 0;
-      if (qNumEl) qNumEl.innerText = `Question No. ${activeCbtQIndex + 1} of ${portalState.activeCbtTest.questions.length} (${q.section}${origNote}) • ⏱️ ${spentSoFar}s spent`;
+      if (qNumEl) qNumEl.innerText = `Q ${activeCbtQIndex + 1}/${portalState.activeCbtTest.questions.length} (${q.section}${origNote})`;
       const qTimeBadge = document.getElementById('cbt-q-time-spent-badge');
-      if (qTimeBadge) qTimeBadge.innerText = `Time on Q: ${spentSoFar}s`;
+      if (qTimeBadge) qTimeBadge.innerText = `${spentSoFar}s`;
       if (conceptBadge && typeof window.classifyCbtQuestionSubTopic === 'function') {
         conceptBadge.innerHTML = `<i class="fa-solid fa-tag"></i> ${window.classifyCbtQuestionSubTopic(q)}`;
       }
@@ -821,8 +842,8 @@ export function renderCbtQuestion() {
         optContainer.innerHTML = options.map((optText, optIdx) => {
           const isChecked = selectedOpt === optIdx;
           return `
-            <label onclick="selectCbtOption(${optIdx})" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; border: 2px solid ${isChecked ? 'var(--primary)' : 'var(--border)'}; background: ${isChecked ? 'rgba(79,70,229,0.08)' : 'var(--background)'}; cursor: pointer; font-weight: ${isChecked ? '700' : '500'}; transition: all 0.15s;">
-              <input type="radio" name="cbt_opt" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; pointer-events: none;">
+            <label onclick="selectCbtOption(${optIdx})" style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; border: 1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border)'}; background: ${isChecked ? 'rgba(79,70,229,0.08)' : 'var(--background)'}; cursor: pointer; font-weight: ${isChecked ? '700' : '500'}; font-size: 14px; line-height: 1.45; transition: all 0.15s;">
+              <input type="radio" name="cbt_opt" ${isChecked ? 'checked' : ''} style="width: 16px; height: 16px; flex-shrink: 0; pointer-events: none;">
               <span><strong>(${String.fromCharCode(65 + optIdx)})</strong> ${optText}</span>
             </label>
           `;

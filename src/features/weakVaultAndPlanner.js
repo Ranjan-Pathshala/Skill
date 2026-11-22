@@ -486,6 +486,26 @@ window.inspectPitmanWordInVault = function(word, inlineOnly = false) {
         const info = window.describePitmanShorthandOutline(cleanWord);
         window.__currentInspectedPitmanWord = info.word;
 
+        // If this word exists in the Words & Outlines tab, render its actual word outline image directly (without any "already available" notice)
+        const existingWordsEntry = typeof window.findExistingWordInWordsTabData === 'function'
+          ? window.findExistingWordInWordsTabData(cleanWord)
+          : null;
+        const rawExistingImg = existingWordsEntry
+          ? String(existingWordsEntry.ContentOrUrl || existingWordsEntry.ThumbnailUrl || '').trim()
+          : '';
+        const hasExistingWordOutlineUrl = Boolean(rawExistingImg && rawExistingImg !== '-' && /^(https?:\/\/|data:image\/)/i.test(rawExistingImg));
+        const resolvedExistingOutlineUrl = hasExistingWordOutlineUrl
+          ? (typeof window.getUniversalUrl === 'function' ? window.getUniversalUrl(rawExistingImg, 'image') : rawExistingImg)
+          : '';
+        const safeOutlineUrlJs = resolvedExistingOutlineUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const safeWordJs = window.escapeHtml(info.word).replace(/'/g, "\\'");
+        const stageVisualHtml = resolvedExistingOutlineUrl
+          ? `<div style="width:100%; max-width:300px; margin:0 auto; text-align:center;">
+               <img src="${window.escapeHtml(resolvedExistingOutlineUrl)}" alt="${window.escapeHtml(info.word)}" style="max-width:100%; max-height:190px; object-fit:contain; border-radius:8px; background:#ffffff; padding:6px; border:1px solid var(--border); cursor:pointer;" onclick="if(typeof openEmbeddedImageModal==='function') openEmbeddedImageModal('${safeOutlineUrlJs}', '${safeWordJs}')" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+               <div style="display:none; width:100%; max-width:290px; margin:0 auto;">${info.svg}</div>
+             </div>`
+          : `<div style="width:100%; max-width:290px; margin:0 auto;">${info.svg}</div>`;
+
         // 1. Update Inline Studio Inspector inside #view-weak-vault
         const inlineTitle = document.getElementById('inline-pitman-word-title');
         const inlinePos = document.getElementById('inline-pitman-position-badge');
@@ -494,12 +514,14 @@ window.inspectPitmanWordInVault = function(word, inlineOnly = false) {
         const inlineInput = document.getElementById('inline-pitman-practice-input');
         const inlineProgress = document.getElementById('inline-pitman-practice-progress');
         if (inlineTitle) inlineTitle.textContent = info.word;
-        if (inlinePos) inlinePos.textContent = info.position;
+        if (inlinePos) inlinePos.textContent = resolvedExistingOutlineUrl ? info.word : info.position;
         if (inlineStage) {
-            inlineStage.innerHTML = `<div style="width:100%; max-width:290px; margin:0 auto;">${info.svg}</div>`;
+            inlineStage.innerHTML = stageVisualHtml;
         }
         if (inlineNotes) {
-            inlineNotes.innerHTML = info.rules.map(r => `<div style="display:flex; align-items:flex-start; gap:8px; background:var(--background); padding:8px 10px; border-radius:8px; border:1px solid var(--border); font-size:12px; color:var(--secondary);"><i class="fas fa-check-circle" style="color:var(--primary); margin-top:2px; flex-shrink:0;"></i><span>${r}</span></div>`).join('');
+            inlineNotes.innerHTML = resolvedExistingOutlineUrl
+              ? ''
+              : info.rules.map(r => `<div style="display:flex; align-items:flex-start; gap:8px; background:var(--background); padding:8px 10px; border-radius:8px; border:1px solid var(--border); font-size:12px; color:var(--secondary);"><i class="fas fa-check-circle" style="color:var(--primary); margin-top:2px; flex-shrink:0;"></i><span>${r}</span></div>`).join('');
         }
         if (inlineInput) {
             inlineInput.disabled = false;
@@ -524,15 +546,17 @@ window.inspectPitmanWordInVault = function(word, inlineOnly = false) {
         const stage = document.getElementById('pitman-outline-svg-stage');
         const notes = document.getElementById('pitman-outline-Coaching-notes');
         const input = document.getElementById('pitman-inspector-practice-input');
-        if (posBadge) posBadge.textContent = info.position;
+        if (posBadge) posBadge.textContent = resolvedExistingOutlineUrl ? info.word : info.position;
         if (stage) {
             stage.innerHTML = `
                 <div style="font-size: 16px; font-weight: 900; color: var(--secondary); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 6px;">${window.escapeHtml(info.word)}</div>
-                <div style="width: 100%; max-width: 280px;">${info.svg}</div>
+                ${stageVisualHtml}
             `;
         }
         if (notes) {
-            notes.innerHTML = info.rules.map(r => `<div style="display:flex; align-items:flex-start; gap:8px; background:var(--surface); padding:6px 10px; border-radius:8px; border:1px solid var(--border);"><i class="fas fa-check-circle" style="color:var(--primary); margin-top:3px;"></i><span>${r}</span></div>`).join('');
+            notes.innerHTML = resolvedExistingOutlineUrl
+              ? ''
+              : info.rules.map(r => `<div style="display:flex; align-items:flex-start; gap:8px; background:var(--surface); padding:6px 10px; border-radius:8px; border:1px solid var(--border);"><i class="fas fa-check-circle" style="color:var(--primary); margin-top:3px;"></i><span>${r}</span></div>`).join('');
         }
         if (input) {
             input.value = '';

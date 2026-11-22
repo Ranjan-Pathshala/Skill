@@ -1162,9 +1162,6 @@ export function renderWpmSpeedButtonsHtml(lightTheme = false) {
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 720px; padding-top: 6px; border-top: 1px dashed rgba(148,163,184,0.28);">
             <span style="font-size: 11px; font-weight: 800; color: var(--primary);"><i class="fa-solid fa-sliders"></i> Fine 5-WPM Slider (60–140 WPM):</span>
             <input type="range" class="modal-quick-60-140-slider" min="60" max="140" step="5" value="${Math.max(60, Math.min(140, activeTargetWpm))}" oninput="handleAudioCustom60To140Slider(this.value, this)" style="flex: 1; min-width: 150px; accent-color: var(--primary); cursor: pointer; margin: 0;">
-            <button type="button" class="btn btn-sm btn-warning" style="padding: 3px 10px; font-size: 10.5px; font-weight: 800;" onclick="triggerFiveSecondBeepCountdownPreview(true)">
-              <i class="fa-solid fa-stopwatch-20"></i> 5s Beep &amp; Restart
-            </button>
           </div>
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 620px; padding-top: 4px;">
             <span style="font-size: 10.5px; font-weight: 700; opacity: 0.85;">Full Range (40–250 WPM • 5 WPM Step):</span>
@@ -1588,11 +1585,14 @@ export async function openPdfModal(pdfUrl, title) {
       }
 
       if (body) {
+        body.style.overflow = 'hidden';
+        body.style.overflowY = 'hidden';
+        body.style.overscrollBehavior = 'contain';
         body.innerHTML = `
           <div class="watermark-text-container" style="position: relative; width: 100%; height: 100%; min-height: 0; background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
             <div class="global-watermark-layer" style="opacity: 0.12; z-index: 10; pointer-events: none;"></div>
             <!-- Pure White Full-Viewport Scrollable Canvas -->
-            <div id="custom-pdf-scroll-container" oncontextmenu="return false;" style="width: 100%; flex: 1; min-height: 0; overflow: auto; background: #f1f5f9 !important; display: block; text-align: center; padding: 6px; position: relative; z-index: 5; -webkit-overflow-scrolling: touch;">
+            <div id="custom-pdf-scroll-container" oncontextmenu="return false;" style="width: 100%; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; background: #f1f5f9 !important; display: block; text-align: center; padding: 6px; position: relative; z-index: 5; -webkit-overflow-scrolling: touch;">
               <div id="custom-pdf-status-msg" style="display: inline-block; padding: 10px 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; color: #334155; font-weight: 700; font-size: 12.5px; margin: 12px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
                 <i class="fa-solid fa-spinner fa-spin" style="color: var(--primary); margin-right: 6px;"></i> Loading PDF Document...
               </div>
@@ -1625,9 +1625,10 @@ export async function openPdfModal(pdfUrl, title) {
             </div>
           `;
         }
+        const directPdfFitUrl = urlToEmbed.includes('#') ? urlToEmbed : `${urlToEmbed}#view=Fit`;
         return `
           <div style="position:relative; width:100%; height:100%; background:#ffffff;">
-            <object data="${urlToEmbed}" type="application/pdf" style="width:100%; height:100%; border:none;">
+            <object data="${directPdfFitUrl}" type="application/pdf" style="width:100%; height:100%; border:none;">
               <iframe id="custom-pdf-embed-iframe" src="https://docs.google.com/viewer?url=${encodeURIComponent(urlToEmbed)}&embedded=true" style="width:100%; height:100%; border:none; background:#ffffff !important;"></iframe>
             </object>
           </div>
@@ -1723,6 +1724,25 @@ export function updateCustomPdfIndicatorOnly() {
     }
 
 let _customPdfPendingPage = null;
+let _customPdfResizeTimer = null;
+
+if (typeof window !== 'undefined' && !window.__rpPdfResizeBound) {
+      window.__rpPdfResizeBound = true;
+      window.addEventListener('resize', () => {
+        const modal = document.getElementById('reader-modal');
+        if (!modal || modal.style.display === 'none') return;
+        const pdfWrap = document.getElementById('custom-pdf-scroll-container');
+        if (!pdfWrap) return;
+        clearTimeout(_customPdfResizeTimer);
+        _customPdfResizeTimer = setTimeout(() => {
+          if (customPdfDoc) {
+            renderCustomPdfPage(customPdfPageNum);
+          } else {
+            applyFallbackPdfZoomLayout();
+          }
+        }, 140);
+      });
+    }
 
 function applyFallbackPdfZoomLayout() {
       const fallbackEl = document.getElementById('custom-pdf-fallback-frame');
@@ -1730,8 +1750,10 @@ function applyFallbackPdfZoomLayout() {
       const scrollContainer = document.getElementById('custom-pdf-scroll-container');
       const topBar = document.getElementById('reader-modal-top-bar');
       const topBarH = (topBar && topBar.style.display !== 'none') ? topBar.offsetHeight : 0;
-      const baseWidth = Math.max(300, (scrollContainer ? scrollContainer.clientWidth - 12 : window.innerWidth - 16));
-      const baseHeight = Math.max(460, (window.innerHeight || 760) - topBarH - 14);
+      const containerW = (scrollContainer && scrollContainer.clientWidth > 120) ? scrollContainer.clientWidth : (window.innerWidth || 360);
+      const containerH = (scrollContainer && scrollContainer.clientHeight > 120) ? scrollContainer.clientHeight : ((window.innerHeight || 640) - topBarH);
+      const baseWidth = Math.max(240, containerW - 14);
+      const baseHeight = Math.max(260, containerH - 14);
       const zoomedWidth = Math.round(baseWidth * pdfZoomLevel);
       const zoomedHeight = Math.round(baseHeight * pdfZoomLevel);
 
@@ -1761,11 +1783,21 @@ export async function renderCustomPdfPage(pageNum) {
       _customPdfPendingPage = null;
       try {
         const page = await customPdfDoc.getPage(pageNum);
-        const scrollContainer = document.getElementById('custom-pdf-scroll-container');
+        let scrollContainer = document.getElementById('custom-pdf-scroll-container');
+        if (scrollContainer && (scrollContainer.clientWidth < 120 || scrollContainer.clientHeight < 120)) {
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+          scrollContainer = document.getElementById('custom-pdf-scroll-container');
+        }
+        const topBar = document.getElementById('reader-modal-top-bar');
+        const topBarH = (topBar && topBar.style.display !== 'none') ? topBar.offsetHeight : 42;
         const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const containerAvailW = Math.max(300, (scrollContainer ? scrollContainer.clientWidth - 48 : 840));
-        const fitScale = Math.min(1.35, containerAvailW / Math.max(1, unscaledViewport.width));
-        const effectiveScale = Math.max(0.4, Math.min(4.0, fitScale * pdfZoomLevel));
+        const containerAvailW = Math.max(240, ((scrollContainer && scrollContainer.clientWidth > 120) ? scrollContainer.clientWidth : (window.innerWidth || 360)) - 16);
+        const containerAvailH = Math.max(260, ((scrollContainer && scrollContainer.clientHeight > 120) ? scrollContainer.clientHeight : ((window.innerHeight || 640) - topBarH)) - 16);
+        const fitWidthScale = containerAvailW / Math.max(1, unscaledViewport.width);
+        const fitHeightScale = containerAvailH / Math.max(1, unscaledViewport.height);
+        // True Fit-to-Screen: fits full page width & height inside the screen on open across mobile, tablet & desktop
+        const fitScale = Math.min(fitWidthScale, fitHeightScale);
+        const effectiveScale = Math.max(0.25, Math.min(4.5, fitScale * pdfZoomLevel));
         const viewport = page.getViewport({ scale: effectiveScale });
 
         const canvas = document.getElementById('custom-pdf-canvas');
@@ -2592,6 +2624,18 @@ export function cancelPreAudioStartAutoBeep() {
         clearTimeout(activePreAudioBeepTimeout);
         activePreAudioBeepTimeout = null;
       }
+      if (activeFiveSecCountdownTimer) {
+        clearInterval(activeFiveSecCountdownTimer);
+        activeFiveSecCountdownTimer = null;
+      }
+      const bannerOverlay = document.getElementById('audio-5sec-countdown-banner-overlay');
+      const modalBanner = document.getElementById('modal-5sec-countdown-live-banner');
+      if (bannerOverlay) bannerOverlay.style.display = 'none';
+      if (modalBanner) modalBanner.style.display = 'none';
+      const dictAudio = document.getElementById('stenoshala-dictation-audio');
+      if (dictAudio && dictAudio.dataset) {
+        delete dictAudio.dataset.autoBeepInProgress;
+      }
     }
 
 export function playPreAudioStartAutoBeep(onAfterBeep) {
@@ -2599,17 +2643,11 @@ export function playPreAudioStartAutoBeep(onAfterBeep) {
       const statusBadge = document.getElementById('stenoshala-audio-verify-status');
       if (statusBadge) {
         statusBadge.style.color = '#d97706';
-        statusBadge.innerHTML = `<i class="fa-solid fa-bell"></i> Beep! Starting dictation audio...`;
+        statusBadge.innerHTML = `<i class="fa-solid fa-bell"></i> 5-Second Beep Countdown... Get ready!`;
       }
-      // Crisp attention dual-beep (ready pip + clear GO beep) right before audio begins
-      playCountdownToneBeep(880, 0.14, false);
-      activePreAudioBeepTimeout = setTimeout(() => {
-        playCountdownToneBeep(1320, 0.28, true);
-        activePreAudioBeepTimeout = setTimeout(() => {
-          activePreAudioBeepTimeout = null;
-          if (typeof onAfterBeep === 'function') onAfterBeep();
-        }, 300);
-      }, 220);
+      runFiveSecondBeepCountdown(() => {
+        if (typeof onAfterBeep === 'function') onAfterBeep();
+      });
     }
 
 export function playOrVerifyStenoshalaDictationAudio(action = 'play', options = {}) {
@@ -3505,7 +3543,6 @@ export function startAudioDictationTestById(id) {
                   <button type="button" class="btn btn-success btn-sm" style="flex: 1; min-width: 82px;" onclick="playOrVerifyStenoshalaDictationAudio('play')"><i class="fa-solid fa-play"></i> Play</button>
                   <button type="button" class="btn btn-warning btn-sm" style="flex: 1; min-width: 82px;" onclick="playOrVerifyStenoshalaDictationAudio('pause')"><i class="fa-solid fa-pause"></i> Pause</button>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="playOrVerifyStenoshalaDictationAudio('replay')"><i class="fa-solid fa-rotate-right"></i> Replay</button>
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="triggerFiveSecondBeepCountdownPreview(true)"><i class="fa-solid fa-bell" style="color:#d97706;"></i> 5s Beep</button>
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--border);">
                   <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 700; font-size: 12px; color: var(--secondary); margin: 0;">
@@ -5531,7 +5568,7 @@ window.openTranscribeExamSelector = function(sourceType = 'audio') {
     const countBadge = document.getElementById('transcribe-rule-match-count');
     if (!modal || !select) return;
 
-    modal.style.cssText = 'position:fixed; inset:0; z-index:99998; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(15,23,42,0.72); backdrop-filter:blur(4px);';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:99998; display:flex; align-items:center; justify-content:center; padding:8px; background:rgba(15,23,42,0.78); backdrop-filter:blur(4px);';
 
     select.innerHTML = '';
     const primaryKeys = window.getSectionEvaluationRuleKeys(pendingTranscriptionSourceType);
@@ -5664,8 +5701,11 @@ window.openTranscribeExamSelector = function(sourceType = 'audio') {
                   <span>&middot;</span>
                   <span>${bsShort}</span>
                 </div>
-                <div style="margin-top:6px; font-size:11px; font-weight:700; color:var(--primary);">
-                  ${isSel && showCompleteRuleDetails ? 'Hide full marking parameters' : 'View all 12 marking parameters'}
+                <div style="margin-top:7px; display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap;">
+                  <span style="font-size:11px; font-weight:700; color:var(--primary);">
+                    ${isSel && showCompleteRuleDetails ? 'Hide full parameters' : 'View 12 parameters'}
+                  </span>
+                  ${isSel ? `<button type="button" class="btn btn-success btn-sm" style="padding:4px 10px; min-height:26px; font-size:11px; font-weight:800;" onclick="event.stopPropagation(); confirmExamAndStartTranscription();"><i class="fa-solid fa-keyboard"></i> Transcribe Now &rarr;</button>` : ''}
                 </div>
               </div>
             `;
@@ -5707,9 +5747,14 @@ window.openTranscribeExamSelector = function(sourceType = 'audio') {
           preview.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
               <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Selected Rule: <strong style="color:var(--secondary);">${escapeHtml((r && (r.examDisplayName || r.examTitle)) || activeKey || 'None')}</strong></span>
-              <button type="button" class="btn btn-sm btn-secondary" style="font-size:11.5px; font-weight:700;" onclick="window.previewSelectedTranscribeExamRule(true)">
-                Inspect All 12 Marking Parameters
-              </button>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-secondary" style="font-size:11.5px; font-weight:700; padding:4px 10px;" onclick="window.previewSelectedTranscribeExamRule(true)">
+                  Inspect Parameters
+                </button>
+                <button type="button" class="btn btn-sm btn-success" style="font-size:11.5px; font-weight:800; padding:4px 12px;" onclick="confirmExamAndStartTranscription()">
+                  <i class="fa-solid fa-keyboard"></i> Transcribe Now &rarr;
+                </button>
+              </div>
             </div>
           `;
         } else {

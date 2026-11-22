@@ -1835,53 +1835,53 @@
           <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">Select one card at a time below to open and configure its settings. Nothing is pre-selected initially.</p>
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
-          <span id="admin-banner-selected-count" style="font-size: 12px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums;">None Selected (Pick 1 Card)</span>
+          <span id="admin-banner-selected-count" style="font-size: 12px; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums;">1 Card Active</span>
           <button type="button" class="btn btn-secondary btn-sm" onclick="if(typeof window.resetBannerPromoCardSelection==='function') window.resetBannerPromoCardSelection()">Clear Selection</button>
         </div>
       </div>
 
       <div id="admin-banner-card-selector-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;">
-        <button type="button" class="rp-banner-select-card" id="banner-select-card-dashpromo" data-banner-card="dashpromo" onclick="if(typeof window.toggleBannerPromoCardSelection==='function') window.toggleBannerPromoCardSelection('dashpromo')" style="text-align: left; padding: 16px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.15s, background 0.15s;">
+        <button type="button" class="rp-banner-select-card" id="banner-select-card-topbanner" data-banner-card="topbanner" onclick="if(typeof window.toggleBannerPromoCardSelection==='function') window.toggleBannerPromoCardSelection('topbanner')" style="text-align: left; padding: 14px; border-radius: 12px; border: 1.5px solid var(--primary); background: rgba(37, 99, 235, 0.06); cursor: pointer; display: flex; flex-direction: column; gap: 5px; transition: border-color 0.15s, background 0.15s;">
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <span style="font-size: 12px; font-weight: 700; color: var(--primary);"><i class="fa-solid fa-images"></i> Card 1</span>
-            <span class="rp-banner-card-check" style="font-size: 11.5px; font-weight: 700; color: var(--text-muted);">Not Selected</span>
+            <span style="font-size: 12px; font-weight: 700; color: #0d9488;"><i class="fa-solid fa-bullhorn"></i> Card 1</span>
+            <span class="rp-banner-card-check" style="font-size: 11.5px; font-weight: 700; color: var(--primary);">✓ Selected</span>
           </div>
-          <strong style="font-size: 14.5px; color: var(--secondary);">Dashboard Multi-Image Carousel</strong>
+          <strong style="font-size: 14px; color: var(--secondary);">Top Scrolling Banners (Logged-In &amp; Logged-Out)</strong>
+          <span style="font-size: 12px; color: var(--text-muted); line-height: 1.45;">Set separate top scrolling banner text for Logged-Out visitors &amp; Logged-In students, schedule, and date banners.</span>
+        </button>
+
+        <button type="button" class="rp-banner-select-card" id="banner-select-card-dashpromo" data-banner-card="dashpromo" onclick="if(typeof window.toggleBannerPromoCardSelection==='function') window.toggleBannerPromoCardSelection('dashpromo')" style="text-align: left; padding: 14px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 5px; transition: border-color 0.15s, background 0.15s;">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <span style="font-size: 12px; font-weight: 700; color: var(--primary);"><i class="fa-solid fa-images"></i> Card 2</span>
+            <span class="rp-banner-card-check" style="font-size: 11.5px; font-weight: 700; color: var(--text-muted);">Click to Open</span>
+          </div>
+          <strong style="font-size: 14px; color: var(--secondary);">Dashboard Multi-Image Carousel</strong>
           <span style="font-size: 12px; color: var(--text-muted); line-height: 1.45;">Upload multiple promotional slides, set captions, CTA buttons, and auto-scroll interval.</span>
         </button>
 
-        <button type="button" class="rp-banner-select-card" id="banner-select-card-topbanner" data-banner-card="topbanner" onclick="if(typeof window.toggleBannerPromoCardSelection==='function') window.toggleBannerPromoCardSelection('topbanner')" style="text-align: left; padding: 16px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.15s, background 0.15s;">
-          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <span style="font-size: 12px; font-weight: 700; color: #0d9488;"><i class="fa-solid fa-bullhorn"></i> Card 2</span>
-            <span class="rp-banner-card-check" style="font-size: 11.5px; font-weight: 700; color: var(--text-muted);">Not Selected</span>
-          </div>
-          <strong style="font-size: 14.5px; color: var(--secondary);">Top Announcement &amp; Date Banners</strong>
-          <span style="font-size: 12px; color: var(--text-muted); line-height: 1.45;">Configure the top site ticker bar, start/stop schedule, and exam/festival date banners.</span>
-        </button>
-
-        <button type="button" class="rp-banner-select-card" id="banner-select-card-maintenance" data-banner-card="maintenance" onclick="if(typeof window.toggleBannerPromoCardSelection==='function') window.toggleBannerPromoCardSelection('maintenance')" style="text-align: left; padding: 16px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 6px; transition: border-color 0.15s, background 0.15s;">
+        <button type="button" class="rp-banner-select-card" id="banner-select-card-maintenance" data-banner-card="maintenance" onclick="if(typeof window.toggleBannerPromoCardSelection==='function') window.toggleBannerPromoCardSelection('maintenance')" style="text-align: left; padding: 14px; border-radius: 12px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; display: flex; flex-direction: column; gap: 5px; transition: border-color 0.15s, background 0.15s;">
           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <span style="font-size: 12px; font-weight: 700; color: #d97706;"><i class="fa-solid fa-screwdriver-wrench"></i> Card 3</span>
-            <span class="rp-banner-card-check" style="font-size: 11.5px; font-weight: 700; color: var(--text-muted);">Not Selected</span>
+            <span class="rp-banner-card-check" style="font-size: 11.5px; font-weight: 700; color: var(--text-muted);">Click to Open</span>
           </div>
-          <strong style="font-size: 14.5px; color: var(--secondary);">Site &amp; Per-Tab Maintenance Mode</strong>
+          <strong style="font-size: 14px; color: var(--secondary);">Site &amp; Per-Tab Maintenance Mode</strong>
           <span style="font-size: 12px; color: var(--text-muted); line-height: 1.45;">Enable full-site maintenance or restrict specific student tabs with a custom notice.</span>
         </button>
       </div>
 
-      <div id="admin-banner-empty-selection-prompt" class="card" style="margin-top: 14px; padding: 28px 20px; text-align: center; border: 1.5px dashed var(--border); background: var(--background);">
+      <div id="admin-banner-empty-selection-prompt" class="card" style="display: none; margin-top: 14px; padding: 24px 20px; text-align: center; border: 1.5px dashed var(--border); background: var(--background);">
         <div style="font-size: 14px; font-weight: 800; color: var(--secondary); margin-bottom: 4px;">No Banner or Promo Module Selected Yet</div>
-        <div style="font-size: 12.5px; color: var(--text-muted);">Click any single card above to open its configuration panel (only one card can be active at a time).</div>
+        <div style="font-size: 12.5px; color: var(--text-muted);">Click any card above to open its configuration panel.</div>
       </div>
     </div>
 
-    <!-- MODULE 1: TOP ANNOUNCEMENT TICKER & DATE-SPECIFIC BANNERS -->
-    <div class="card" id="admin-banner-top-card" style="display: none; max-width: 980px; margin: 0 auto 16px auto; padding: 16px 18px;">
-      <h4 style="margin: 0 0 12px 0; color: var(--secondary); font-size: 15.5px; font-weight: 800;"><i class="fa-solid fa-bullhorn" style="color: var(--primary);"></i> Top Website Announcement Ticker</h4>
+    <!-- MODULE 1: TOP ANNOUNCEMENT TICKER (LOGGED-IN & LOGGED-OUT) & DATE-SPECIFIC BANNERS -->
+    <div class="card" id="admin-banner-top-card" style="display: block; max-width: 980px; margin: 0 auto 16px auto; padding: 16px 18px; border-top: 3px solid #0d9488;">
+      <h4 style="margin: 0 0 12px 0; color: var(--secondary); font-size: 15.5px; font-weight: 800;"><i class="fa-solid fa-bullhorn" style="color: var(--primary);"></i> Top Website Scrolling Banners (Logged-In &amp; Logged-Out)</h4>
       <div style="margin-bottom: 12px;">
         <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; cursor: pointer;">
           <input type="checkbox" id="banner-enable-chk" style="width: 16px; height: 16px;">
-          Enable Active Top Website Banner
+          Enable Active Top Website Scrolling Banners
         </label>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
@@ -1895,18 +1895,18 @@
         </div>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 12px;">
-        <div class="form-group" style="margin-bottom: 0;">
-          <label style="display: block; margin-bottom: 5px; font-weight: 700; font-size: 12px;">Logged-In Student Top Scrolling Banner Text <span class="required-star">*</span></label>
+        <div class="form-group" style="margin-bottom: 0; padding: 10px 12px; border-radius: 10px; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.28);">
+          <label style="display: block; margin-bottom: 5px; font-weight: 800; font-size: 12px; color: #047857;"><i class="fa-solid fa-user-check"></i> Logged-In Student Top Scrolling Banner Text <span class="required-star">*</span></label>
           <textarea id="banner-text-input" class="form-control" rows="2" placeholder="Scrolling banner text shown to logged-in students..."></textarea>
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
-          <label style="display: block; margin-bottom: 5px; font-weight: 700; font-size: 12px;">Logged-Out / Public Visitor Top Scrolling Banner Text</label>
+        <div class="form-group" style="margin-bottom: 0; padding: 10px 12px; border-radius: 10px; background: rgba(67, 56, 202, 0.06); border: 1px solid rgba(67, 56, 202, 0.28);">
+          <label style="display: block; margin-bottom: 5px; font-weight: 800; font-size: 12px; color: #4338ca;"><i class="fa-solid fa-right-from-bracket"></i> Logged-Out / Public Visitor Top Scrolling Banner Text</label>
           <textarea id="banner-logged-out-text-input" class="form-control" rows="2" placeholder="Different scrolling banner text shown before login (admissions, live batches, welcome)..."></textarea>
         </div>
       </div>
       <div style="display: flex; gap: 8px; margin-bottom: 18px;">
-        <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveBannerSettings()">Save Top Banners</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="deleteBannerItem('active')">Reset Banner</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="handleSaveBannerSettings()"><i class="fa-solid fa-floppy-disk"></i> Save Logged-In &amp; Logged-Out Banners</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="deleteBannerItem('active')">Reset Banners</button>
       </div>
 
       <div style="border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px;">

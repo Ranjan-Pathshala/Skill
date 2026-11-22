@@ -123,26 +123,31 @@
               <span class="rp-prof-card-icon"><i class="fa-solid fa-user-group"></i></span>
               <div>
                 <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--secondary);">Parent / Guardian Details</h4>
-                <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">If left blank, your own contact details are used automatically.</p>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">Mirrors your own details by default unless you mark both details as different below.</p>
               </div>
             </div>
-            <span id="prof-parent-fallback-badge" style="font-size: 11.5px; font-weight: 700; color: #0284c7;">Using Student Details</span>
+            <span id="prof-parent-fallback-badge" style="font-size: 11.5px; font-weight: 700; color: #0284c7;">Same as Student Details</span>
           </div>
+
+          <label style="display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-radius: 10px; background: var(--background); border: 1px solid var(--border); cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--secondary); margin: 0;">
+            <input type="checkbox" id="prof-parent-different-chk" onchange="toggleParentDetailsDifferentMode(this.checked)" style="width: 16px; height: 16px; accent-color: #059669; cursor: pointer; margin: 0; flex-shrink: 0;">
+            <span>Parent / Guardian details are different from my details</span>
+          </label>
 
           <div class="form-group" style="margin: 0;">
             <label>Parent / Guardian Name</label>
-            <input type="text" id="prof-parent-name" class="form-control" placeholder="Leave blank to use your name">
+            <input type="text" id="prof-parent-name" class="form-control" placeholder="Enter parent / guardian name" readonly>
           </div>
           <div class="form-group" style="margin: 0;">
             <label>Parent Mobile No. (10 Digits)</label>
-            <input type="text" id="prof-parent-mobile" class="form-control" maxlength="10" placeholder="Leave blank to use your mobile" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
+            <input type="text" id="prof-parent-mobile" class="form-control" maxlength="10" placeholder="Enter 10-digit parent mobile" readonly oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
           </div>
           <div class="form-group" style="margin: 0;">
             <label>Parent Email ID</label>
-            <input type="email" id="prof-parent-email" class="form-control" placeholder="Leave blank to use your email" oninput="this.value = this.value.toLowerCase()">
+            <input type="email" id="prof-parent-email" class="form-control" placeholder="Enter parent email ID" readonly oninput="this.value = this.value.toLowerCase()">
           </div>
 
-          <button type="button" class="btn btn-success" style="width: 100%; margin-top: auto; border-radius: 12px; min-height: 42px; font-weight: 700;" onclick="saveParentDetailsFromProfile()">
+          <button type="button" id="prof-parent-save-btn" class="btn btn-success" style="width: 100%; margin-top: auto; border-radius: 12px; min-height: 42px; font-weight: 700;" onclick="saveParentDetailsFromProfile()">
             <i class="fa-solid fa-floppy-disk"></i> Save Parent / Guardian Details
           </button>
         </div>
