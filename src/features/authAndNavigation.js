@@ -2688,7 +2688,7 @@ window.handleBrandLogoClick = function() {
     if (!isUserAuthenticated()) {
       syncAuthHeaderAndMenuVisibility();
       if (typeof switchAuthTab === 'function') switchAuthTab('login');
-      if (typeof showToast === 'function') showToast('');
+      if (typeof showToast === 'function') showToast('🔒 Please Log In / Sign Up');
       return;
     }
     if (typeof navigateTo === 'function') {
@@ -2704,7 +2704,7 @@ document.addEventListener('click', function(e) {
       syncAuthHeaderAndMenuVisibility();
       if (typeof switchAuthTab === 'function') switchAuthTab('login');
       if (typeof showToast === 'function') {
-        showToast('');
+        showToast('🔒 Please Log In / Sign Up');
       }
     }
   }, true);
