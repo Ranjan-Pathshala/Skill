@@ -1,0 +1,6 @@
+{
+  "name": "RP Skill | Ranjan Pathshala — Stenography, Typing & CBT Portal",
+  "description": "Modular Vite + ES Module frontend for the RP Skill / Ranjan Pathshala Stenography, Pitman Shorthand, Dictation, Typing, and CBT Examination Portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
