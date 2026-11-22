@@ -40,19 +40,40 @@ function initScrollRevealAnimations(): void {
     { rootMargin: '0px 0px -24px 0px', threshold: 0.05 },
   );
 
+  const UNBOUND_SELECTOR =
+    '.auth-user-feature-card:not([data-rp-reveal-bound="1"]), .rp-quick-launch-tile:not([data-rp-reveal-bound="1"]), .stat-card:not([data-rp-reveal-bound="1"])';
+
   const observeTargets = (root: ParentNode = document) => {
-    const els = root.querySelectorAll('.auth-user-feature-card, .rp-quick-launch-tile, .stat-card');
-    els.forEach((el) => {
-      if (el.getAttribute('data-rp-reveal-bound') === '1') return;
-      el.setAttribute('data-rp-reveal-bound', '1');
+    const els = root.querySelectorAll(UNBOUND_SELECTOR);
+    if (els.length === 0) return;
+
+    const vh = window.innerHeight || 800;
+    const visibleEls: Element[] = [];
+    const offscreenEls: Element[] = [];
+
+    // Phase 1: Batch all layout reads before any DOM writes to prevent forced reflows
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i];
       const rect = el.getBoundingClientRect();
-      if (rect.top < window.innerHeight && rect.bottom > 0) {
-        el.classList.add('rp-revealed');
+      if (rect.top < vh && rect.bottom > 0) {
+        visibleEls.push(el);
       } else {
-        el.classList.add('rp-reveal-ready');
-        observer.observe(el);
+        offscreenEls.push(el);
       }
-    });
+    }
+
+    // Phase 2: Batch all DOM attribute/class writes
+    for (let i = 0; i < visibleEls.length; i++) {
+      const el = visibleEls[i];
+      el.setAttribute('data-rp-reveal-bound', '1');
+      el.classList.add('rp-revealed');
+    }
+    for (let i = 0; i < offscreenEls.length; i++) {
+      const el = offscreenEls[i];
+      el.setAttribute('data-rp-reveal-bound', '1');
+      el.classList.add('rp-reveal-ready');
+      observer.observe(el);
+    }
   };
 
   observeTargets();
@@ -61,7 +82,10 @@ function initScrollRevealAnimations(): void {
     let timer: number | undefined;
     const mo = new MutationObserver(() => {
       if (timer) window.clearTimeout(timer);
-      timer = window.setTimeout(() => observeTargets(viewport), 60);
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        observeTargets(viewport);
+      }, 180);
     });
     mo.observe(viewport, { childList: true, subtree: true });
   }

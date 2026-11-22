@@ -6,7 +6,7 @@
 
 import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
-import { onDomReady } from '../core/domReady.ts';
+import { onDomReady, scheduleFrameTasks } from '../core/domReady.ts';
 import { ADMIN_LEADERBOARD_PER_PAGE, ADMIN_USERS_PER_PAGE, DEFAULT_LOGO_URL, apiCall, forceSingleDeviceLogout, getEvaluationRulesForTab, loadSelectedEvaluationRulesIntoForm, logPortalAction, normalizeMaterialRecord, normalizeSubtabRecord, normalizeUserRecord, populateEvalCategoryDropdown, saveFastPortalCache, showToast, singleSessionChannel } from './apiAndCore.js';
 import { ALL_STUDENT_PORTAL_TABS, TAB_DISPLAY_META, evaluateMaintenanceWindowClient, getMaintenanceConfig, getWorkingTabsUnderMaintenance, isTabUnderMaintenance, isUserEmailAlreadyVerified, isUserMobileAlreadyVerified, pushPortalNotification, saveMaintenanceConfigToStorage, sortMaterialsLatestFirst } from './authAndNavigation.js';
 import { getDashboardCustomBannerConfig, getDateSpecificBannersMap, renderDailyPracticeGoalUI, renderDashboardCustomBanner, renderHelpAdminContacts, renderPromoBanner, saveDashboardCustomBannerConfig, saveDateSpecificBannersMap, setupAuthenticatedUI, syncProfileTabUI } from './dashboardAndProfile.js';
@@ -93,7 +93,7 @@ export async function loadAdminData() {
       saveInstituteBatchesList(mergedBatches, false);
     }
     if (res.batchMonitorsMap && typeof res.batchMonitorsMap === 'object') {
-      saveBatchMonitorsMap({ ...getBatchMonitorsMap(), ...res.batchMonitorsMap });
+      saveBatchMonitorsMap(mergeBatchMonitorsMaps(getBatchMonitorsMap(), res.batchMonitorsMap));
     }
     if (res.batchMetaMap && typeof res.batchMetaMap === 'object') {
       window.rpBatchMetaMap = { ...(window.rpBatchMetaMap || {}), ...res.batchMetaMap };
@@ -109,37 +109,63 @@ export async function loadAdminData() {
     }
     saveFastPortalCache();
 
-    renderAdminPerformanceDashboard();
-    if (typeof renderAdminRealtimeNotifications === 'function') renderAdminRealtimeNotifications();
-    renderAdminUsers();
-    if (typeof window.renderAdminFeesManager === 'function') window.renderAdminFeesManager();
-    if (typeof window.renderAdminMonthlyAttendanceMatrix === 'function') window.renderAdminMonthlyAttendanceMatrix();
-    renderAdminLogs();
-    renderAdminFeedback();
-    populateAdminSubtabsDropdown();
-    renderAdminMaterialsTable();
-    renderAdminSubtabsTable();
-    renderAdminBannersTable();
-    renderAdminDateBannersTable();
-    loadDashboardBannerIntoAdminForm();
-    if (typeof loadMaintenanceSettingsIntoAdminForm === 'function') loadMaintenanceSettingsIntoAdminForm();
-    renderAdminLiveTestsTable();
-    populateLiveTestMaterialOptions();
-    renderAdminLeaderboard();
-    populateEvalCategoryDropdown();
-    loadSelectedEvaluationRulesIntoForm();
     applyAdminTabPermissions();
 
-    if (typeof renderAdminEvaluationRulesTable === 'function') {
-      renderAdminEvaluationRulesTable();
-    }
-    // Render clear "No more data" / progressive streaming controls under Admin tables
-    if (typeof window.renderStaticStreamDoneFooter === 'function') {
-      window.renderStaticStreamDoneFooter('admin-users-tbody', (portalState.adminData.users || []).length, 'user', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_users'));
-      window.renderStaticStreamDoneFooter('admin-materials-table-container', (portalState.adminData.materials || []).length, 'material', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_materials'));
-      window.renderStaticStreamDoneFooter('admin-logs-tbody', (portalState.adminData.logs || []).length, 'log entry', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_logs'));
-      window.renderStaticStreamDoneFooter('admin-feedback-tbody', (portalState.adminData.feedback || []).length, 'ticket', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_feedback'));
-    }
+    const activeSubtabId = document.querySelector('#view-admin .admin-subtab-content.active')?.id || 'admin-subtab-analytics';
+    const immediateTasks = [];
+    const deferredTasks = [];
+    const routeTask = (subtabId, fn) => {
+      if (typeof fn !== 'function') return;
+      if (activeSubtabId === subtabId) immediateTasks.push(fn);
+      else deferredTasks.push(fn);
+    };
+
+    routeTask('admin-subtab-analytics', () => {
+      renderAdminPerformanceDashboard();
+      if (typeof renderAdminRealtimeNotifications === 'function') renderAdminRealtimeNotifications();
+    });
+    routeTask('admin-subtab-users', () => renderAdminUsers());
+    routeTask('admin-subtab-fees', () => {
+      if (typeof window.renderAdminFeesManager === 'function') window.renderAdminFeesManager();
+    });
+    routeTask('admin-subtab-attendance-matrix', () => {
+      if (typeof window.renderAdminMonthlyAttendanceMatrix === 'function') window.renderAdminMonthlyAttendanceMatrix();
+    });
+    routeTask('admin-subtab-logs', () => renderAdminLogs());
+    routeTask('admin-subtab-feedback-admin', () => renderAdminFeedback());
+    routeTask('admin-subtab-content', () => {
+      populateAdminSubtabsDropdown();
+      renderAdminMaterialsTable();
+    });
+    routeTask('admin-subtab-subtabs', () => renderAdminSubtabsTable());
+    routeTask('admin-subtab-banner', () => {
+      renderAdminBannersTable();
+      renderAdminDateBannersTable();
+      loadDashboardBannerIntoAdminForm();
+      if (typeof loadMaintenanceSettingsIntoAdminForm === 'function') loadMaintenanceSettingsIntoAdminForm();
+    });
+    routeTask('admin-subtab-livetests', () => {
+      renderAdminLiveTestsTable();
+      populateLiveTestMaterialOptions();
+    });
+    routeTask('admin-subtab-leaderboard', () => renderAdminLeaderboard());
+    routeTask('admin-subtab-evaluation', () => {
+      populateEvalCategoryDropdown();
+      loadSelectedEvaluationRulesIntoForm();
+      if (typeof renderAdminEvaluationRulesTable === 'function') renderAdminEvaluationRulesTable();
+    });
+
+    deferredTasks.push(() => {
+      if (typeof window.renderStaticStreamDoneFooter === 'function') {
+        window.renderStaticStreamDoneFooter('admin-users-tbody', (portalState.adminData.users || []).length, 'user', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_users'));
+        window.renderStaticStreamDoneFooter('admin-materials-table-container', (portalState.adminData.materials || []).length, 'material', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_materials'));
+        window.renderStaticStreamDoneFooter('admin-logs-tbody', (portalState.adminData.logs || []).length, 'log entry', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_logs'));
+        window.renderStaticStreamDoneFooter('admin-feedback-tbody', (portalState.adminData.feedback || []).length, 'ticket', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_feedback'));
+      }
+    });
+
+    immediateTasks.forEach(fn => { try { fn(); } catch (e) {} });
+    scheduleFrameTasks('admin-data-render', deferredTasks, 8);
   } else {
     renderAdminPerformanceDashboard();
     if (typeof renderAdminRealtimeNotifications === 'function') renderAdminRealtimeNotifications();
@@ -155,9 +181,11 @@ window.streamAdminCollectionOneByOne = async function (collection) {
       anchorId: 'admin-users-tbody',
       labelSingular: 'user',
       onStart: () => { portalState.adminData = portalState.adminData || {}; portalState.adminData.users = []; renderAdminUsers(); },
-      onRecord: (rec) => {
+      onBatch: (records) => {
         portalState.adminData.users = portalState.adminData.users || [];
-        portalState.adminData.users.push(normalizeUserRecord(rec));
+        for (let i = 0; i < records.length; i++) {
+          if (records[i]) portalState.adminData.users.push(normalizeUserRecord(records[i]));
+        }
         renderAdminUsers();
       }
     },
@@ -165,10 +193,11 @@ window.streamAdminCollectionOneByOne = async function (collection) {
       anchorId: 'admin-materials-table-container',
       labelSingular: 'material',
       onStart: () => { portalState.adminData = portalState.adminData || {}; portalState.adminData.materials = []; renderAdminMaterialsTable(); },
-      onRecord: (rec) => {
-        const norm = normalizeMaterialRecord(rec);
+      onBatch: (records) => {
         portalState.adminData.materials = portalState.adminData.materials || [];
-        portalState.adminData.materials.push(norm);
+        for (let i = 0; i < records.length; i++) {
+          if (records[i]) portalState.adminData.materials.push(normalizeMaterialRecord(records[i]));
+        }
         portalState.materialsData = portalState.adminData.materials;
         renderAdminMaterialsTable();
       }
@@ -177,9 +206,11 @@ window.streamAdminCollectionOneByOne = async function (collection) {
       anchorId: 'admin-logs-tbody',
       labelSingular: 'log entry',
       onStart: () => { portalState.adminData = portalState.adminData || {}; portalState.adminData.logs = []; renderAdminLogs(); },
-      onRecord: (rec) => {
+      onBatch: (records) => {
         portalState.adminData.logs = portalState.adminData.logs || [];
-        portalState.adminData.logs.push(rec);
+        for (let i = 0; i < records.length; i++) {
+          if (records[i]) portalState.adminData.logs.push(records[i]);
+        }
         renderAdminLogs();
       }
     },
@@ -187,9 +218,11 @@ window.streamAdminCollectionOneByOne = async function (collection) {
       anchorId: 'admin-feedback-tbody',
       labelSingular: 'ticket',
       onStart: () => { portalState.adminData = portalState.adminData || {}; portalState.adminData.feedback = []; renderAdminFeedback(); },
-      onRecord: (rec) => {
+      onBatch: (records) => {
         portalState.adminData.feedback = portalState.adminData.feedback || [];
-        portalState.adminData.feedback.push(rec);
+        for (let i = 0; i < records.length; i++) {
+          if (records[i]) portalState.adminData.feedback.push(records[i]);
+        }
         renderAdminFeedback();
       }
     }
@@ -202,7 +235,7 @@ window.streamAdminCollectionOneByOne = async function (collection) {
     collection: collection,
     anchorId: cfg.anchorId,
     labelSingular: cfg.labelSingular,
-    onRecord: cfg.onRecord
+    onBatch: cfg.onBatch
   });
 };
 
@@ -213,9 +246,10 @@ export function getAllowedAdminSubtabsForCurrentUser() {
   if (role === 'superadmin') return allTabs;
   if (role !== 'admin') return [];
 
-  const rawPerms = String(portalState.currentUser.adminPermissions || 'ALL').trim();
-  if (!rawPerms || rawPerms.toUpperCase() === 'ALL') return allTabs;
+  const rawPerms = String(portalState.currentUser.adminPermissions ?? portalState.currentUser.AdminPermissions ?? 'ALL').trim();
+  if (!rawPerms || rawPerms.toUpperCase() === 'ALL' || rawPerms === '*') return allTabs;
   const parsed = rawPerms.split(',').map(s => s.trim()).filter(Boolean);
+  if (parsed.some(p => p.toUpperCase() === 'ALL' || p === '*')) return allTabs;
   if (parsed.includes('analytics') && !parsed.includes('batch-discussion')) {
     parsed.push('batch-discussion');
   }
@@ -1476,14 +1510,101 @@ export function filterAdminBatchChipsBar() {
     }
 
 export const BATCH_MONITORS_STORAGE_KEY = 'rp_skill_batch_monitors_v1';
+export const MAX_MONITORS_PER_BATCH = 3;
+
+export function normalizeBatchMonitorEntry(raw) {
+      if (!raw) return null;
+      if (typeof raw === 'string') {
+        const uid = raw.trim();
+        if (!uid) return null;
+        return {
+          userId: uid,
+          userName: uid,
+          email: '-',
+          mobile: '-',
+          monitorType: 'Batch Monitor',
+          designation: 'Batch Monitor'
+        };
+      }
+      if (typeof raw !== 'object') return null;
+      const uid = String(raw.userId || raw.UserID || raw.targetUserId || '').trim();
+      const uname = String(raw.userName || raw.name || raw.Name || uid).trim();
+      if (!uid && !uname) return null;
+      const mType = String(raw.monitorType || raw.designation || 'Batch Monitor').trim() || 'Batch Monitor';
+      return {
+        userId: uid || uname,
+        userName: uname || uid,
+        email: String(raw.email || raw.Email || '-').trim() || '-',
+        mobile: String(raw.mobile || raw.Mobile || '-').trim() || '-',
+        monitorType: mType,
+        designation: mType,
+        appointedAt: raw.appointedAt || '',
+        appointedBy: raw.appointedBy || ''
+      };
+    }
+
+function normalizeMonitorListValue(val) {
+      if (!val) return [];
+      const arr = Array.isArray(val) ? val : [val];
+      const byUid = new Map();
+      arr.forEach(item => {
+        const norm = normalizeBatchMonitorEntry(item);
+        if (!norm) return;
+        const key = String(norm.userId || norm.userName).trim().toLowerCase();
+        if (!key) return;
+        if (byUid.has(key)) {
+          const prev = byUid.get(key);
+          byUid.set(key, {
+            ...prev,
+            ...norm,
+            userName: (norm.userName && norm.userName !== norm.userId) ? norm.userName : (prev.userName || norm.userName),
+            email: (norm.email && norm.email !== '-') ? norm.email : (prev.email || '-'),
+            mobile: (norm.mobile && norm.mobile !== '-') ? norm.mobile : (prev.mobile || '-')
+          });
+        } else if (byUid.size < MAX_MONITORS_PER_BATCH) {
+          byUid.set(key, norm);
+        }
+      });
+      return Array.from(byUid.values()).slice(0, MAX_MONITORS_PER_BATCH);
+    }
+
+export function mergeBatchMonitorsMaps(baseMap = {}, incomingMap = {}) {
+      const merged = {};
+      const allKeys = new Set([
+        ...Object.keys(baseMap && typeof baseMap === 'object' ? baseMap : {}),
+        ...Object.keys(incomingMap && typeof incomingMap === 'object' ? incomingMap : {})
+      ]);
+      allKeys.forEach(batchName => {
+        const bKey = String(batchName || '').trim();
+        if (!bKey) return;
+        const baseHas = baseMap && Object.prototype.hasOwnProperty.call(baseMap, bKey);
+        const incHas = incomingMap && Object.prototype.hasOwnProperty.call(incomingMap, bKey);
+        const baseList = baseHas ? normalizeMonitorListValue(baseMap[bKey]) : [];
+        const incList = incHas ? normalizeMonitorListValue(incomingMap[bKey]) : [];
+        // Combine unique monitors from both sources, preferring richer metadata, capped at MAX_MONITORS_PER_BATCH
+        const combined = normalizeMonitorListValue([...baseList, ...incList]);
+        if (combined.length > 0) {
+          merged[bKey] = combined;
+        }
+      });
+      return merged;
+    }
 
 export function getBatchMonitorsMap() {
       let localMap = {};
+      let localExplicitEmpty = new Set();
       try {
         const raw = localStorage.getItem(BATCH_MONITORS_STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && typeof parsed === 'object') localMap = parsed;
+          if (parsed && typeof parsed === 'object') {
+            localMap = parsed;
+            Object.keys(parsed).forEach(k => {
+              if (Array.isArray(parsed[k]) && parsed[k].length === 0) {
+                localExplicitEmpty.add(k);
+              }
+            });
+          }
         }
       } catch (e) {}
       const serverGlobalMap = (portalState.globalData && (portalState.globalData.batchMonitorsMap || portalState.globalData.batchMonitors) && typeof (portalState.globalData.batchMonitorsMap || portalState.globalData.batchMonitors) === 'object')
@@ -1492,33 +1613,68 @@ export function getBatchMonitorsMap() {
       const serverAdminMap = (portalState.adminData && (portalState.adminData.batchMonitorsMap || portalState.adminData.batchMonitors) && typeof (portalState.adminData.batchMonitorsMap || portalState.adminData.batchMonitors) === 'object')
         ? (portalState.adminData.batchMonitorsMap || portalState.adminData.batchMonitors)
         : {};
-      return Object.assign({}, serverGlobalMap, serverAdminMap, localMap);
+      const mergedServers = mergeBatchMonitorsMaps(serverGlobalMap, serverAdminMap);
+      const mergedAll = mergeBatchMonitorsMaps(mergedServers, localMap);
+      // Respect explicit local removals where a batch was cleared to []
+      localExplicitEmpty.forEach(k => {
+        delete mergedAll[k];
+      });
+      return mergedAll;
+    }
+
+export function getBatchMonitorsList(batchName, mapOverride = null) {
+      if (!batchName) return [];
+      const map = (mapOverride && typeof mapOverride === 'object') ? mapOverride : getBatchMonitorsMap();
+      const targetLower = String(batchName).trim().toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(map, batchName)) {
+        return normalizeMonitorListValue(map[batchName]);
+      }
+      const matchedKey = Object.keys(map).find(k => String(k || '').trim().toLowerCase() === targetLower);
+      return matchedKey ? normalizeMonitorListValue(map[matchedKey]) : [];
     }
 
 export function saveBatchMonitorsMap(mapObj) {
+      const normalized = {};
+      if (mapObj && typeof mapObj === 'object') {
+        Object.keys(mapObj).forEach(k => {
+          const bKey = String(k || '').trim();
+          if (!bKey) return;
+          if (Array.isArray(mapObj[k]) && mapObj[k].length === 0) {
+            normalized[bKey] = [];
+            return;
+          }
+          const list = normalizeMonitorListValue(mapObj[k]);
+          if (list.length > 0) normalized[bKey] = list;
+        });
+      }
       try {
-        localStorage.setItem(BATCH_MONITORS_STORAGE_KEY, JSON.stringify(mapObj || {}));
+        localStorage.setItem(BATCH_MONITORS_STORAGE_KEY, JSON.stringify(normalized));
       } catch (e) {}
+      const cleanForMemory = {};
+      Object.keys(normalized).forEach(k => {
+        if (Array.isArray(normalized[k]) && normalized[k].length > 0) {
+          cleanForMemory[k] = normalized[k];
+        }
+      });
       if (portalState.globalData && typeof portalState.globalData === 'object') {
-        portalState.globalData.batchMonitorsMap = mapObj || {};
-        portalState.globalData.batchMonitors = mapObj || {};
+        portalState.globalData.batchMonitorsMap = cleanForMemory;
+        portalState.globalData.batchMonitors = cleanForMemory;
       }
       if (portalState.adminData && typeof portalState.adminData === 'object') {
-        portalState.adminData.batchMonitorsMap = mapObj || {};
-        portalState.adminData.batchMonitors = mapObj || {};
+        portalState.adminData.batchMonitorsMap = cleanForMemory;
+        portalState.adminData.batchMonitors = cleanForMemory;
       }
+      window._serverOfficialContactsCache = null;
     }
 
 export function getUserMonitorBatchesList(userId) {
       if (!userId) return [];
-      const uidStr = String(userId).trim();
+      const uidStr = String(userId).trim().toLowerCase();
       const map = getBatchMonitorsMap();
       const batches = [];
       Object.keys(map).forEach(batchName => {
-        const entry = map[batchName];
-        if (!entry) return;
-        const mUid = typeof entry === 'object' ? String(entry.userId || '') : String(entry);
-        if (mUid && mUid === uidStr) {
+        const list = getBatchMonitorsList(batchName, map);
+        if (list.some(entry => String(entry.userId || '').trim().toLowerCase() === uidStr)) {
           batches.push(batchName);
         }
       });
@@ -1527,11 +1683,9 @@ export function getUserMonitorBatchesList(userId) {
 
 export function isUserMonitorForBatch(userId, batchName) {
       if (!userId || !batchName) return false;
-      const map = getBatchMonitorsMap();
-      const entry = map[batchName];
-      if (!entry) return false;
-      const mUid = typeof entry === 'object' ? String(entry.userId || '') : String(entry);
-      return mUid === String(userId).trim();
+      const uidStr = String(userId).trim().toLowerCase();
+      const list = getBatchMonitorsList(batchName);
+      return list.some(entry => String(entry.userId || '').trim().toLowerCase() === uidStr);
     }
 
 export async function appointBatchMonitor(batchName, userId, userName = '', monitorType = '') {
@@ -1544,36 +1698,45 @@ export async function appointBatchMonitor(batchName, userId, userName = '', moni
         return;
       }
 
+      const map = getBatchMonitorsMap();
+      const currentList = getBatchMonitorsList(batchName, map);
+      const targetUidStr = String(userId).trim();
+      const existingIdx = currentList.findIndex(m => String(m.userId || '').trim().toLowerCase() === targetUidStr.toLowerCase());
+
+      if (existingIdx === -1 && currentList.length >= MAX_MONITORS_PER_BATCH) {
+        showToast(`⚠️ Maximum ${MAX_MONITORS_PER_BATCH} Batch Monitors can be appointed for "${batchName}". Remove an existing monitor first.`);
+        return;
+      }
+
       let resolvedName = userName;
       let existingRecordBatch = '';
       let resolvedRole = '';
       let resolvedEmail = '-';
       let resolvedMobile = '-';
       if (portalState.adminData && Array.isArray(portalState.adminData.users)) {
-        const uObj = portalState.adminData.users.find(u => String(u.UserID || u.userId) === String(userId));
+        const uObj = portalState.adminData.users.find(u => String(u.UserID || u.userId) === targetUidStr);
         if (uObj) {
-          if (!resolvedName) resolvedName = uObj.Name || uObj.name || String(userId);
+          if (!resolvedName) resolvedName = uObj.Name || uObj.name || targetUidStr;
           existingRecordBatch = uObj.Batch || uObj.batch || '';
           resolvedRole = String(uObj.Role || uObj.role || '');
           resolvedEmail = String(uObj.Email || uObj.email || '-');
           resolvedMobile = String(uObj.Mobile || uObj.mobile || '-');
         }
       }
-      if (!resolvedName) resolvedName = String(userId);
+      if (!resolvedName) resolvedName = targetUidStr;
 
       const typeSel = document.getElementById('admin-appoint-monitor-type-select') || document.getElementById('admin-appoint-monitor-role-type');
       const finalMonitorType = monitorType || (typeSel ? typeSel.value : '') ||
         (/admin|teacher|instructor|faculty/i.test(resolvedRole) ? 'Batch Instructor Monitor' : 'Top-Performing Student Monitor');
 
       // Ensure the appointed monitor is also a member of that batch
-      const curBatches = getUserAssignedBatchesList(userId, existingRecordBatch);
+      const curBatches = getUserAssignedBatchesList(targetUidStr, existingRecordBatch);
       if (!curBatches.includes(batchName)) {
-        await saveUserMultipleBatches(userId, [...curBatches, batchName], resolvedName);
+        await saveUserMultipleBatches(targetUidStr, [...curBatches, batchName], resolvedName);
       }
 
-      const map = getBatchMonitorsMap();
-      map[batchName] = {
-        userId: String(userId),
+      const newEntry = {
+        userId: targetUidStr,
         userName: resolvedName,
         email: resolvedEmail,
         mobile: resolvedMobile,
@@ -1582,43 +1745,105 @@ export async function appointBatchMonitor(batchName, userId, userName = '', moni
         appointedAt: new Date().toISOString(),
         appointedBy: portalState.currentUser ? (portalState.currentUser.name || portalState.currentUser.userId) : 'Admin'
       };
+
+      const nextList = [...currentList];
+      if (existingIdx >= 0) {
+        nextList[existingIdx] = newEntry;
+      } else {
+        nextList.push(newEntry);
+      }
+      map[batchName] = nextList.slice(0, MAX_MONITORS_PER_BATCH);
       saveBatchMonitorsMap(map);
 
       populateAllBatchSelectDropdowns();
+      if (typeof window.populateMonitorCandidatesForSelectedBatch === 'function') {
+        window.populateMonitorCandidatesForSelectedBatch();
+      }
       renderAdminUsers();
       renderDailyPracticeGoalUI();
       if (typeof renderDashboardBatchMonitoringHub === 'function') renderDashboardBatchMonitoringHub();
       if (typeof renderHelpAdminContacts === 'function') renderHelpAdminContacts(false);
-      logPortalAction('APPOINT_BATCH_MONITOR', `Appointed ${resolvedName} (${userId}) as ${finalMonitorType} for "${batchName}"`);
-      apiCall('appointBatchMonitor', { targetUserId: userId, userName: resolvedName, batchName: batchName, monitorType: finalMonitorType, designation: finalMonitorType, isMonitor: true }, true);
-      showToast(`🎖️ Appointed ${resolvedName} (${finalMonitorType}) for "${batchName}"!`);
+      logPortalAction('APPOINT_BATCH_MONITOR', `Appointed ${resolvedName} (${targetUidStr}) as ${finalMonitorType} for "${batchName}" (${map[batchName].length}/${MAX_MONITORS_PER_BATCH})`);
+      apiCall('appointBatchMonitor', {
+        targetUserId: targetUidStr,
+        userName: resolvedName,
+        batchName: batchName,
+        monitorType: finalMonitorType,
+        designation: finalMonitorType,
+        monitorsList: map[batchName],
+        maxMonitors: MAX_MONITORS_PER_BATCH,
+        isMonitor: true
+      }, true);
+      showToast(`🎖️ Appointed ${resolvedName} (${finalMonitorType}) for "${batchName}" (${map[batchName].length}/${MAX_MONITORS_PER_BATCH} Monitors)!`);
     }
 
-export async function removeBatchMonitorAppointment(batchName, skipConfirm = false) {
+export async function removeBatchMonitorAppointment(batchName, targetUserIdOrSkip = '', skipConfirm = false) {
       if (!batchName) return;
-      if (!skipConfirm && typeof window.rpConfirmDelete === 'function') {
-        window.rpConfirmDelete('Remove Batch Monitor?', `Remove the appointed Batch Monitor from "${batchName}"?`, () => removeBatchMonitorAppointment(batchName, true));
+      let targetUserId = '';
+      let confirmed = Boolean(skipConfirm);
+      if (typeof targetUserIdOrSkip === 'boolean') {
+        confirmed = targetUserIdOrSkip;
+      } else if (targetUserIdOrSkip) {
+        targetUserId = String(targetUserIdOrSkip).trim();
+      }
+
+      const map = getBatchMonitorsMap();
+      const currentList = getBatchMonitorsList(batchName, map);
+      if (currentList.length === 0) return;
+
+      const targetEntry = targetUserId
+        ? currentList.find(m => String(m.userId || '').trim().toLowerCase() === targetUserId.toLowerCase())
+        : (currentList.length === 1 ? currentList[0] : null);
+
+      const labelTarget = targetEntry ? (targetEntry.userName || targetEntry.userId) : `all ${currentList.length} Batch Monitors`;
+
+      if (!confirmed && typeof window.rpConfirmDelete === 'function') {
+        window.rpConfirmDelete(
+          'Remove Batch Monitor?',
+          `Remove ${labelTarget} as Batch Monitor from "${batchName}"?`,
+          () => removeBatchMonitorAppointment(batchName, targetUserId, true)
+        );
         return;
       }
-      const map = getBatchMonitorsMap();
-      const prevEntry = map[batchName];
-      if (!prevEntry) return;
-      delete map[batchName];
+
+      const removedEntries = targetUserId
+        ? currentList.filter(m => String(m.userId || '').trim().toLowerCase() === targetUserId.toLowerCase())
+        : currentList;
+      if (removedEntries.length === 0) return;
+
+      const remaining = targetUserId
+        ? currentList.filter(m => String(m.userId || '').trim().toLowerCase() !== targetUserId.toLowerCase())
+        : [];
+
+      map[batchName] = remaining;
       saveBatchMonitorsMap(map);
 
       populateAllBatchSelectDropdowns();
+      if (typeof window.populateMonitorCandidatesForSelectedBatch === 'function') {
+        window.populateMonitorCandidatesForSelectedBatch();
+      }
       renderAdminUsers();
       renderDailyPracticeGoalUI();
       if (typeof renderDashboardBatchMonitoringHub === 'function') renderDashboardBatchMonitoringHub();
-      logPortalAction('REMOVE_BATCH_MONITOR', `Removed Batch Monitor (${prevEntry.userName || prevEntry.userId}) from "${batchName}"`);
-      apiCall('appointBatchMonitor', { targetUserId: prevEntry.userId || '', userName: prevEntry.userName || '', batchName: batchName, isMonitor: false }, true);
-      showToast(`🗑️ Removed Batch Monitor appointment for "${batchName}".`);
+      if (typeof renderHelpAdminContacts === 'function') renderHelpAdminContacts(false);
+
+      removedEntries.forEach(prevEntry => {
+        logPortalAction('REMOVE_BATCH_MONITOR', `Removed Batch Monitor (${prevEntry.userName || prevEntry.userId}) from "${batchName}"`);
+        apiCall('appointBatchMonitor', {
+          targetUserId: prevEntry.userId || '',
+          userName: prevEntry.userName || '',
+          batchName: batchName,
+          monitorsList: remaining,
+          isMonitor: false
+        }, true);
+      });
+      showToast(`🗑️ Removed ${labelTarget} from "${batchName}" (${remaining.length}/${MAX_MONITORS_PER_BATCH} Monitors remaining).`);
     }
 
 export async function toggleUserBatchMonitor(userId, batchName, userName = '') {
       if (!userId || !batchName) return;
       if (isUserMonitorForBatch(userId, batchName)) {
-        await removeBatchMonitorAppointment(batchName);
+        await removeBatchMonitorAppointment(batchName, userId);
       } else {
         await appointBatchMonitor(batchName, userId, userName);
       }
@@ -1652,19 +1877,29 @@ export async function autoAssignTopPerformerAsBatchMonitor() {
         showToast('⚠️ Please select a target Batch first to auto-pick its top-performing student.');
         return;
       }
+      const existingMonitors = getBatchMonitorsList(batchName);
+      if (existingMonitors.length >= MAX_MONITORS_PER_BATCH) {
+        showToast(`⚠️ "${batchName}" already has the maximum ${MAX_MONITORS_PER_BATCH} Batch Monitors appointed.`);
+        return;
+      }
+      const existingMonitorIds = new Set(existingMonitors.map(m => String(m.userId || '').trim().toLowerCase()));
+
       const users = (portalState.adminData && Array.isArray(portalState.adminData.users)) ? portalState.adminData.users : [];
       const allHist = (portalState.adminData && Array.isArray(portalState.adminData.results))
         ? portalState.adminData.results
         : ((portalState.globalData && Array.isArray(portalState.globalData.history)) ? portalState.globalData.history : (portalState.allTestHistoryList || []));
 
       const batchStudents = users.filter(u => {
-        const uid = String(u.UserID || u.userId || '');
+        const uid = String(u.UserID || u.userId || '').trim();
+        if (!uid || existingMonitorIds.has(uid.toLowerCase())) return false;
         const bList = getUserAssignedBatchesList(uid, u.Batch || u.batch || '');
         return bList.includes(batchName);
       });
-      const candidatePool = batchStudents.length > 0 ? batchStudents : users;
+      const candidatePool = batchStudents.length > 0
+        ? batchStudents
+        : users.filter(u => !existingMonitorIds.has(String(u.UserID || u.userId || '').trim().toLowerCase()));
       if (candidatePool.length === 0) {
-        showToast('⚠️ No students found to evaluate for top performer.');
+        showToast('⚠️ No remaining students found to evaluate for top performer.');
         return;
       }
 
@@ -1845,7 +2080,7 @@ export async function pollRealtimeBatchDiscussionMessages(manualSync = false) {
       const res = await apiCall('getBatchGroupMessages', { userId: portalState.currentUser.userId }, true);
       if (res && res.success) {
         if (res.batchMonitorsMap && typeof res.batchMonitorsMap === 'object') {
-          saveBatchMonitorsMap({ ...getBatchMonitorsMap(), ...res.batchMonitorsMap });
+          saveBatchMonitorsMap(mergeBatchMonitorsMaps(getBatchMonitorsMap(), res.batchMonitorsMap));
         }
         if (Array.isArray(res.batchGroupMessages)) {
           const incomingMap = convertRawSourceToBatchMessagesMap(res.batchGroupMessages);
@@ -2089,18 +2324,21 @@ export function renderDashboardBatchMonitoringHub() {
       const activeChannel = window.currentBatchCommsChannel === 'private_queries' ? 'private_queries' : 'directives';
 
       const batchSel = document.getElementById('dashboard-batch-monitor-select');
+      const monitorsMap = getBatchMonitorsMap();
       if (batchSel) {
-        const monitorsMap = getBatchMonitorsMap();
         batchSel.innerHTML = accessibleBatches.map(b => {
-          const m = monitorsMap[b];
-          const mTag = m ? ` (Monitor: ${m.userName || m.userId})` : '';
+          const mList = getBatchMonitorsList(b, monitorsMap);
+          const mTag = mList.length > 0 ? ` (Monitor${mList.length > 1 ? 's' : ''}: ${mList.map(m => m.userName || m.userId).join(', ')})` : '';
           return `<option value="${b.replace(/"/g, '&quot;')}" ${b === activeBatch ? 'selected' : ''}>${b}${mTag}</option>`;
         }).join('');
       }
 
-      const monitorsMap = getBatchMonitorsMap();
-      const monitorEntry = monitorsMap[activeBatch];
-      const monitorDisplayName = (monitorEntry && (monitorEntry.userName || monitorEntry.userId)) ? (monitorEntry.userName || monitorEntry.userId) : 'Appointed Batch Monitor';
+      const activeMonitorsList = getBatchMonitorsList(activeBatch, monitorsMap);
+      const myMonitorEntry = activeMonitorsList.find(m => String(m.userId || '').trim().toLowerCase() === uid.toLowerCase()) || activeMonitorsList[0] || null;
+      const monitorEntry = myMonitorEntry;
+      const monitorDisplayName = activeMonitorsList.length > 0
+        ? activeMonitorsList.map(m => m.userName || m.userId).join(', ')
+        : 'Appointed Batch Monitor';
       const rolePill = document.getElementById('dashboard-batch-monitor-role-pill');
       const subText = document.getElementById('dashboard-batch-monitor-subtext');
       const tagSelect = document.getElementById('batch-comms-msg-tag');
@@ -2109,17 +2347,18 @@ export function renderDashboardBatchMonitoringHub() {
         if (isAdminUser) {
           rolePill.innerText = roleLower === 'superadmin' ? '👑 SUPERADMIN OVERSEER' : '🛡️ INSTRUCTOR / ADMIN OVERSEER';
         } else if (isUserMonitorForBatch(uid, activeBatch)) {
-          rolePill.innerText = `🎖️ ${(monitorEntry && monitorEntry.monitorType) ? monitorEntry.monitorType.toUpperCase() : 'BATCH MONITOR'} (${activeBatch})`;
+          rolePill.innerText = `🎖️ ${(myMonitorEntry && myMonitorEntry.monitorType) ? myMonitorEntry.monitorType.toUpperCase() : 'BATCH MONITOR'} (${activeBatch})`;
         } else {
           rolePill.innerText = '🎓 STUDENT VIEW • INSTRUCTOR FEED & PRIVATE MONITOR DESK';
         }
       }
 
       if (subText) {
-        if (monitorEntry && (monitorEntry.userName || monitorEntry.userId)) {
-          subText.innerHTML = `Active Batch: <strong>${activeBatch}</strong> • Appointed Batch Monitor: <strong>${monitorDisplayName}</strong> <span style="color:#b45309; font-weight:800;">(${monitorEntry.monitorType || 'Batch Monitor'})</span> • <span style="color:#0d9488; font-weight:800;">📢 Main Feed: Instructor Directives Only</span> • <span style="color:#7c3aed; font-weight:800;">🔒 Direct Queries: Student ↔ Batch Monitor</span>`;
+        if (activeMonitorsList.length > 0) {
+          const monBadges = activeMonitorsList.map(m => `<strong>${escapeHtml(m.userName || m.userId)}</strong> <span style="color:#b45309; font-weight:800;">(${escapeHtml(m.monitorType || 'Batch Monitor')})</span>`).join(' • ');
+          subText.innerHTML = `Active Batch: <strong>${escapeHtml(activeBatch)}</strong> • Appointed Batch Monitor${activeMonitorsList.length > 1 ? 's' : ''} (${activeMonitorsList.length}/${MAX_MONITORS_PER_BATCH}): ${monBadges} • <span style="color:#0d9488; font-weight:800;">📢 Main Feed: Instructor Directives Only</span> • <span style="color:#7c3aed; font-weight:800;">🔒 Direct Queries: Student ↔ Batch Monitor</span>`;
         } else {
-          subText.innerHTML = `Active Batch: <strong>${activeBatch}</strong> • <em>No Batch Monitor appointed yet (Admin can appoint in Admin → Users)</em> • <span style="color:#7c3aed; font-weight:800;">🔒 Direct Queries routed to Batch Instructor/Monitor</span>`;
+          subText.innerHTML = `Active Batch: <strong>${escapeHtml(activeBatch)}</strong> • <em>No Batch Monitor appointed yet (Admin can appoint up to ${MAX_MONITORS_PER_BATCH} in Admin → Users)</em> • <span style="color:#7c3aed; font-weight:800;">🔒 Direct Queries routed to Batch Instructor/Monitor</span>`;
         }
       }
 
@@ -2239,15 +2478,17 @@ export function renderDashboardBatchMonitoringHub() {
           emailVerified: isUserEmailAlreadyVerified(portalState.currentUser)
         });
       }
-      if (monitorEntry && monitorEntry.userId && !rosterMap.has(String(monitorEntry.userId))) {
-        rosterMap.set(String(monitorEntry.userId), {
-          userId: String(monitorEntry.userId),
-          name: monitorEntry.userName || String(monitorEntry.userId),
-          email: monitorEntry.email || '',
-          role: monitorEntry.monitorType || 'Batch Monitor',
-          emailVerified: true
-        });
-      }
+      activeMonitorsList.forEach(m => {
+        if (m && m.userId && !rosterMap.has(String(m.userId))) {
+          rosterMap.set(String(m.userId), {
+            userId: String(m.userId),
+            name: m.userName || String(m.userId),
+            email: m.email || '',
+            role: m.monitorType || 'Batch Monitor',
+            emailVerified: true
+          });
+        }
+      });
 
       allHistoryPool.forEach(h => {
         const hUid = String(h.UserID || h.userId || '').trim();
@@ -2291,67 +2532,73 @@ export function renderDashboardBatchMonitoringHub() {
       // Displays 'Active Resolution Rate', 'Total Queries Handled', and 'Average Response Time'
       const monitorEffStrip = document.getElementById('batch-monitor-effectiveness-kpi-strip');
       if (monitorEffStrip) {
-        const rawTotalQueries = allBatchPrivateQueries.length;
-        const rawHandledQueries = allBatchPrivateQueries.filter(q => {
-          const st = String(q.status || '').toLowerCase();
-          return st === 'resolved' || st === 'replied' || (Array.isArray(q.replies) && q.replies.length > 0);
-        }).length;
-        const totalQueriesCount = rawTotalQueries > 0 ? rawTotalQueries : 0;
-        const handledQueriesCount = rawTotalQueries > 0 ? rawHandledQueries : 0;
-        const activeResolutionRate = totalQueriesCount > 0
-          ? Math.round((handledQueriesCount / totalQueriesCount) * 100)
-          : 0;
+        if (!isMonitorForActiveBatch) {
+          monitorEffStrip.style.display = 'none';
+          monitorEffStrip.innerHTML = '';
+        } else {
+          monitorEffStrip.style.display = 'grid';
+          const rawTotalQueries = allBatchPrivateQueries.length;
+          const rawHandledQueries = allBatchPrivateQueries.filter(q => {
+            const st = String(q.status || '').toLowerCase();
+            return st === 'resolved' || st === 'replied' || (Array.isArray(q.replies) && q.replies.length > 0);
+          }).length;
+          const totalQueriesCount = rawTotalQueries > 0 ? rawTotalQueries : 0;
+          const handledQueriesCount = rawTotalQueries > 0 ? rawHandledQueries : 0;
+          const activeResolutionRate = totalQueriesCount > 0
+            ? Math.round((handledQueriesCount / totalQueriesCount) * 100)
+            : 0;
 
-        let totalResponseMins = 0;
-        let measuredThreads = 0;
-        allBatchPrivateQueries.forEach(q => {
-          const createdMs = new Date(q.timestamp || 0).getTime();
-          if (!createdMs || isNaN(createdMs)) return;
-          if (Array.isArray(q.replies) && q.replies.length > 0) {
-            const firstReplyMs = new Date(q.replies[0].timestamp || q.updatedAt || 0).getTime();
-            if (firstReplyMs && firstReplyMs >= createdMs) {
-              totalResponseMins += Math.max(1, Math.round((firstReplyMs - createdMs) / 60000));
-              measuredThreads++;
+          let totalResponseMins = 0;
+          let measuredThreads = 0;
+          allBatchPrivateQueries.forEach(q => {
+            const createdMs = new Date(q.timestamp || 0).getTime();
+            if (!createdMs || isNaN(createdMs)) return;
+            if (Array.isArray(q.replies) && q.replies.length > 0) {
+              const firstReplyMs = new Date(q.replies[0].timestamp || q.updatedAt || 0).getTime();
+              if (firstReplyMs && firstReplyMs >= createdMs) {
+                totalResponseMins += Math.max(1, Math.round((firstReplyMs - createdMs) / 60000));
+                measuredThreads++;
+              }
+            } else if (String(q.status || '').toLowerCase() === 'resolved' && q.updatedAt) {
+              const updMs = new Date(q.updatedAt).getTime();
+              if (updMs && updMs >= createdMs) {
+                totalResponseMins += Math.max(1, Math.round((updMs - createdMs) / 60000));
+                measuredThreads++;
+              }
             }
-          } else if (String(q.status || '').toLowerCase() === 'resolved' && q.updatedAt) {
-            const updMs = new Date(q.updatedAt).getTime();
-            if (updMs && updMs >= createdMs) {
-              totalResponseMins += Math.max(1, Math.round((updMs - createdMs) / 60000));
-              measuredThreads++;
-            }
-          }
-        });
-        const avgRespMins = measuredThreads > 0 ? Math.round(totalResponseMins / measuredThreads) : 0;
-        const avgResponseTimeFormatted = avgRespMins >= 60
-          ? `${Math.floor(avgRespMins / 60)}h ${avgRespMins % 60}m`
-          : `${avgRespMins} mins`;
+          });
+          const avgRespMins = measuredThreads > 0 ? Math.round(totalResponseMins / measuredThreads) : 0;
+          const avgResponseTimeFormatted = avgRespMins >= 60
+            ? `${Math.floor(avgRespMins / 60)}h ${avgRespMins % 60}m`
+            : `${avgRespMins} mins`;
 
-        monitorEffStrip.innerHTML = `
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-            <div>
-              <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Resolution Rate</div>
-              <div style="font-size: 19px; font-weight: 900; color: #059669; margin-top: 2px;" class="mono-num">${activeResolutionRate}%</div>
-              <div style="font-size: 11px; color: var(--text-muted);">Monitor: ${window.escapeHtml(monitorDisplayName)}</div>
+          monitorEffStrip.innerHTML = `
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+              <div>
+                <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Active Resolution Rate</div>
+                <div style="font-size: 19px; font-weight: 900; color: #059669; margin-top: 2px;" class="mono-num">${activeResolutionRate}%</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Monitor: ${window.escapeHtml(monitorDisplayName)}</div>
+              </div>
             </div>
-          </div>
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-            <div>
-              <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Queries Handled</div>
-              <div style="font-size: 19px; font-weight: 900; color: #7c3aed; margin-top: 2px;" class="mono-num">${handledQueriesCount} <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">/ ${totalQueriesCount}</span></div>
-              <div style="font-size: 11px; color: var(--text-muted);">${Math.max(0, totalQueriesCount - handledQueriesCount)} Open · ${handledQueriesCount} Resolved</div>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+              <div>
+                <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Queries Handled</div>
+                <div style="font-size: 19px; font-weight: 900; color: #7c3aed; margin-top: 2px;" class="mono-num">${handledQueriesCount} <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">/ ${totalQueriesCount}</span></div>
+                <div style="font-size: 11px; color: var(--text-muted);">${Math.max(0, totalQueriesCount - handledQueriesCount)} Open · ${handledQueriesCount} Resolved</div>
+              </div>
+              <button type="button" class="btn btn-sm btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchBatchMonitoringHubTab('comms'); switchBatchCommsChannel('private_queries');">
+                View Desk
+              </button>
             </div>
-            <button type="button" class="btn btn-sm btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="switchBatchMonitoringHubTab('comms'); switchBatchCommsChannel('private_queries');">
-              View Desk
-            </button>
-          </div>
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-            <div>
-              <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Average Response Time</div>
-              <div style="font-size: 19px; font-weight: 900; color: #2563eb; margin-top: 2px;" class="mono-num">${measuredThreads > 0 ? avgResponseTimeFormatted : '—'}</div>
-              <div style="font-size: 11px; color: var(--text-muted);">${measuredThreads > 0 ? (measuredThreads + ' measured thread(s)') : 'No replies yet'}</div>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+              <div>
+                <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Average Response Time</div>
+                <div style="font-size: 19px; font-weight: 900; color: #2563eb; margin-top: 2px;" class="mono-num">${measuredThreads > 0 ? avgResponseTimeFormatted : '—'}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${measuredThreads > 0 ? (measuredThreads + ' measured thread(s)') : 'No replies yet'}</div>
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       }
 
       // Deadline Window Evaluation ONLY when an actual batch target directive has been published (zero preloaded alerts)
@@ -2486,37 +2733,88 @@ export function renderDashboardBatchMonitoringHub() {
         }
       }
 
+      const progTabBtn = document.getElementById('btn-batch-hub-tab-progress');
+      if (progTabBtn) {
+        progTabBtn.innerHTML = isMonitorForActiveBatch
+          ? '<i class="fa-solid fa-chart-line"></i> Student Progress Oversight'
+          : '<i class="fa-solid fa-user-check"></i> My Batch Progress';
+      }
+
+      const myOwnRow = studentRows.find(s => s.userId === uid) || {
+        userId: uid,
+        name: portalState.currentUser.name || uid,
+        role: portalState.currentUser.role || 'Student',
+        emailVerified: isUserEmailAlreadyVerified(portalState.currentUser),
+        testsCount: 0,
+        avgWpm: 0,
+        bestWpm: 0,
+        avgAcc: 0,
+        practicedToday: false,
+        completedDailyTarget: false,
+        alreadyNudgedToday: false,
+        needsAutoNudgeHighlight: false,
+        isMonitor: false
+      };
+
       const kpiStrip = document.getElementById('dashboard-batch-monitor-kpi-strip');
       if (kpiStrip) {
-        const overallWpm = studentsWithTests > 0 ? (batchWpmSum / studentsWithTests).toFixed(1) : '0.0';
-        const overallAcc = studentsWithTests > 0 ? (batchAccSum / studentsWithTests).toFixed(1) : '0.0';
-        kpiStrip.innerHTML = `
-          <div style="background: var(--surface); border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px;">
-            <div style="font-size: 10px; font-weight: 800; color: #92400e; text-transform: uppercase;">Batch Students</div>
-            <div style="font-size: 17px; font-weight: 900; color: var(--secondary);">${studentRows.length}</div>
-          </div>
-          <div style="background: var(--surface); border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px;">
-            <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase;">Practiced Today</div>
-            <div style="font-size: 17px; font-weight: 900; color: #059669;">${activeTodayCount} / ${studentRows.length}</div>
-          </div>
-          <div style="background: var(--surface); border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px;">
-            <div style="font-size: 10px; font-weight: 800; color: #2563eb; text-transform: uppercase;">Batch Avg Speed</div>
-            <div style="font-size: 17px; font-weight: 900; color: #2563eb;">${overallWpm} WPM</div>
-          </div>
-          <div style="background: var(--surface); border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px;">
-            <div style="font-size: 10px; font-weight: 800; color: #7c3aed; text-transform: uppercase;">Batch Avg Accuracy</div>
-            <div style="font-size: 17px; font-weight: 900; color: #7c3aed;">${overallAcc}%</div>
-          </div>
-        `;
+        if (isMonitorForActiveBatch) {
+          const overallWpm = studentsWithTests > 0 ? (batchWpmSum / studentsWithTests).toFixed(1) : '0.0';
+          const overallAcc = studentsWithTests > 0 ? (batchAccSum / studentsWithTests).toFixed(1) : '0.0';
+          kpiStrip.innerHTML = `
+            <div style="background: var(--surface); border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px;">
+              <div style="font-size: 10px; font-weight: 800; color: #92400e; text-transform: uppercase;">Batch Students</div>
+              <div style="font-size: 17px; font-weight: 900; color: var(--secondary);">${studentRows.length}</div>
+            </div>
+            <div style="background: var(--surface); border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px;">
+              <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase;">Practiced Today</div>
+              <div style="font-size: 17px; font-weight: 900; color: #059669;">${activeTodayCount} / ${studentRows.length}</div>
+            </div>
+            <div style="background: var(--surface); border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px;">
+              <div style="font-size: 10px; font-weight: 800; color: #2563eb; text-transform: uppercase;">Batch Avg Speed</div>
+              <div style="font-size: 17px; font-weight: 900; color: #2563eb;">${overallWpm} WPM</div>
+            </div>
+            <div style="background: var(--surface); border: 1px solid #fde68a; border-radius: 10px; padding: 8px 10px;">
+              <div style="font-size: 10px; font-weight: 800; color: #7c3aed; text-transform: uppercase;">Batch Avg Accuracy</div>
+              <div style="font-size: 17px; font-weight: 900; color: #7c3aed;">${overallAcc}%</div>
+            </div>
+          `;
+        } else {
+          // Strict Privacy: Regular students see ONLY their own stats (never total student counts or classmates' stats)
+          kpiStrip.innerHTML = `
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;">
+              <div style="font-size: 10px; font-weight: 800; color: #0f766e; text-transform: uppercase;">My Tests Completed</div>
+              <div style="font-size: 17px; font-weight: 900; color: var(--secondary);">${myOwnRow.testsCount}</div>
+            </div>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;">
+              <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase;">My Today's Practice</div>
+              <div style="font-size: 17px; font-weight: 900; color: ${myOwnRow.practicedToday ? '#059669' : '#d97706'};">${myOwnRow.practicedToday ? 'Active Today' : 'Not Yet'}</div>
+            </div>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;">
+              <div style="font-size: 10px; font-weight: 800; color: #2563eb; text-transform: uppercase;">My Avg Speed</div>
+              <div style="font-size: 17px; font-weight: 900; color: #2563eb;">${myOwnRow.avgWpm} WPM</div>
+            </div>
+            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px;">
+              <div style="font-size: 10px; font-weight: 800; color: #7c3aed; text-transform: uppercase;">My Avg Accuracy</div>
+              <div style="font-size: 17px; font-weight: 900; color: #7c3aed;">${myOwnRow.avgAcc}%</div>
+            </div>
+          `;
+        }
       }
 
       const tbody = document.getElementById('batch-monitoring-student-progress-tbody');
       if (tbody) {
-        if (studentRows.length === 0) {
+        const tableEl = tbody.closest('table');
+        const statusTh = tableEl ? tableEl.querySelector('thead th:last-child') : null;
+        if (statusTh) {
+          statusTh.textContent = isMonitorForActiveBatch ? "Today's Status & Auto-Nudge" : "My Today's Target Status";
+        }
+        const visibleRows = isMonitorForActiveBatch ? studentRows : [myOwnRow];
+        if (visibleRows.length === 0) {
           tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 14px; color: var(--text-muted);">No students assigned to "${activeBatch}" yet.</td></tr>`;
         } else {
-          tbody.innerHTML = studentRows.map((stu, idx) => {
-            const rowBg = stu.needsAutoNudgeHighlight
+          tbody.innerHTML = visibleRows.map((stu, idx) => {
+            const rowBg = (isMonitorForActiveBatch && stu.needsAutoNudgeHighlight)
               ? 'background: linear-gradient(90deg, rgba(245, 158, 11, 0.16), rgba(239, 68, 68, 0.08)); border-left: 4px solid #dc2626;'
               : (stu.isMonitor ? 'background: rgba(245, 158, 11, 0.08);' : '');
             const safeUid = stu.userId.replace(/'/g, "\\'");
@@ -2525,14 +2823,14 @@ export function renderDashboardBatchMonitoringHub() {
               <tr style="border-bottom: 1px solid var(--border); ${rowBg}">
                 <td style="padding: 7px 10px; font-weight: 800; color: var(--secondary);">
                   <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-                    <span>#${idx + 1} ${stu.name}</span>
-                    <span style="font-size: 10.5px; color: var(--text-muted);">(${stu.userId})</span>
+                    <span>${isMonitorForActiveBatch ? `#${idx + 1} ` : ''}${window.escapeHtml(stu.name)}${stu.userId === uid ? ' (You)' : ''}</span>
+                    <span style="font-size: 10.5px; color: var(--text-muted);">(${window.escapeHtml(stu.userId)})</span>
                     ${stu.emailVerified ? `<span style="background:rgba(16,185,129,0.15); color:#059669; border:1px solid rgba(16,185,129,0.4); font-size:9px; font-weight:900; padding:1px 6px; border-radius:999px;" title="Verified Email Account"><i class="fa-solid fa-circle-check"></i> Verified</span>` : ''}
                     ${stu.isMonitor ? `<span style="background:#f59e0b; color:#fff; font-size:9.5px; font-weight:900; padding:1px 6px; border-radius:999px;">🎖️ MONITOR</span>` : ''}
-                    ${stu.needsAutoNudgeHighlight ? `<span style="background:#dc2626; color:#fff; font-size:9px; font-weight:900; padding:1px 6px; border-radius:999px;"><i class="fa-solid fa-clock"></i> &lt;4h TO DEADLINE</span>` : ''}
+                    ${isMonitorForActiveBatch && stu.needsAutoNudgeHighlight ? `<span style="background:#dc2626; color:#fff; font-size:9px; font-weight:900; padding:1px 6px; border-radius:999px;"><i class="fa-solid fa-clock"></i> &lt;4h TO DEADLINE</span>` : ''}
                   </div>
                 </td>
-                <td style="padding: 7px 10px; font-size: 11px; font-weight: 700; color: var(--text-muted);">${stu.isMonitor && monitorEntry ? (monitorEntry.monitorType || 'Batch Monitor') : stu.role}</td>
+                <td style="padding: 7px 10px; font-size: 11px; font-weight: 700; color: var(--text-muted);">${window.escapeHtml(stu.isMonitor ? ((activeMonitorsList.find(m => String(m.userId || '').trim().toLowerCase() === String(stu.userId || '').trim().toLowerCase())?.monitorType) || 'Batch Monitor') : stu.role)}</td>
                 <td style="padding: 7px 10px; font-weight: 800;">${stu.testsCount}</td>
                 <td style="padding: 7px 10px; font-weight: 800; color: var(--primary);">${stu.avgWpm} WPM</td>
                 <td style="padding: 7px 10px; font-weight: 800; color: #0284c7;">${stu.bestWpm} WPM</td>
@@ -2545,7 +2843,7 @@ export function renderDashboardBatchMonitoringHub() {
                         ? `<span style="background:rgba(16,185,129,0.14); color:#059669; font-weight:800; font-size:10.5px; padding:2px 8px; border-radius:999px;"><i class="fa-solid fa-circle-check"></i> Target Done</span>`
                         : `<span style="background:rgba(239,68,68,0.14); color:#dc2626; font-weight:800; font-size:10.5px; padding:2px 8px; border-radius:999px;"><i class="fa-solid fa-triangle-exclamation"></i> Target Pending (${deadlineWindowInfo.remainingLabel})</span>`)
                     }
-                    ${latestTargetDirective && !stu.completedDailyTarget && stu.userId !== uid ? `
+                    ${isMonitorForActiveBatch && latestTargetDirective && !stu.completedDailyTarget && stu.userId !== uid ? `
                       <button type="button" class="btn btn-sm" style="padding: 3px 9px; font-size: 10.5px; font-weight: 800; border-radius: 7px; border: none; background: ${stu.alreadyNudgedToday ? 'rgba(124,58,237,0.15)' : 'linear-gradient(135deg, #ea580c, #dc2626)'}; color: ${stu.alreadyNudgedToday ? '#6d28d9' : '#ffffff'}; cursor: pointer;" title="Single-click: Send private Auto-Nudge query directly to ${safeUname}" onclick="sendSingleClickPrivateAutoNudge('${safeUid}', '${safeUname}')">
                         <i class="fa-solid fa-bolt"></i> ${stu.alreadyNudgedToday ? 'Nudged (Send Again)' : '1-Click Auto-Nudge'}
                       </button>
@@ -2725,16 +3023,16 @@ export function postBatchGroupCommunicationMessage() {
         window.currentBatchCommsChannel = 'private_queries';
       }
 
-      const monitorsMap = getBatchMonitorsMap();
-      const monitorEntry = monitorsMap[activeBatch];
-      const recipientMonitorId = monitorEntry && monitorEntry.userId ? String(monitorEntry.userId) : 'MONITOR';
-      const recipientMonitorName = monitorEntry && (monitorEntry.userName || monitorEntry.userId)
-        ? String(monitorEntry.userName || monitorEntry.userId)
+      const activeMonitorsList = getBatchMonitorsList(activeBatch);
+      const myMonitorEntry = activeMonitorsList.find(m => String(m.userId || '').trim().toLowerCase() === uid.toLowerCase()) || activeMonitorsList[0] || null;
+      const recipientMonitorId = activeMonitorsList.length > 0 ? activeMonitorsList.map(m => String(m.userId)).join(',') : 'MONITOR';
+      const recipientMonitorName = activeMonitorsList.length > 0
+        ? activeMonitorsList.map(m => String(m.userName || m.userId)).join(', ')
         : 'Appointed Batch Monitor';
 
       const authorRoleLabel = isAdminUser
         ? (roleLower === 'superadmin' ? 'Superadmin / Chief Instructor' : 'Instructor / Admin')
-        : (isMonitorForThisBatch ? ((monitorEntry && monitorEntry.monitorType) || 'Batch Monitor') : 'Batch Student');
+        : (isMonitorForThisBatch ? ((myMonitorEntry && myMonitorEntry.monitorType) || 'Batch Monitor') : 'Batch Student');
 
       const tagValue = isPrivateQuery
         ? 'private_query'
@@ -2828,8 +3126,8 @@ export function sendSingleClickPrivateAutoNudge(studentId, studentName, silentTo
       if (!portalState.currentUser || !studentId) return;
       const activeBatch = window.currentDashboardMonitoredBatch || getInstituteBatchesList()[0] || 'RP-Trail';
       const uid = String(portalState.currentUser.userId || '').trim();
-      const monitorsMap = getBatchMonitorsMap();
-      const monitorEntry = monitorsMap[activeBatch];
+      const activeMonitorsList = getBatchMonitorsList(activeBatch);
+      const monitorEntry = activeMonitorsList.find(m => String(m.userId || '').trim().toLowerCase() === uid.toLowerCase()) || activeMonitorsList[0] || null;
       const monitorName = (monitorEntry && (monitorEntry.userName || monitorEntry.userId))
         ? String(monitorEntry.userName || monitorEntry.userId)
         : (portalState.currentUser.name || uid);
@@ -3256,9 +3554,15 @@ export function populateAllBatchSelectDropdowns() {
       }
 
       const monitorCountBadge = document.getElementById('admin-total-monitors-count-badge');
-      const appointedBatchesKeys = Object.keys(monitorsMap).filter(b => monitorsMap[b] && monitorsMap[b].userId);
+      const appointedMonitorAssignments = [];
+      Object.keys(monitorsMap).forEach(b => {
+        const list = getBatchMonitorsList(b, monitorsMap);
+        list.forEach(entry => {
+          appointedMonitorAssignments.push({ batchName: b, entry });
+        });
+      });
       if (monitorCountBadge) {
-        monitorCountBadge.innerText = `${appointedBatchesKeys.length} Monitor${appointedBatchesKeys.length === 1 ? '' : 's'} Appointed`;
+        monitorCountBadge.innerText = `${appointedMonitorAssignments.length} Monitor${appointedMonitorAssignments.length === 1 ? '' : 's'} Appointed (Max ${MAX_MONITORS_PER_BATCH}/Batch)`;
       }
 
       const chipSearchInput = document.getElementById('admin-batch-chip-search-input');
@@ -3277,12 +3581,12 @@ export function populateAllBatchSelectDropdowns() {
             const count = allUsersRaw.filter(u => userHasBatchAssigned(u.UserID || u.userId, b, u.Batch || u.batch)).length;
             const safeB = b.replace(/'/g, "\\'");
             const canDelete = b !== 'RP-Trail';
-            const monEntry = monitorsMap[b];
-            const monLabel = monEntry && monEntry.userName ? ` • 🎖️ ${monEntry.userName}` : '';
+            const monList = getBatchMonitorsList(b, monitorsMap);
+            const monLabel = monList.length > 0 ? ` • 🎖️ ${monList.map(m => m.userName || m.userId).join(', ')} (${monList.length}/${MAX_MONITORS_PER_BATCH})` : '';
             return `
               <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:var(--surface); border:1px solid var(--border); font-size:11.5px; font-weight:800; color:var(--secondary); box-shadow:0 1px 2px rgba(0,0,0,0.04);">
                 <i class="fa-solid fa-layer-group" style="color:#4f46e5; font-size:10px;"></i>
-                <span style="cursor:pointer; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" onclick="quickFilterAdminUsersByBatch('${safeB}')" title="Click to filter users in ${b}">${b}${monLabel}</span>
+                <span style="cursor:pointer; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" onclick="quickFilterAdminUsersByBatch('${safeB}')" title="Click to filter users in ${b}">${b}${monLabel}</span>
                 <span style="background:rgba(79,70,229,0.12); color:#4f46e5; padding:1px 6px; border-radius:999px; font-size:10px;">${count}</span>
                 ${canDelete ? `<i class="fa-solid fa-xmark" style="cursor:pointer; color:#ef4444; font-size:11px; margin-left:2px;" title="Delete batch" onclick="deleteInstituteBatch('${safeB}')"></i>` : ''}
               </span>
@@ -3291,20 +3595,21 @@ export function populateAllBatchSelectDropdowns() {
         }
       }
 
-      // Render Appointed Batch Monitors Bar
+      // Render Appointed Batch Monitors Bar (supports up to 3 monitors per batch)
       const monitorsChipsBar = document.getElementById('admin-monitors-chips-bar');
       if (monitorsChipsBar) {
-        if (appointedBatchesKeys.length === 0) {
-          monitorsChipsBar.innerHTML = `<span style="font-size:11.5px; color:var(--text-muted); padding:2px 6px;">No Batch Monitor appointed yet — select a student &amp; batch above or click the 🎖️ Crown icon next to any user's batch chip below.</span>`;
+        if (appointedMonitorAssignments.length === 0) {
+          monitorsChipsBar.innerHTML = `<span style="font-size:11.5px; color:var(--text-muted); padding:2px 6px;">No Batch Monitor appointed yet — select a student &amp; batch above or click the 🎖️ Crown icon next to any user's batch chip below (Max ${MAX_MONITORS_PER_BATCH} monitors per batch).</span>`;
         } else {
-          monitorsChipsBar.innerHTML = `<span style="font-size:11px; font-weight:800; color:#b45309; margin-right:4px;"><i class="fa-solid fa-user-Astronaut"></i> Appointed Monitors:</span>` +
-            appointedBatchesKeys.map(b => {
-              const entry = monitorsMap[b];
+          monitorsChipsBar.innerHTML = `<span style="font-size:11px; font-weight:800; color:#b45309; margin-right:4px;"><i class="fa-solid fa-user-shield"></i> Appointed Monitors (${appointedMonitorAssignments.length}):</span>` +
+            appointedMonitorAssignments.map(({ batchName: b, entry }) => {
               const safeB = b.replace(/'/g, "\\'");
+              const safeUid = String(entry.userId || '').replace(/'/g, "\\'");
+              const batchTotal = getBatchMonitorsList(b, monitorsMap).length;
               return `
                 <span style="display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; background:linear-gradient(135deg, rgba(245,158,11,0.16), rgba(217,119,6,0.12)); border:1px solid rgba(245,158,11,0.45); font-size:11px; font-weight:800; color:#b45309;">
-                  <span>🎖️ <strong>${entry.userName || entry.userId}</strong> (${b})</span>
-                  <i class="fa-solid fa-xmark" style="cursor:pointer; color:#dc2626; font-size:10.5px;" title="Remove Monitor appointment for ${b}" onclick="removeBatchMonitorAppointment('${safeB}')"></i>
+                  <span>🎖️ <strong>${escapeHtml(entry.userName || entry.userId)}</strong> (${escapeHtml(b)} · ${batchTotal}/${MAX_MONITORS_PER_BATCH})</span>
+                  <i class="fa-solid fa-xmark" style="cursor:pointer; color:#dc2626; font-size:10.5px;" title="Remove ${escapeHtml(entry.userName || entry.userId)} as Monitor for ${escapeHtml(b)}" onclick="removeBatchMonitorAppointment('${safeB}', '${safeUid}')"></i>
                 </span>
               `;
             }).join('');
@@ -3317,8 +3622,11 @@ export function populateAllBatchSelectDropdowns() {
         const prevB = monitorBatchSel.value || '';
         monitorBatchSel.innerHTML = `<option value="">👥 Select Batch for Monitor...</option>` +
           batches.map(b => {
-            const mon = monitorsMap[b];
-            return `<option value="${b}">${b}${mon && mon.userName ? ` (Current: ${mon.userName})` : ''}</option>`;
+            const mList = getBatchMonitorsList(b, monitorsMap);
+            const countTag = mList.length >= MAX_MONITORS_PER_BATCH
+              ? ` (${mList.length}/${MAX_MONITORS_PER_BATCH} Full)`
+              : (mList.length > 0 ? ` (${mList.length}/${MAX_MONITORS_PER_BATCH}: ${mList.map(m => m.userName || m.userId).join(', ')})` : ` (0/${MAX_MONITORS_PER_BATCH})`);
+            return `<option value="${b}">${b}${countTag}</option>`;
           }).join('');
         if ([...monitorBatchSel.options].some(o => o.value === prevB)) monitorBatchSel.value = prevB;
       }
@@ -3334,8 +3642,9 @@ export function populateAllBatchSelectDropdowns() {
         const prevD = adminDiscBatchSel.value || (allowedDiscBatches[0] || 'RP-Trail');
         adminDiscBatchSel.innerHTML =
           allowedDiscBatches.map(b => {
-            const mon = monitorsMap[b];
-            return `<option value="${b}">👥 ${b}${mon && mon.userName ? ` (Monitor: ${mon.userName})` : ''}</option>`;
+            const mList = getBatchMonitorsList(b, monitorsMap);
+            const mNames = mList.length > 0 ? ` (Monitor${mList.length > 1 ? 's' : ''}: ${mList.map(m => m.userName || m.userId).join(', ')})` : '';
+            return `<option value="${b}">👥 ${b}${mNames}</option>`;
           }).join('') +
           (isFullAdminOrSuper ? `<option value="ALL_BATCHES">🌐 All Batches (Broadcast to Every Batch)</option>` : '');
         if ([...adminDiscBatchSel.options].some(o => o.value === prevD)) {
@@ -3360,8 +3669,9 @@ export function populateAllBatchSelectDropdowns() {
       const userFilterSel = document.getElementById('admin-filter-user-batch');
       if (userFilterSel) {
         const prevVal = userFilterSel.value || 'ALL';
+        const uniqueMonitorIds = new Set(appointedMonitorAssignments.map(a => String(a.entry.userId || '').trim().toLowerCase()));
         userFilterSel.innerHTML = `<option value="ALL">👥 Filter Batch: All Batches (${batches.length})</option>` +
-          `<option value="MONITORS_ONLY">🎖️ Appointed Batch Monitors (${appointedBatchesKeys.length})</option>` +
+          `<option value="MONITORS_ONLY">🎖️ Appointed Batch Monitors (${uniqueMonitorIds.size})</option>` +
           batches.map(b => `<option value="${b}">${b}</option>`).join('');
         if ([...userFilterSel.options].some(o => o.value === prevVal)) userFilterSel.value = prevVal;
       }
@@ -3405,7 +3715,7 @@ export function deleteInstituteBatch(batchName, skipConfirm = false) {
       saveUserBatchAssignmentsMap(map);
       const monMap = getBatchMonitorsMap();
       if (monMap[batchName]) {
-        delete monMap[batchName];
+        monMap[batchName] = [];
         saveBatchMonitorsMap(monMap);
       }
       populateAllBatchSelectDropdowns();
@@ -3632,7 +3942,7 @@ export function renderAdminUsers() {
       }
 
       const monitorsMap = typeof getBatchMonitorsMap === 'function' ? getBatchMonitorsMap() : {};
-      const appointedMonitorsCount = Object.keys(monitorsMap).filter(b => monitorsMap[b] && monitorsMap[b].userId).length;
+      const appointedMonitorsCount = Object.keys(monitorsMap).reduce((sum, b) => sum + getBatchMonitorsList(b, monitorsMap).length, 0);
 
       if (kpiStrip) {
         const totalU = allUsersRaw.length;
@@ -3793,7 +4103,12 @@ export function renderAdminUsers() {
 
           const addBatchOptionsHtml = `<option value="">+ Assign Batch / Monitor...</option>` +
             availableBatches.map(b => `<option value="ADD::${safeEscape(b)}">${userBatchesList.includes(b) ? '✔ In Batch: ' : '+ Assign: '}${safeEscape(b)}</option>`).join('') +
-            availableBatches.map(b => `<option value="MON::${safeEscape(b)}">🎖️ Monitor: ${safeEscape(b)}</option>`).join('');
+            availableBatches.map(b => {
+              const curMons = getBatchMonitorsList(b, monitorsMap);
+              const alreadyMon = curMons.some(m => String(m.userId || '').trim().toLowerCase() === uId.toLowerCase());
+              const isFull = !alreadyMon && curMons.length >= MAX_MONITORS_PER_BATCH;
+              return `<option value="MON::${safeEscape(b)}" ${isFull ? 'disabled' : ''}>🎖️ Monitor: ${safeEscape(b)} (${curMons.length}/${MAX_MONITORS_PER_BATCH}${alreadyMon ? ' ✔' : (isFull ? ' Full' : '')})</option>`;
+            }).join('');
 
           const isEmailVer = safeEmailVer(u);
           const isMobileVer = safeMobVer(u);
@@ -5015,6 +5330,10 @@ export function adjustAdminUploadForm() {
         if (urlLabel) urlLabel.innerHTML = 'Master Passage / Transcription Text <span class="required-star">*</span>';
         if (groupSubtab) groupSubtab.style.display = 'block';
         if (groupThumb) groupThumb.style.display = 'block';
+        const logoInput = document.getElementById('adm-upload-logo');
+        const thumbInput = document.getElementById('adm-upload-thumb');
+        if (logoInput) logoInput.placeholder = 'Optional Card Cover Thumbnail / Book Logo URL (shown on Pitman card)';
+        if (thumbInput) thumbInput.placeholder = 'Pitman Shorthand Exercise Plate Image URL (shown inside Test workspace)';
       } else {
         if (titleLabel) titleLabel.innerHTML = 'Title <span class="required-star">*</span>';
         if (subtabLabel) subtabLabel.innerHTML = 'Subtab <span class="required-star">*</span>';
@@ -6423,6 +6742,7 @@ export async function handleSaveBannerSettings() {
       const stopInput = document.getElementById('banner-stop-input');
       const textInput = document.getElementById('banner-text-input');
 
+      const loggedOutTextInput = document.getElementById('banner-logged-out-text-input');
       let enabledState = enableChk ? enableChk.checked : false;
       const stopVal = stopInput ? stopInput.value : '';
       let isExpired = false;
@@ -6441,14 +6761,16 @@ export async function handleSaveBannerSettings() {
         expiredAutoDisabled: isExpired,
         startTime: startInput ? startInput.value : '',
         stopTime: stopVal,
-        text: textInput ? textInput.value.trim() : ''
+        text: textInput ? textInput.value.trim() : '',
+        loggedOutText: loggedOutTextInput ? loggedOutTextInput.value.trim() : ''
       };
 
       const res = await apiCall('updateBannerSettings', bannerPayload);
-      showToast(isExpired ? 'Stop Time has already passed — Banner automatically marked as Disabled.' : (res.message || 'Banner settings updated successfully.'));
+      showToast(isExpired ? 'Stop Time has already passed — Banner automatically marked as Disabled.' : (res.message || 'Top banners updated successfully.'));
       if (!portalState.adminData) portalState.adminData = {};
       portalState.adminData.banner = bannerPayload;
       portalState.globalData.banner = bannerPayload;
+      try { localStorage.setItem('steno_public_top_banner', JSON.stringify(bannerPayload)); } catch (e) {}
       renderAdminBannersTable();
       renderPromoBanner();
     }
@@ -6457,11 +6779,13 @@ export function renderAdminBannersTable() {
       const container = document.getElementById('admin-banners-table-container');
       if (!container) return;
 
-      let banner = { enabled: false, startTime: '', stopTime: '', text: '' };
+      let banner = { enabled: false, startTime: '', stopTime: '', text: '', loggedOutText: '' };
       try {
         if (portalState.adminData && portalState.adminData.banner) {
-          banner = (typeof portalState.adminData.banner === 'string') ? JSON.parse(portalState.adminData.banner) : portalState.adminData.banner;
+          banner = (typeof portalState.adminData.banner === 'string') ? JSON.parse(portalState.adminData.banner) : { ...portalState.adminData.banner };
         }
+        const cached = JSON.parse(localStorage.getItem('steno_public_top_banner') || '{}') || {};
+        if (!banner.loggedOutText && cached.loggedOutText) banner.loggedOutText = cached.loggedOutText;
       } catch (e) {
         console.error("Error parsing banner data:", e);
       }
@@ -6480,6 +6804,7 @@ export function renderAdminBannersTable() {
       const startInput = document.getElementById('banner-start-input');
       const stopInput = document.getElementById('banner-stop-input');
       const textInput = document.getElementById('banner-text-input');
+      const loggedOutTextInput = document.getElementById('banner-logged-out-text-input');
 
       const isBannerActive = !isExpiredNow && (banner.enabled === true || String(banner.enabled).toLowerCase() === 'true');
 
@@ -6487,6 +6812,7 @@ export function renderAdminBannersTable() {
       if (startInput) startInput.value = banner.startTime ? String(banner.startTime).substring(0, 16) : '';
       if (stopInput) stopInput.value = banner.stopTime ? String(banner.stopTime).substring(0, 16) : '';
       if (textInput) textInput.value = banner.text || '';
+      if (loggedOutTextInput) loggedOutTextInput.value = banner.loggedOutText || '';
 
       const statusBadgeText = isExpiredNow
         ? 'Disabled (Time Expired)'
@@ -6495,7 +6821,7 @@ export function renderAdminBannersTable() {
       container.innerHTML = `
         <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;">
           <tr style="background:var(--border);">
-            <th>Status</th><th>Start Time</th><th>Stop Time</th><th>Banner Text</th><th>Actions</th>
+            <th>Status</th><th>Start Time</th><th>Stop Time</th><th>Logged-In Banner</th><th>Logged-Out Banner</th><th>Actions</th>
           </tr>
           <tr>
             <td>
@@ -6506,6 +6832,7 @@ export function renderAdminBannersTable() {
             <td>${banner.startTime || '-'}</td>
             <td>${banner.stopTime || '-'}</td>
             <td>${banner.text || '-'}</td>
+            <td>${banner.loggedOutText || 'Default Public Banner'}</td>
             <td><button class="btn btn-danger btn-sm" onclick="deleteBannerItem('active')">Reset Banner</button></td>
           </tr>
         </table>
@@ -6517,11 +6844,13 @@ export async function deleteBannerItem(id, skipConfirm = false) {
         window.rpConfirmDelete('Delete Top Banner?', 'Clear and disable the active website top banner?', () => deleteBannerItem(id, true));
         return;
       }
-      const res = await apiCall('updateBannerSettings', { enabled: false, startTime: '', stopTime: '', text: '' });
+      const emptyBanner = { enabled: false, startTime: '', stopTime: '', text: '', loggedOutText: '' };
+      const res = await apiCall('updateBannerSettings', emptyBanner);
       showToast(res.message || 'Top Banner reset.');
       if (!portalState.adminData) portalState.adminData = {};
-      portalState.adminData.banner = { enabled: false, startTime: '', stopTime: '', text: '' };
-      if (portalState.globalData) portalState.globalData.banner = portalState.adminData.banner;
+      portalState.adminData.banner = emptyBanner;
+      if (portalState.globalData) portalState.globalData.banner = emptyBanner;
+      try { localStorage.setItem('steno_public_top_banner', JSON.stringify(emptyBanner)); } catch (e) {}
       renderAdminBannersTable();
       renderPromoBanner();
     }
@@ -7735,13 +8064,21 @@ window.populateMonitorCandidatesForSelectedBatch = function () {
       return;
     }
 
+    const existingMons = getBatchMonitorsList(chosenBatch);
+    if (existingMons.length >= MAX_MONITORS_PER_BATCH) {
+      userSel.disabled = true;
+      userSel.innerHTML = `<option value="">Max ${MAX_MONITORS_PER_BATCH}/${MAX_MONITORS_PER_BATCH} Monitors already appointed for "${escapeHtml(chosenBatch)}"</option>`;
+      return;
+    }
+    const existingMonIds = new Set(existingMons.map(m => String(m.userId || '').trim().toLowerCase()));
+
     const allUsersRaw = (typeof portalState.adminData !== 'undefined' && portalState.adminData && Array.isArray(portalState.adminData.users))
       ? portalState.adminData.users.map((u) => (typeof normalizeUserRecord === 'function' ? normalizeUserRecord(u) : u))
       : [];
 
     const inBatch = allUsersRaw.filter((u) => {
       const uid = String(u.UserID || u.userId || '').trim();
-      if (!uid) return false;
+      if (!uid || existingMonIds.has(uid.toLowerCase())) return false;
       if (typeof userHasBatchAssigned === 'function') {
         return userHasBatchAssigned(uid, chosenBatch, u.Batch || u.batch || '');
       }
@@ -7751,12 +8088,12 @@ window.populateMonitorCandidatesForSelectedBatch = function () {
 
     if (inBatch.length === 0) {
       userSel.disabled = true;
-      userSel.innerHTML = `<option value="">No students enrolled in "${escapeHtml(chosenBatch)}" yet</option>`;
+      userSel.innerHTML = `<option value="">No remaining candidates enrolled in "${escapeHtml(chosenBatch)}" (${existingMons.length}/${MAX_MONITORS_PER_BATCH} Monitors)</option>`;
       return;
     }
 
     userSel.disabled = false;
-    userSel.innerHTML = `<option value="">-- Select Student from ${escapeHtml(chosenBatch)} (${inBatch.length}) --</option>` +
+    userSel.innerHTML = `<option value="">-- Select Candidate for ${escapeHtml(chosenBatch)} (${existingMons.length}/${MAX_MONITORS_PER_BATCH} Monitors • ${inBatch.length} eligible) --</option>` +
       inBatch.map((u) => {
         const uid = String(u.UserID || u.userId || '');
         const uname = String(u.Name || u.name || uid);

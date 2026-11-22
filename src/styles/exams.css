@@ -283,7 +283,7 @@ body.reading-time-fullscreen-lock header,
         max-height: 28vh !important;
         min-height: 82px !important;
         padding: 8px 10px !important;
-        font-size: 14px !important;
+        font-size: var(--test-active-font-size, 15px);
         line-height: 1.5 !important;
       }
       #active-test-modal #test-user-input {
@@ -291,7 +291,7 @@ body.reading-time-fullscreen-lock header,
         min-height: 44vh !important;
         max-height: 70vh !important;
         padding: 10px !important;
-        font-size: 14px !important;
+        font-size: var(--test-active-font-size, 15px);
       }
       #active-test-modal #active-test-footer-bar {
         padding: 6px 8px !important;

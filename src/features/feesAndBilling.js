@@ -963,8 +963,11 @@ window.renderFeePaymentHistorySubtab = async function (mountId = 'buy-plans-hist
         fallbackAction: 'getFeeLedger',
         fallbackParams: { userId: cu.userId },
         extractFallbackItems: (res) => (res && Array.isArray(res.ledger || res.rows)) ? (res.ledger || res.rows) : [],
-        onRecord: (rec) => {
-          streamedReceipts.push(rec);
+        onBatch: (records) => {
+          if (!Array.isArray(records) || records.length === 0) return;
+          for (let i = 0; i < records.length; i++) {
+            if (records[i]) streamedReceipts.push(records[i]);
+          }
           portalState.globalData = portalState.globalData || {};
           portalState.globalData.userFeeReceipts = streamedReceipts.slice();
           renderStudentFeeHistoryRowsOnly();
@@ -1942,8 +1945,11 @@ window.streamAdminFeeLedgerOneByOne = async function () {
       fallbackAction: 'getFeeLedger',
       fallbackParams: {},
       extractFallbackItems: (res) => (res && Array.isArray(res.ledger || res.rows)) ? (res.ledger || res.rows) : [],
-      onRecord: (rec) => {
-        streamed.push(rec);
+      onBatch: (records) => {
+        if (!Array.isArray(records) || records.length === 0) return;
+        for (let i = 0; i < records.length; i++) {
+          if (records[i]) streamed.push(records[i]);
+        }
         portalState.adminData.feeLedger = streamed.slice();
         renderAdminLedgerRowsOnly();
       },

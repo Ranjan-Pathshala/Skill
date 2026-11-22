@@ -70,6 +70,18 @@
             <button type="button" id="cbt-sectional-lock-sim-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtStrictSectionalLockSimulation()" style="background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); font-size: 11px; font-weight: 800; padding: 4px 10px;" title="Toggle Strict Sectional Timer (15m/Sec) & Auto-Switch Simulation">
               <i class="fa-solid fa-stopwatch"></i> <span id="cbt-sectional-lock-sim-label">Sectional Lock: AUTO</span>
             </button>
+            <div id="cbt-hall-noise-toggle-wrap" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(245,158,11,0.16); border: 1px solid rgba(245,158,11,0.42); padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #fde68a;">
+              <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; margin: 0; color: #fde68a;">
+                <i class="fa-solid fa-volume-high"></i> Hall Noise
+                <input type="checkbox" id="cbt-header-hall-sound-chk" class="exam-hall-sound-chk" style="cursor: pointer; width: 13px; height: 13px; margin: 0;" onchange="toggleExamHallSoundFromStatusBar(this.checked)">
+              </label>
+              <select id="cbt-header-hall-profile-select" class="exam-hall-profile-select" onchange="changeExamHallNoiseProfile(this.value)" title="Hall Noise Profile" style="background: #1e293b; color: #fff; border: 1px solid #475569; padding: 1px 5px; border-radius: 6px; font-size: 10.5px; font-weight: 700; margin: 0;">
+                <option value="full_mix">Full Hall</option>
+                <option value="keys_only">Keyboards</option>
+                <option value="fan_hum">Fan &amp; AC</option>
+                <option value="cough_rustle">Footsteps</option>
+              </select>
+            </div>
             <div style="font-size: 12px; display: flex; align-items: center; gap: 6px;">Default Lang: 
               <select id="cbt-lang-select" onchange="window.cbtPerQuestionLangOverride={}; renderCurrentCbtQuestion();" style="background: #1e293b; color: #fff; border: 1px solid #475569; padding: 4px 8px; border-radius: 6px; font-weight: 700;">
                 <option value="en">English</option>

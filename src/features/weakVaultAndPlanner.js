@@ -128,7 +128,7 @@ export let _weakVaultClearArmUntil = 0;
 
 window.saveWeakOutlinesVault = function(list) {
         try {
-            localStorage.setItem(WEAK_VAULT_STORAGE_KEY, JSON.stringify((list || []).slice(0, 250)));
+            localStorage.setItem(WEAK_VAULT_STORAGE_KEY, JSON.stringify((list || []).slice(0, 1000)));
         } catch (e) {}
         window.renderDashboardWeakOutlinesVault();
         if (typeof syncUserCloudStateToBackend === 'function') syncUserCloudStateToBackend();
@@ -141,7 +141,7 @@ window.recordWordsIntoWeakOutlinesVault = function(mistakeItems, sourceLabel) {
 
         mistakeItems.forEach(item => {
             const cleanWord = String(item.word || '').replace(/[^a-zA-Z0-9'-]/g, '').trim();
-            if (!cleanWord || cleanWord.length < 3) return;
+            if (!cleanWord || cleanWord.length < 2) return;
             const existing = vault.find(v => String(v.word || '').toLowerCase() === cleanWord.toLowerCase());
             if (existing) {
                 const nextWrong = (Number(existing.wrongCount ?? existing.count) || 0) + 1;
@@ -150,17 +150,17 @@ window.recordWordsIntoWeakOutlinesVault = function(mistakeItems, sourceLabel) {
                 existing.correctCount = Number(existing.correctCount) || 0;
                 existing.typed = item.typed || existing.typed || 'Omitted';
                 existing.category = item.category || sourceLabel || existing.category;
-                existing.lastSeen = todayStr;
+                existing.lastSeen = item.lastSeen || todayStr;
                 existing.mastered = false;
             } else {
                 vault.unshift({
                     word: cleanWord,
                     typed: item.typed || 'Omitted',
-                    category: item.category || sourceLabel || 'Steno / Typing',
+                    category: item.category || sourceLabel || 'Audio / Pitman Test',
                     count: 1,
                     wrongCount: 1,
                     correctCount: 0,
-                    lastSeen: todayStr,
+                    lastSeen: item.lastSeen || todayStr,
                     mastered: false
                 });
             }
@@ -176,7 +176,7 @@ window.recordCorrectWordsInWeakOutlinesVault = function(correctWordsList) {
         const uniqueLower = new Set(
             correctWordsList
                 .map(w => String(w || '').replace(/[^a-zA-Z0-9'-]/g, '').trim().toLowerCase())
-                .filter(w => w.length >= 3)
+                .filter(w => w.length >= 2)
         );
         let changed = false;
         vault.forEach(item => {
@@ -273,9 +273,133 @@ window.describePitmanShorthandOutline = function(word) {
         return { word: w, position, svg, rules };
     };
 
+const WEAK_VAULT_SYNCED_HISTORY_KEY = 'rp_skill_weak_vault_synced_history_v2';
+
+window.syncWeakVaultFromAudioAndPitmanHistory = function() {
+        try {
+            const historySources = [
+                ...(Array.isArray(portalState.allTestHistoryList) ? portalState.allTestHistoryList : []),
+                ...(Array.isArray(portalState.globalData && portalState.globalData.userHistory) ? portalState.globalData.userHistory : []),
+                ...(Array.isArray(portalState.globalData && portalState.globalData.history) ? portalState.globalData.history : [])
+            ];
+            if (historySources.length === 0) return window.getWeakOutlinesVault();
+
+            let syncedKeys = [];
+            try {
+                const rawSynced = localStorage.getItem(WEAK_VAULT_SYNCED_HISTORY_KEY);
+                if (rawSynced) syncedKeys = JSON.parse(rawSynced);
+            } catch (e) {}
+            const syncedSet = new Set(Array.isArray(syncedKeys) ? syncedKeys : []);
+            const currentUserId = String(portalState.currentUser?.userId || portalState.currentUser?.email || '').toLowerCase().trim();
+            const vault = window.getWeakOutlinesVault();
+            const normWord = (w) => String(w || '').replace(/[^a-zA-Z0-9'-]/g, '').trim();
+            let vaultChanged = false;
+            let keysChanged = false;
+
+            const seenRecKey = new Set();
+            for (let i = 0; i < historySources.length; i++) {
+                const rec = historySources[i];
+                if (!rec || typeof rec !== 'object') continue;
+
+                // Filter to current user if history pool contains multi-user rows
+                const recUid = String(rec.UserID || rec.userId || rec.Email || rec.email || '').toLowerCase().trim();
+                if (currentUserId && recUid && recUid !== currentUserId) continue;
+
+                const refText = String(rec.referenceText || rec.ReferenceText || '').trim();
+                const userText = String(rec.userTranscription || rec.UserTranscription || '').trim();
+                if (!refText || refText === '-') continue;
+
+                const examName = String(rec.examName || rec.ExamName || rec.Title || '').trim();
+                const examLow = examName.toLowerCase();
+                const ruleTabLow = String(rec.evaluationRules?.tabType || rec.Type || rec.type || '').toLowerCase();
+                const isCbt = examLow.includes('cbt') || ruleTabLow === 'cbttest';
+                if (isCbt) continue;
+
+                const isPitman = examLow.includes('pitman') || ruleTabLow.includes('pitman');
+                const isAudio = !isPitman && (
+                    examLow.includes('audio') ||
+                    examLow.includes('dictation') ||
+                    examLow.includes('steno') ||
+                    examLow.includes('shorthand') ||
+                    examLow.includes('transcription') ||
+                    ruleTabLow.includes('audio') ||
+                    (!examLow.includes('typing') && !examLow.includes('learning'))
+                );
+                if (!isPitman && !isAudio) continue;
+
+                const recKey = String(
+                    rec.ID || rec.id || `${examName}|${rec.date || rec.Date || rec.Timestamp || ''}|${userText.length}|${refText.length}`
+                );
+                if (seenRecKey.has(recKey) || syncedSet.has(recKey)) continue;
+                seenRecKey.add(recKey);
+                syncedSet.add(recKey);
+                keysChanged = true;
+
+                const sourcePrefix = isPitman ? 'Pitman Test' : 'Audio Test';
+                const sourceLabel = examName ? `${sourcePrefix} · ${examName}` : sourcePrefix;
+                const dateLabel = String(rec.date || rec.Date || '').slice(0, 12) || new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+
+                const refW = refText.split(/\s+/).filter(Boolean);
+                const typW = (userText && userText !== '-') ? userText.split(/\s+/).filter(Boolean) : [];
+                const typFreq = new Map();
+                typW.forEach(w => {
+                    const k = normWord(w).toLowerCase();
+                    if (k) typFreq.set(k, (typFreq.get(k) || 0) + 1);
+                });
+
+                refW.forEach((rw, idx) => {
+                    const clean = normWord(rw);
+                    const low = clean.toLowerCase();
+                    if (clean.length < 2) return;
+                    const rem = typFreq.get(low) || 0;
+                    if (rem > 0) {
+                        typFreq.set(low, rem - 1);
+                    } else {
+                        const typedAtPos = typW[idx] ? normWord(typW[idx]) : '';
+                        const existing = vault.find(v => String(v.word || '').toLowerCase() === low);
+                        if (existing) {
+                            const nextWrong = (Number(existing.wrongCount ?? existing.count) || 0) + 1;
+                            existing.count = nextWrong;
+                            existing.wrongCount = nextWrong;
+                            existing.typed = (typedAtPos && typedAtPos.toLowerCase() !== low) ? typedAtPos : (existing.typed || 'Omitted / Wrong');
+                            existing.category = sourceLabel;
+                            existing.lastSeen = dateLabel;
+                            existing.mastered = false;
+                        } else {
+                            vault.unshift({
+                                word: clean,
+                                typed: (typedAtPos && typedAtPos.toLowerCase() !== low) ? typedAtPos : 'Omitted / Wrong',
+                                category: sourceLabel,
+                                count: 1,
+                                wrongCount: 1,
+                                correctCount: 0,
+                                lastSeen: dateLabel,
+                                mastered: false
+                            });
+                        }
+                        vaultChanged = true;
+                    }
+                });
+            }
+
+            if (keysChanged) {
+                try {
+                    localStorage.setItem(WEAK_VAULT_SYNCED_HISTORY_KEY, JSON.stringify(Array.from(syncedSet).slice(-400)));
+                } catch (e) {}
+            }
+            if (vaultChanged) {
+                try {
+                    localStorage.setItem(WEAK_VAULT_STORAGE_KEY, JSON.stringify(vault.slice(0, 1000)));
+                } catch (e) {}
+            }
+            return vault;
+        } catch (e) {
+            return window.getWeakOutlinesVault();
+        }
+    };
+
 window.seedWeakVaultFromHistoryOrMaterials = function() {
-        // Zero preloaded / hardcoded sample words: always return only the student's real saved Vault.
-        // Also purge any legacy 6-word auto-seeded set from older portal versions.
+        // Auto-populate all real Audio Test & Pitman Test errors from test history without any fake/seeded sample words.
         let vault = window.getWeakOutlinesVault();
         const legacySeeds = ['jurisprudence', 'appropriation', 'notwithstanding', 'administration', 'infrastructure', 'constitutional'];
         if (
@@ -286,7 +410,7 @@ window.seedWeakVaultFromHistoryOrMaterials = function() {
             vault = [];
             try { localStorage.setItem(WEAK_VAULT_STORAGE_KEY, '[]'); } catch (e) {}
         }
-        return vault;
+        return window.syncWeakVaultFromAudioAndPitmanHistory();
     };
 
 window.toggleWeakOutlineMastered = function(word) {

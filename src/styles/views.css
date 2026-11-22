@@ -430,6 +430,13 @@ body:not(.rp-authenticated) #view-auth,
     pointer-events: auto !important;
   }
 
+body:not(.rp-authenticated) footer,
+  body.rp-unauthenticated footer {
+    display: flex !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
 /* 2. Dashboard: Hide Subsection Filter Organizer Bar & Show All Sections Together */
   #dashboard-subview-organizer-card,
   #dashboard-subview-tabs-bar,

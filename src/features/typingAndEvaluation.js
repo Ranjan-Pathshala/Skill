@@ -584,16 +584,22 @@ export function startTypingExam(item) {
         `;
       }
 
+      const initTypingFontSize = parseInt(rules.defaultTextSize, 10) || 15;
+      portalState.currentTestFontSize = initTypingFontSize;
+      portalState.currentPassageFontSize = initTypingFontSize;
+      document.documentElement.style.setProperty('--test-active-font-size', initTypingFontSize + 'px');
+      document.documentElement.style.setProperty('--mobile-test-font-size', initTypingFontSize + 'px');
       const userInputElem = document.getElementById('test-user-input');
-      if (userInputElem) userInputElem.style.fontSize = (rules.defaultTextSize || 15) + 'px';
+      if (userInputElem) userInputElem.style.setProperty('font-size', initTypingFontSize + 'px', 'important');
+      const refDispElem = document.getElementById('test-reference-display');
+      if (refDispElem) refDispElem.style.setProperty('font-size', initTypingFontSize + 'px', 'important');
+      const fontSizeBadgeTop = document.getElementById('test-header-font-size-badge');
+      if (fontSizeBadgeTop) fontSizeBadgeTop.textContent = initTypingFontSize + 'px';
       if (typeof configureActiveTestModalChrome === 'function') {
         configureActiveTestModalChrome('typing_exam');
       }
       const testModal = document.getElementById('active-test-modal');
       if (testModal) testModal.style.display = 'flex';
-      if (window.innerWidth < 768 && typeof toggleMobileExamFocusMode === 'function') {
-        toggleMobileExamFocusMode(true);
-      }
       updateLiveTypingStatusBar('Ready - Press any key');
     }
 
@@ -638,6 +644,8 @@ export function updateLiveTypingStatusBar(statusText = 'Typing...') {
 
       const wEl = document.getElementById('live-stat-words');
       if (wEl) wEl.innerText = `${Math.round(words)}${is5Stroke ? ' (5-Stroke)' : ' (1-Space)'}`;
+      const headerWordsEl = document.getElementById('test-header-inline-words');
+      if (headerWordsEl) headerWordsEl.innerText = `${Math.round(words)}w`;
       const sEl = document.getElementById('live-stat-strokes');
       if (sEl) sEl.innerText = strokes;
       const wpmEl = document.getElementById('live-stat-wpm');
@@ -899,11 +907,14 @@ export function renderPitmanList(filterSubtab = 'ALL') {
         
         const rawLogo = String(item.LogoUrl || '').trim();
         const rawThumb = String(item.ThumbnailUrl || '').trim();
-        const logoTarget = (rawLogo !== '' && rawLogo !== '-') 
-          ? rawLogo 
-          : ((rawThumb !== '' && rawThumb !== '-') 
-              ? rawThumb 
-              : DEFAULT_LOGO_URL);
+        // Keep the Pitman card cover thumbnail distinct from the actual Pitman Shorthand Plate material (ThumbnailUrl)
+        // so the shorthand exam plate is only revealed inside the Pitman Test workspace.
+        const hasDistinctCoverLogo = Boolean(
+          rawLogo !== '' &&
+          rawLogo !== '-' &&
+          rawLogo !== rawThumb
+        );
+        const logoTarget = hasDistinctCoverLogo ? rawLogo : DEFAULT_LOGO_URL;
         
         const thumbUrl = getUniversalUrl(logoTarget, 'image');
         const subtabStr = (item.Subtab !== undefined && item.Subtab !== null && String(item.Subtab).trim() !== '' && String(item.Subtab).trim() !== '-')
@@ -917,7 +928,7 @@ export function renderPitmanList(filterSubtab = 'ALL') {
         const pitmanStrokesCount = countMasterPassageStrokes(item.ContentOrUrl);
         const perms = checkMaterialAccessPermissions(item.AccessLevel, item);
         const batchBadgeStr = perms.targetBatch ? ` • 🎯 ${perms.targetBatch}` : '';
-        const safeUrl = String(item.LogoUrl || item.ThumbnailUrl || item.ContentOrUrl || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const safeUrl = String(item.ThumbnailUrl || item.LogoUrl || item.ContentOrUrl || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
         card.innerHTML = `
           <div class="rp-thumb-frame" style="${perms.canView ? '' : 'cursor:pointer; position:relative;'}" ${perms.canView ? '' : `onclick="showToast('Access Denied: Restricted to ${perms.requiredRoleLabel.replace(/'/g, "\\'")}')"`}>
@@ -1017,45 +1028,39 @@ export function startPitmanTest(item, overrideRuleKey) {
       
       const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
 
-      // Requirement #3: Clean Pitman Split-Screen Workspace with Distinct Plate Image Zoom (No duplicate Full Screen triggers)
+      // Compact Pitman Split-Screen Workspace: minimal chrome, maximum room for shorthand plate and transcription textarea
   mainBody.innerHTML = `
-    <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 1240px; flex: 1; overflow-y: auto; padding-bottom: 20px; margin: 0 auto;">
-      <div style="display: flex; gap: 16px; width: 100%; flex: 1; align-items: stretch; flex-wrap: wrap;">
-      <div style="flex: 1.15 1 320px; min-width: min(100%, 300px); background: var(--surface); padding: 12px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 6px; flex-wrap: wrap; gap: 6px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <strong style="color: var(--secondary); font-size: 13px;"><i class="fa-solid fa-image" style="color: var(--primary);"></i> Pitman Shorthand Plate</strong>
-            <span id="pitman-photo-zoom-badge" class="mono-num" style="font-size: 11px; font-weight: 700; color: var(--primary);">100%</span>
+    <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 1400px; flex: 1; min-height: 0; margin: 0 auto;">
+      <div style="display: flex; gap: 8px; width: 100%; flex: 1; min-height: 0; align-items: stretch; flex-wrap: wrap;">
+      <div style="flex: 1.15 1 320px; min-width: min(100%, 300px); background: var(--surface); padding: 6px 8px; border-radius: 10px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; min-height: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 4px; gap: 6px; flex-wrap: nowrap;">
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <strong style="color: var(--secondary); font-size: 12px; white-space: nowrap;"><i class="fa-solid fa-image" style="color: var(--primary);"></i> Plate</strong>
+            <span id="pitman-photo-zoom-badge" class="mono-num" style="font-size: 10.5px; font-weight: 800; color: var(--primary);">100%</span>
           </div>
-          <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
-            <span style="font-size: 11px; color: var(--text-muted); margin-right: 2px;">Plate Zoom:</span>
-            <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="adjustTestPhotoZoom(-0.2)" title="Zoom Out Shorthand Plate">-</button>
-            <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="adjustTestPhotoZoom(0.2)" title="Zoom In Shorthand Plate">+</button>
-            <button type="button" class="btn btn-sm btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="resetTestPhotoZoom()" title="Fit Plate to Stage">Fit</button>
+          <div style="display: flex; gap: 3px; align-items: center; flex-shrink: 0;">
+            <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 7px; font-size: 11px; min-height: 22px;" onclick="adjustTestPhotoZoom(-0.2)" title="Zoom Out Shorthand Plate">-</button>
+            <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 7px; font-size: 11px; min-height: 22px;" onclick="adjustTestPhotoZoom(0.2)" title="Zoom In Shorthand Plate">+</button>
+            <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 7px; font-size: 10.5px; min-height: 22px;" onclick="resetTestPhotoZoom()" title="Fit Plate to Stage">Fit</button>
           </div>
         </div>
-        <div id="test-photo-stage" style="flex: 1; width: 100%; overflow: auto; display: block; background: #ffffff; border-radius: 8px; padding: 10px; min-height: clamp(220px, 38vh, 420px); max-height: 56vh; position: relative; text-align: center; border: 1px solid var(--border);">
-          <div class="global-watermark-layer" style="opacity: 0.18; z-index: 2; pointer-events: none;"></div>
+        <div id="test-photo-stage" style="flex: 1; width: 100%; overflow: auto; display: block; background: #ffffff; border-radius: 6px; padding: 6px; min-height: clamp(240px, 42vh, 520px); max-height: 76vh; position: relative; text-align: center; border: 1px solid var(--border);">
+          <div class="global-watermark-layer" style="opacity: 0.16; z-index: 2; pointer-events: none;"></div>
           <div id="test-photo-zoom-wrapper" style="width: 100%; min-width: 100%; display: inline-block; position: relative; z-index: 1; text-align: center;">
-            <img id="test-pitman-img" src="${pitmanThumbUrl}" style="width: 100%; height: auto; max-width: 100%; max-height: clamp(220px, 48vh, 520px); object-fit: contain; display: block; margin: 0 auto;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+            <img id="test-pitman-img" src="${pitmanThumbUrl}" style="width: 100%; height: auto; max-width: 100%; max-height: 72vh; object-fit: contain; display: block; margin: 0 auto;" onerror="this.src='${DEFAULT_LOGO_URL}'">
           </div>
         </div>
       </div>
 
-      <div style="flex: 1 1 320px; min-width: min(100%, 300px); display: flex; flex-direction: column; gap: 8px;">
-        <div class="test-non-essential-mobile" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-          <span style="font-size: 11.5px; font-weight: 700; color: var(--primary);">
-            <i class="fa-solid fa-scale-balanced"></i> Active Pitman Rule: ${rules.examDisplayName || portalState.activeTestSubtabKey} · ${portalState.testDurationMinutes} Mins
-          </span>
-        </div>
+      <div style="flex: 1 1 320px; min-width: min(100%, 300px); display: flex; flex-direction: column; min-height: 0;">
         <textarea id="test-user-input" 
                 class="form-control" 
                 spellcheck="false" 
                 autocorrect="off" 
                 autocapitalize="off" 
                 autocomplete="off" 
-                style="width: 100%; flex: 1; min-height: 250px; resize: vertical; font-family: 'Segoe UI', monospace; padding: 14px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
-                placeholder="Type Pitman outline transcription here (Timer is active under the selected Pitman evaluation rule)..." 
+                style="width: 100%; flex: 1; min-height: clamp(240px, 42vh, 620px); resize: none; font-family: 'Segoe UI', monospace; padding: 12px; border-radius: 10px; box-shadow: inset 0 1px 3px var(--shadow);" 
+                placeholder="Type Pitman outline transcription here (${rules.examDisplayName || portalState.activeTestSubtabKey} · ${portalState.testDurationMinutes}m)..." 
                 oninput="handleTypingInputProgress()"
                 onkeydown="handleTestKeyDown(event)" 
                 onpaste="handleTestPaste(event)" 
@@ -1066,13 +1071,16 @@ export function startPitmanTest(item, overrideRuleKey) {
     </div>
   `;
 
-      document.getElementById('test-user-input').style.fontSize = (rules.defaultTextSize || 15) + 'px';
+      const initPitmanFontSize = parseInt(rules.defaultTextSize, 10) || 15;
+      portalState.currentTestFontSize = initPitmanFontSize;
+      portalState.currentPassageFontSize = initPitmanFontSize;
+      document.documentElement.style.setProperty('--test-active-font-size', initPitmanFontSize + 'px');
+      document.documentElement.style.setProperty('--mobile-test-font-size', initPitmanFontSize + 'px');
+      const pitmanInputEl = document.getElementById('test-user-input');
+      if (pitmanInputEl) pitmanInputEl.style.setProperty('font-size', initPitmanFontSize + 'px', 'important');
       const fontSizeBadge = document.getElementById('test-header-font-size-badge');
-      if (fontSizeBadge) fontSizeBadge.textContent = (rules.defaultTextSize || 15) + 'px';
+      if (fontSizeBadge) fontSizeBadge.textContent = initPitmanFontSize + 'px';
       document.getElementById('active-test-modal').style.display = 'flex'; if (typeof enterImmersiveFullscreenLock === 'function') enterImmersiveFullscreenLock('active-test-modal');
-      if (window.innerWidth < 768 && typeof toggleMobileExamFocusMode === 'function') {
-        toggleMobileExamFocusMode(true);
-      }
       updateLiveTypingStatusBar('Ready to Type');
       if (typeof renderGlobalWatermark === 'function') {
         renderGlobalWatermark();
@@ -1691,6 +1699,11 @@ export function closeModal() {
     }
     const viewport = document.getElementById('modal-viewport');
     if (viewport) viewport.innerHTML = '';
+    const inlineControls = document.getElementById('reader-modal-inline-controls');
+    if (inlineControls) inlineControls.innerHTML = '';
+    if (typeof window.toggleCompactViewerChrome === 'function') {
+      window.toggleCompactViewerChrome('reader', false);
+    }
     
     if (document.fullscreenElement && document.exitFullscreen) {
       document.exitFullscreen().catch(() => {});
@@ -1716,22 +1729,9 @@ export function toggleFullscreen() {
 
 export let timerWarningTriggered = false;
 
-export function toggleMobileExamFocusMode(forceState) {
-      const nextState = typeof forceState === 'boolean'
-        ? forceState
-        : !document.body.classList.contains('mobile-exam-focus-mode');
-      document.body.classList.toggle('mobile-exam-focus-mode', nextState);
-      ['btn-mobile-exam-focus-toggle', 'mobile-exam-focus-toggle-btn'].forEach(id => {
-        const btn = document.getElementById(id);
-        if (btn) {
-          btn.style.background = nextState ? 'rgba(16,185,129,0.18)' : '';
-          btn.style.borderColor = nextState ? '#10b981' : 'rgba(37,99,235,0.35)';
-          btn.style.color = nextState ? '#059669' : 'var(--primary)';
-          btn.innerHTML = nextState
-            ? '<i class="fa-solid fa-sliders"></i> <span id="mobile-exam-focus-label">Exit Compact</span>'
-            : '<i class="fa-solid fa-sliders"></i> <span id="mobile-exam-focus-label">Compact</span>';
-        }
-      });
+export function toggleMobileExamFocusMode() {
+      // Compact mode button removed — always ensure full test view stays unobstructed
+      document.body.classList.remove('mobile-exam-focus-mode');
     }
 
 export function updateVisualTimerDisplayAndProgressBar(secondsLeft, totalSeconds, isCountUpMode = false) {
@@ -2416,12 +2416,21 @@ export async function submitStenoTest(event) {
   }
   localStorage.setItem('steno_pending_submission', JSON.stringify(payload));
 
-  // Auto-capture omitted/mistyped words into Weak Outlines Vault AND track correctly answered words for existing Vault items
+  // Auto-capture ALL omitted/mistyped words from Audio & Pitman (and all skill tests) into Weak Outlines Vault
   try {
-    if (referenceText && typedText) {
+    if (referenceText) {
       const normWord = (w) => String(w || '').replace(/[^a-zA-Z0-9'-]/g, '').trim();
+      const subKeyLow = String(portalState.activeTestSubtabKey || '').toLowerCase();
+      const examNameLow = String(portalState.currentExamName || '').toLowerCase();
+      const isPitmanTest = subKeyLow.includes('pitman') || examNameLow.includes('pitman') || Boolean(document.getElementById('test-pitman-img'));
+      const isAudioTest = !isPitmanTest && (subKeyLow.includes('audio') || examNameLow.includes('audio') || examNameLow.includes('dictation') || examNameLow.includes('transcription') || Boolean(portalState.pendingAudioDictationItem));
+      const sourcePrefix = isPitmanTest ? 'Pitman Test' : (isAudioTest ? 'Audio Test' : 'Skill Test');
+      const sourceLabel = portalState.currentExamName
+        ? `${sourcePrefix} · ${portalState.currentExamName}`
+        : sourcePrefix;
+
       const refW = referenceText.split(/\s+/).filter(Boolean);
-      const typW = typedText.split(/\s+/).filter(Boolean);
+      const typW = String(typedText || '').split(/\s+/).filter(Boolean);
       const typFreq = new Map();
       typW.forEach(w => {
         const k = normWord(w).toLowerCase();
@@ -2432,17 +2441,22 @@ export async function submitStenoTest(event) {
       refW.forEach((rw, idx) => {
         const clean = normWord(rw);
         const low = clean.toLowerCase();
-        if (clean.length < 3) return;
+        if (clean.length < 2) return;
         const remaining = typFreq.get(low) || 0;
         if (remaining > 0) {
           typFreq.set(low, remaining - 1);
           correctWords.push(clean);
         } else {
-          autoCaptured.push({ word: clean, typed: typW[idx] || 'Omitted / Wrong', category: portalState.currentExamName || 'Skill Test' });
+          const typedAtPos = typW[idx] ? normWord(typW[idx]) : '';
+          autoCaptured.push({
+            word: clean,
+            typed: (typedAtPos && typedAtPos.toLowerCase() !== low) ? typedAtPos : 'Omitted / Wrong',
+            category: sourceLabel
+          });
         }
       });
       if (autoCaptured.length > 0 && typeof window.recordWordsIntoWeakOutlinesVault === 'function') {
-        window.recordWordsIntoWeakOutlinesVault(autoCaptured.slice(0, 40), portalState.currentExamName || 'Skill Test');
+        window.recordWordsIntoWeakOutlinesVault(autoCaptured, sourceLabel);
       }
       if (correctWords.length > 0 && typeof window.recordCorrectWordsInWeakOutlinesVault === 'function') {
         window.recordCorrectWordsInWeakOutlinesVault(correctWords);
@@ -2550,9 +2564,11 @@ export function loadTestHistory(silent = true) {
       fallbackAction: 'getTestHistory',
       fallbackParams: { userId: portalState.currentUser.userId },
       extractFallbackItems: (res) => (res && Array.isArray(res.historyList)) ? res.historyList : [],
-      onRecord: (rec) => {
-        if (!rec) return;
-        streamedHistory.push(rec);
+      onBatch: (records) => {
+        if (!Array.isArray(records) || records.length === 0) return;
+        for (let i = 0; i < records.length; i++) {
+          if (records[i]) streamedHistory.push(records[i]);
+        }
         portalState.allTestHistoryList = streamedHistory.slice();
         portalState.globalData.history = portalState.allTestHistoryList;
         renderTestHistoryTable();

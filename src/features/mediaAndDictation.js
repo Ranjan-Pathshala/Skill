@@ -15,6 +15,7 @@ import { checkMaterialAccessPermissions, getUniversalUrl, handleTypingInputProgr
 import { loadLearningLesson, purgeFakeInjectedRules, renderLearningKeyboard, renderVideoCourseList, updateLearningDisplayAndKeyHighlight, updateLearningStudioCompleteRules } from './videoAndTutor.js';
 import { countMasterPassageStrokes, countMasterPassageWords, getWatermarkText, renderDailyPracticeGoalUI } from './dashboardAndProfile.js';
 import { formatSecMMSS, getActiveDictationAudioElement } from './weakVaultAndPlanner.js';
+import { extractHardWordsFromPassage } from '../utils/pitman.ts';
 
 const enterImmersiveFullscreenLock = (...args) => (typeof window.enterImmersiveFullscreenLock === 'function' ? window.enterImmersiveFullscreenLock(...args) : undefined);
 const exitImmersiveFullscreenLock = (...args) => (typeof window.exitImmersiveFullscreenLock === 'function' ? window.exitImmersiveFullscreenLock(...args) : undefined);
@@ -858,6 +859,24 @@ export function openReferenceVideoModal(rawUrl, title) {
         ? window.buildYouTubeClipQueryParams(clipCfg.startSec, clipCfg.endSec)
         : '';
 
+      const jumpBarHtml = `
+        <div id="ref-video-jump-toolbar" style="display: none; background: #0f172a; color: #f8fafc; padding: 6px 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #334155; z-index: 30; flex-shrink: 0;">
+          <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+            <input type="text" id="ref-video-jump-time-input" placeholder="MM:SS" style="width: 82px; padding: 3px 7px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #fff; font-size: 11.5px; font-weight: 700; margin: 0; min-height: 28px;">
+            <button type="button" class="btn btn-primary btn-sm" style="padding: 3px 9px; font-size: 11px; min-height: 28px;" onclick="window.seekActiveMediaPlayerToInput('ref-video-jump-time-input')">Go</button>
+            ${clipLabelText ? `<span style="font-size:10.5px; font-weight:800; color:#34d399; background:rgba(16,185,129,0.16); padding:2px 7px; border-radius:999px;">✂️ ${clipCfg.startLabel || '00:00'} – ${clipCfg.endLabel || 'End'}</span>` : ''}
+          </div>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap; align-items: center;">
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 26px;" onclick="window.seekActiveMediaPlayerByOffset(-30)">-30s</button>
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 26px;" onclick="window.seekActiveMediaPlayerByOffset(30)">+30s</button>
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 26px;" onclick="window.seekActiveMediaPlayerToSeconds(120)">02:00</button>
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 26px;" onclick="window.seekActiveMediaPlayerToSeconds(300)">05:00</button>
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 26px;" onclick="window.seekActiveMediaPlayerToSeconds(600)">10:00</button>
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 26px;" onclick="window.seekActiveMediaPlayerToSeconds(900)">15:00</button>
+          </div>
+        </div>
+      `;
+
       if (url.includes('youtube.com') || url.includes('youtu.be')) {
         let videoId = '';
         if (url.includes('watch?v=')) videoId = url.split('watch?v=')[1]?.split('&')[0];
@@ -867,25 +886,9 @@ export function openReferenceVideoModal(rawUrl, title) {
 
         if (videoId) {
           mediaHtml = `
-            <div style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column;">
-              <div style="background: #0f172a; color: #f8fafc; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid #334155;">
-                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                  <span style="font-size: 11.5px; font-weight: 800; color: #38bdf8;"><i class="fa-solid fa-clock"></i> Jump to Specific Time:</span>
-                  <input type="text" id="ref-video-jump-time-input" placeholder="MM:SS (e.g. 05:30)" style="width: 135px; padding: 4px 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #fff; font-size: 12px; font-weight: 800; margin: 0;">
-                  <button type="button" class="btn btn-primary btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="window.seekActiveMediaPlayerToInput('ref-video-jump-time-input')">⏩ Jump</button>
-                  ${clipLabelText ? `<span style="font-size:11px; font-weight:800; color:#34d399; background:rgba(16,185,129,0.16); padding:3px 9px; border-radius:999px;">✂️ ${clipCfg.startLabel || '00:00'} – ${clipCfg.endLabel || 'End'}</span>` : ''}
-                </div>
-                <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerByOffset(-30)">⏪ -30s</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerByOffset(30)">⏩ +30s</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(120)">02:00</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(300)">05:00</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(600)">10:00</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(900)">15:00</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(1200)">20:00</button>
-                </div>
-              </div>
-              <iframe id="ref-youtube-video-iframe" data-yt-id="${videoId}" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&playsinline=1${ytClipQuery}&origin=${encodeURIComponent(window.location.origin)}" style="width:100%; flex:1; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            <div style="position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0;">
+              ${jumpBarHtml}
+              <iframe id="ref-youtube-video-iframe" data-yt-id="${videoId}" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&playsinline=1${ytClipQuery}&origin=${encodeURIComponent(window.location.origin)}" style="width:100%; flex:1; min-height:0; border:none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
           `;
         }
@@ -896,24 +899,10 @@ export function openReferenceVideoModal(rawUrl, title) {
           const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
           const directStream = `https://drive.google.com/uc?export=download&id=${fileId}`;
           mediaHtml = `
-            <div style="position: relative; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column;">
-              <div style="background: #0f172a; color: #f8fafc; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid #334155; z-index: 30;">
-                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                  <span style="font-size: 11.5px; font-weight: 800; color: #38bdf8;"><i class="fa-solid fa-clock"></i> Jump to Specific Time:</span>
-                  <input type="text" id="ref-video-jump-time-input" placeholder="MM:SS (e.g. 05:30)" style="width: 135px; padding: 4px 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #fff; font-size: 12px; font-weight: 800; margin: 0;">
-                  <button type="button" class="btn btn-primary btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="window.seekActiveMediaPlayerToInput('ref-video-jump-time-input')">⏩ Jump</button>
-                  ${clipLabelText ? `<span style="font-size:11px; font-weight:800; color:#34d399; background:rgba(16,185,129,0.16); padding:3px 9px; border-radius:999px;">✂️ ${clipCfg.startLabel || '00:00'} – ${clipCfg.endLabel || 'End'}</span>` : ''}
-                </div>
-                <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerByOffset(-30)">⏪ -30s</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerByOffset(30)">⏩ +30s</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(120)">02:00</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(300)">05:00</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(600)">10:00</button>
-                </div>
-              </div>
-              <video id="ref-html5-video-player" controls autoplay controlsList="nodownload" oncontextmenu="return false;" style="width:100%; flex:1; object-fit: contain;" src="${directStream}" onerror="this.style.display='none'; document.getElementById('ref-drive-fallback-iframe').style.display='block';"></video>
-              <iframe id="ref-drive-fallback-iframe" src="${embedUrl}" style="display:none; width:100%; flex:1; border:none; background:#fff;" allow="autoplay" allowfullscreen></iframe>
+            <div style="position: relative; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; min-height: 0;">
+              ${jumpBarHtml}
+              <video id="ref-html5-video-player" controls autoplay controlsList="nodownload" oncontextmenu="return false;" style="width:100%; flex:1; min-height:0; object-fit: contain;" src="${directStream}" onerror="this.style.display='none'; document.getElementById('ref-drive-fallback-iframe').style.display='block';"></video>
+              <iframe id="ref-drive-fallback-iframe" src="${embedUrl}" style="display:none; width:100%; flex:1; min-height:0; border:none; background:#000;" allow="autoplay" allowfullscreen></iframe>
             </div>
           `;
         } else {
@@ -921,24 +910,9 @@ export function openReferenceVideoModal(rawUrl, title) {
         }
       } else if (url.match(/\.(mp4|webm|ogg|mov)$/i) || url.includes('raw.githubusercontent.com')) {
         mediaHtml = `
-          <div style="width:100%; height:100%; display:flex; flex-direction:column; background:#000;">
-            <div style="background: #0f172a; color: #f8fafc; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid #334155;">
-              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                <span style="font-size: 11.5px; font-weight: 800; color: #38bdf8;"><i class="fa-solid fa-clock"></i> Jump to Specific Time:</span>
-                <input type="text" id="ref-video-jump-time-input" placeholder="MM:SS (e.g. 05:30)" style="width: 135px; padding: 4px 8px; border-radius: 6px; border: 1px solid #475569; background: #1e293b; color: #fff; font-size: 12px; font-weight: 800; margin: 0;">
-                <button type="button" class="btn btn-primary btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="window.seekActiveMediaPlayerToInput('ref-video-jump-time-input')">⏩ Jump</button>
-                ${clipLabelText ? `<span style="font-size:11px; font-weight:800; color:#34d399; background:rgba(16,185,129,0.16); padding:3px 9px; border-radius:999px;">✂️ ${clipCfg.startLabel || '00:00'} – ${clipCfg.endLabel || 'End'}</span>` : ''}
-              </div>
-              <div style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
-                <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerByOffset(-30)">⏪ -30s</button>
-                <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerByOffset(30)">⏩ +30s</button>
-                <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(120)">02:00</button>
-                <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(300)">05:00</button>
-                <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(600)">10:00</button>
-                <button type="button" class="btn btn-secondary btn-sm" style="padding: 3px 8px; font-size: 10.5px;" onclick="window.seekActiveMediaPlayerToSeconds(900)">15:00</button>
-              </div>
-            </div>
-            <video id="ref-html5-video-player" controls autoplay controlsList="nodownload" oncontextmenu="return false;" style="width:100%; flex:1; object-fit: contain;">
+          <div style="width:100%; height:100%; display:flex; flex-direction:column; background:#000; min-height: 0;">
+            ${jumpBarHtml}
+            <video id="ref-html5-video-player" controls autoplay controlsList="nodownload" oncontextmenu="return false;" style="width:100%; flex:1; min-height:0; object-fit: contain;">
               <source src="${url}" type="video/mp4">
               Your browser does not support video playback.
             </video>
@@ -947,15 +921,19 @@ export function openReferenceVideoModal(rawUrl, title) {
       } else {
         mediaHtml = `
           <div style="position: relative; width: 100%; height: 100%;">
-            <iframe src="${url}" style="width:100%; height:100%; border:none; background:#fff;" allowfullscreen></iframe>
+            <iframe src="${url}" style="width:100%; height:100%; border:none; background:#000;" allowfullscreen></iframe>
           </div>
         `;
       }
 
       viewport.innerHTML = mediaHtml;
+      const toggleJumpBtn = document.getElementById('ref-video-toggle-jump-btn');
+      if (toggleJumpBtn) {
+        toggleJumpBtn.style.display = document.getElementById('ref-video-jump-toolbar') ? 'inline-flex' : 'none';
+      }
       modal.style.display = 'flex';
 
-      // 👉 REQUIREMENT #13: Automatically sync video duration from loaded video metadata & enforce Start/End clip bounds
+      // Automatically sync video duration from loaded video metadata & enforce Start/End clip bounds
       const html5Vid = document.getElementById('ref-html5-video-player');
       if (html5Vid) {
         if (typeof window.bindHtml5MediaClipBounds === 'function') {
@@ -990,14 +968,39 @@ export function openReferenceVideoModal(rawUrl, title) {
       }
 
       enterImmersiveFullscreenLock('reference-video');
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      }
 
       if (portalState.currentUser) {
         apiCall('logActivity', { userId: portalState.currentUser.userId, userName: portalState.currentUser.name, activityType: 'WATCH_VIDEO', details: title });
       }
     }
+
+window.toggleRefVideoJumpToolbar = function() {
+      const bar = document.getElementById('ref-video-jump-toolbar');
+      if (!bar) return;
+      const isHidden = bar.style.display === 'none' || !bar.style.display;
+      bar.style.display = isHidden ? 'flex' : 'none';
+    };
+
+window.toggleCompactViewerChrome = function(viewerType, hideBar) {
+      if (viewerType === 'embedded-image') {
+        const bar = document.getElementById('embedded-image-top-bar');
+        const pill = document.getElementById('embedded-image-restore-pill');
+        if (bar) bar.style.display = hideBar ? 'none' : 'flex';
+        if (pill) pill.style.display = hideBar ? 'flex' : 'none';
+        const img = document.getElementById('embedded-modal-img');
+        if (img && customImageZoomLevel === 1) {
+          img.style.maxHeight = hideBar ? 'calc(100dvh - 14px)' : 'calc(100dvh - 54px)';
+        }
+      } else if (viewerType === 'reader') {
+        const bar = document.getElementById('reader-modal-top-bar');
+        const pill = document.getElementById('reader-restore-pill');
+        if (bar) bar.style.display = hideBar ? 'none' : 'flex';
+        if (pill) pill.style.display = hideBar ? 'flex' : 'none';
+        if (!customPdfDoc) {
+          applyFallbackPdfZoomLayout();
+        }
+      }
+    };
 
 export function closeReferenceVideoModal() {
       const modal = document.getElementById('reference-video-modal');
@@ -1424,10 +1427,14 @@ export function openEmbeddedImageModal(imgUrl, title) {
       const imgElem = document.getElementById('embedded-modal-img');
       const titleElem = document.getElementById('embedded-image-title');
       
-      if (titleElem) titleElem.innerText = title || 'Image Viewer';
+      if (titleElem) titleElem.innerText = title || 'Outline Viewer';
       if (imgElem) imgElem.src = getUniversalUrl(imgUrl, 'image');
+      if (typeof window.toggleCompactViewerChrome === 'function') {
+        window.toggleCompactViewerChrome('embedded-image', false);
+      }
       
       customImageZoomLevel = 1;
+      customImageRotationDeg = 0;
       updateImageTransform();
       initImageDragAndPan();
 
@@ -1439,6 +1446,9 @@ export function openEmbeddedImageModal(imgUrl, title) {
 export function closeEmbeddedImageModal() {
       const modal = document.getElementById('embedded-image-modal');
       if (modal) modal.style.display = 'none';
+      if (typeof window.toggleCompactViewerChrome === 'function') {
+        window.toggleCompactViewerChrome('embedded-image', false);
+      }
       exitImmersiveFullscreenLock('image-modal');
     }
 
@@ -1562,37 +1572,34 @@ export async function openPdfModal(pdfUrl, title) {
       }
       customPdfRawEmbedUrl = embedUrl;
 
+      const inlineControls = document.getElementById('reader-modal-inline-controls');
+      if (inlineControls) {
+        inlineControls.innerHTML = `
+          <button type="button" class="rp-viewer-ico-btn" id="pdf-prev-page-btn" onclick="changeCustomPdfPage(-1)" title="Previous Page" aria-label="Previous Page"><i class="fa-solid fa-chevron-left"></i></button>
+          <span id="custom-pdf-page-indicator" class="mono-num" style="font-size: 11px; font-weight: 800; color: var(--secondary); padding: 2px 7px; background: var(--background); border: 1px solid var(--border); border-radius: 6px; white-space: nowrap;">1/1 · 100%</span>
+          <button type="button" class="rp-viewer-ico-btn" id="pdf-next-page-btn" onclick="changeCustomPdfPage(1)" title="Next Page" aria-label="Next Page"><i class="fa-solid fa-chevron-right"></i></button>
+          <button type="button" class="rp-viewer-ico-btn" onclick="adjustPdfZoom(-0.2)" title="Zoom Out" aria-label="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+          <button type="button" class="rp-viewer-ico-btn" onclick="adjustPdfZoom(0.2)" title="Zoom In" aria-label="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+          <button type="button" class="rp-viewer-ico-btn" onclick="resetPdfZoom()" title="Reset Zoom (100%)" aria-label="Reset Zoom"><i class="fa-solid fa-compress"></i></button>
+        `;
+      }
+      if (typeof window.toggleCompactViewerChrome === 'function') {
+        window.toggleCompactViewerChrome('reader', false);
+      }
+
       if (body) {
         body.innerHTML = `
-          <div class="watermark-text-container" style="position: relative; width: 100vw; height: calc(100vh - 50px); background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
-            <div class="global-watermark-layer" style="opacity: 0.14; z-index: 10; pointer-events: none;"></div>
-            
-            <!-- Custom Built-in PDF Reader Top Control Bar (Single Title Fix: Title is shown once in modal header above) -->
-            <div oncontextmenu="return false;" style="width: 100%; min-height: 52px; z-index: 25; background: #f8fafc; border-bottom: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; color: #0f172a; font-size: 13px; font-weight: 700; flex-wrap: wrap; gap: 10px;">
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <span style="font-size: 11.5px; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 4px 10px; border-radius: 999px; font-weight: 800;">
-                  <i class="fa-solid fa-file-pdf" style="color: #dc2626; margin-right: 4px;"></i> <i class="fa-solid fa-shield-halved"></i> Interactive PDF Reader &amp; Page Controls
-                </span>
-              </div>
-              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-sm btn-secondary" id="pdf-prev-page-btn" onclick="changeCustomPdfPage(-1)"><i class="fa-solid fa-chevron-left"></i> Prev Page</button>
-                <span id="custom-pdf-page-indicator" style="font-size: 12px; font-weight: 800; color: #1e293b; padding: 5px 12px; background: #e2e8f0; border-radius: 8px; min-width: 130px; text-align: center;">Page 1 of 1 (100%)</span>
-                <button type="button" class="btn btn-sm btn-secondary" id="pdf-next-page-btn" onclick="changeCustomPdfPage(1)">Next Page <i class="fa-solid fa-chevron-right"></i></button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="adjustPdfZoom(0.2)"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In</button>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="adjustPdfZoom(-0.2)"><i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out</button>
-                <button type="button" class="btn btn-sm btn-primary" onclick="resetPdfZoom()"><i class="fa-solid fa-rotate"></i> 100%</button>
-              </div>
-            </div>
-            
-            <!-- Pure White Scrollable Canvas Viewport -->
-            <div id="custom-pdf-scroll-container" oncontextmenu="return false;" style="width: 100%; flex: 1; overflow: auto; background: #f1f5f9 !important; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px; position: relative; z-index: 5;">
-              <div id="custom-pdf-status-msg" style="padding: 14px 20px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; color: #334155; font-weight: 700; font-size: 13px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+          <div class="watermark-text-container" style="position: relative; width: 100%; height: 100%; min-height: 0; background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
+            <div class="global-watermark-layer" style="opacity: 0.12; z-index: 10; pointer-events: none;"></div>
+            <!-- Pure White Full-Viewport Scrollable Canvas -->
+            <div id="custom-pdf-scroll-container" oncontextmenu="return false;" style="width: 100%; flex: 1; min-height: 0; overflow: auto; background: #f1f5f9 !important; display: block; text-align: center; padding: 6px; position: relative; z-index: 5; -webkit-overflow-scrolling: touch;">
+              <div id="custom-pdf-status-msg" style="display: inline-block; padding: 10px 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; color: #334155; font-weight: 700; font-size: 12.5px; margin: 12px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
                 <i class="fa-solid fa-spinner fa-spin" style="color: var(--primary); margin-right: 6px;"></i> Loading PDF Document...
               </div>
-              <div id="pdf-zoomable-wrapper" style="background: #ffffff; box-shadow: 0 8px 30px rgba(15, 23, 42, 0.14); border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: center; position: relative; transform-origin: top center; transition: transform 0.18s ease;">
-                <canvas id="custom-pdf-canvas" style="display: block; background: #ffffff; max-width: 100%; height: auto;"></canvas>
+              <div id="pdf-zoomable-wrapper" style="background: #ffffff; box-shadow: 0 4px 18px rgba(15, 23, 42, 0.12); border: 1px solid #cbd5e1; border-radius: 4px; display: inline-block; margin: 0 auto; position: relative; vertical-align: top;">
+                <canvas id="custom-pdf-canvas" style="display: block; background: #ffffff;"></canvas>
               </div>
-              <div id="custom-pdf-fallback-frame" style="display: none; width: 100%; max-width: 1020px; margin-top: 8px; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 8px 25px rgba(15,23,42,0.12); transform-origin: top center; transition: transform 0.18s ease;"></div>
+              <div id="custom-pdf-fallback-frame" style="display: none; width: 100%; height: calc(100dvh - 52px); margin: 0 auto; background: #ffffff; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 18px rgba(15,23,42,0.1); vertical-align: top;"></div>
             </div>
           </div>
         `;
@@ -1610,16 +1617,16 @@ export async function openPdfModal(pdfUrl, title) {
       const buildFallbackEmbedHtml = (urlToEmbed) => {
         if (isGoogleDrive || urlToEmbed.includes('drive.google.com')) {
           return `
-            <div style="position:relative; width:100%; height:78vh; background:#ffffff;">
-              <div style="position:absolute; top:0; right:0; width:220px; height:52px; background:#ffffff; z-index:20; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#475569; border-bottom-left-radius:8px;">
-                <i class="fa-solid fa-lock" style="margin-right:5px; color:var(--primary);"></i> Protected PDF View
+            <div style="position:relative; width:100%; height:100%; background:#ffffff;">
+              <div style="position:absolute; top:0; right:0; width:64px; height:48px; background:#ffffff; z-index:20; display:flex; align-items:center; justify-content:center; font-size:12px; color:#475569;" title="Protected PDF View">
+                <i class="fa-solid fa-lock" style="color:var(--primary);"></i>
               </div>
               <iframe id="custom-pdf-embed-iframe" src="${urlToEmbed}" style="width:100%; height:100%; border:none; background:#ffffff !important;" allow="autoplay"></iframe>
             </div>
           `;
         }
         return `
-          <div style="position:relative; width:100%; height:78vh; background:#ffffff;">
+          <div style="position:relative; width:100%; height:100%; background:#ffffff;">
             <object data="${urlToEmbed}" type="application/pdf" style="width:100%; height:100%; border:none;">
               <iframe id="custom-pdf-embed-iframe" src="https://docs.google.com/viewer?url=${encodeURIComponent(urlToEmbed)}&embedded=true" style="width:100%; height:100%; border:none; background:#ffffff !important;"></iframe>
             </object>
@@ -1695,8 +1702,9 @@ export async function openPdfModal(pdfUrl, title) {
       if (statusMsg) statusMsg.style.display = 'none';
       if (canvasWrap) canvasWrap.style.display = 'none';
       if (fallbackEl) {
-        fallbackEl.style.display = 'block';
+        fallbackEl.style.display = 'inline-block';
         fallbackEl.innerHTML = buildFallbackEmbedHtml(customPdfRawEmbedUrl);
+        applyFallbackPdfZoomLayout();
       }
       customPdfTotalPages = 1;
       customPdfPageNum = 1;
@@ -1706,7 +1714,7 @@ export async function openPdfModal(pdfUrl, title) {
 export function updateCustomPdfIndicatorOnly() {
       const indicator = document.getElementById('custom-pdf-page-indicator');
       if (indicator) {
-        indicator.innerText = `Page ${customPdfPageNum} of ${customPdfTotalPages} (${Math.round(pdfZoomLevel * 100)}%)`;
+        indicator.innerText = `${customPdfPageNum}/${customPdfTotalPages} · ${Math.round(pdfZoomLevel * 100)}%`;
       }
       const prevBtn = document.getElementById('pdf-prev-page-btn');
       const nextBtn = document.getElementById('pdf-next-page-btn');
@@ -1714,35 +1722,74 @@ export function updateCustomPdfIndicatorOnly() {
       if (nextBtn) nextBtn.disabled = customPdfPageNum >= customPdfTotalPages;
     }
 
+let _customPdfPendingPage = null;
+
+function applyFallbackPdfZoomLayout() {
+      const fallbackEl = document.getElementById('custom-pdf-fallback-frame');
+      if (!fallbackEl || fallbackEl.style.display === 'none') return;
+      const scrollContainer = document.getElementById('custom-pdf-scroll-container');
+      const topBar = document.getElementById('reader-modal-top-bar');
+      const topBarH = (topBar && topBar.style.display !== 'none') ? topBar.offsetHeight : 0;
+      const baseWidth = Math.max(300, (scrollContainer ? scrollContainer.clientWidth - 12 : window.innerWidth - 16));
+      const baseHeight = Math.max(460, (window.innerHeight || 760) - topBarH - 14);
+      const zoomedWidth = Math.round(baseWidth * pdfZoomLevel);
+      const zoomedHeight = Math.round(baseHeight * pdfZoomLevel);
+
+      fallbackEl.style.maxWidth = 'none';
+      fallbackEl.style.transform = 'none';
+      fallbackEl.style.width = `${zoomedWidth}px`;
+      fallbackEl.style.height = `${zoomedHeight}px`;
+
+      const innerBox = fallbackEl.firstElementChild;
+      if (innerBox) {
+        innerBox.style.width = `${zoomedWidth}px`;
+        innerBox.style.height = `${zoomedHeight}px`;
+      }
+    }
+
 export async function renderCustomPdfPage(pageNum) {
       if (!customPdfDoc) {
+        applyFallbackPdfZoomLayout();
         updateCustomPdfIndicatorOnly();
         return;
       }
-      if (customPdfRendering) return;
+      if (customPdfRendering) {
+        _customPdfPendingPage = pageNum;
+        return;
+      }
       customPdfRendering = true;
+      _customPdfPendingPage = null;
       try {
         const page = await customPdfDoc.getPage(pageNum);
-        const baseScale = Math.max(0.5, Math.min(3.0, pdfZoomLevel * 1.25));
-        const viewport = page.getViewport({ scale: baseScale });
+        const scrollContainer = document.getElementById('custom-pdf-scroll-container');
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const containerAvailW = Math.max(300, (scrollContainer ? scrollContainer.clientWidth - 48 : 840));
+        const fitScale = Math.min(1.35, containerAvailW / Math.max(1, unscaledViewport.width));
+        const effectiveScale = Math.max(0.4, Math.min(4.0, fitScale * pdfZoomLevel));
+        const viewport = page.getViewport({ scale: effectiveScale });
+
         const canvas = document.getElementById('custom-pdf-canvas');
         if (!canvas) {
           customPdfRendering = false;
           return;
         }
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const ctx = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        canvas.width = Math.round(viewport.width * dpr);
+        canvas.height = Math.round(viewport.height * dpr);
+        canvas.style.width = `${Math.round(viewport.width)}px`;
+        canvas.style.height = `${Math.round(viewport.height)}px`;
 
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, viewport.width, viewport.height);
 
         await page.render({ canvasContext: ctx, viewport: viewport }).promise;
 
         ctx.save();
         ctx.font = 'bold 18px Inter, sans-serif';
         ctx.fillStyle = 'rgba(79, 70, 229, 0.10)';
-        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.translate(viewport.width / 2, viewport.height / 2);
         ctx.rotate(-Math.PI / 6);
         ctx.textAlign = 'center';
         ctx.fillText(getWatermarkText(), 0, 0);
@@ -1751,6 +1798,11 @@ export async function renderCustomPdfPage(pageNum) {
         updateCustomPdfIndicatorOnly();
       } finally {
         customPdfRendering = false;
+        if (_customPdfPendingPage !== null) {
+          const nextPage = _customPdfPendingPage;
+          _customPdfPendingPage = null;
+          renderCustomPdfPage(nextPage);
+        }
       }
     }
 
@@ -1758,12 +1810,8 @@ export function changeCustomPdfPage(delta) {
       const total = customPdfDoc ? (customPdfDoc.numPages || 1) : (customPdfTotalPages || 1);
       customPdfTotalPages = total;
       const next = customPdfPageNum + delta;
-      if (next < 1) {
-        showToast('Already on the first page (Page 1).');
-        return;
-      }
-      if (next > total) {
-        showToast(`Already on the last page (Page ${total}).`);
+      if (next < 1 || next > total) {
+        updateCustomPdfIndicatorOnly();
         return;
       }
       customPdfPageNum = next;
@@ -1778,33 +1826,26 @@ export function changeCustomPdfPage(delta) {
       }
       const scrollContainer = document.getElementById('custom-pdf-scroll-container');
       if (scrollContainer) scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
-      showToast(`Page ${customPdfPageNum} of ${customPdfTotalPages}`);
     }
 
 export function adjustPdfZoom(amount) {
       pdfZoomLevel = Math.max(0.5, Math.min(3.0, +(pdfZoomLevel + amount).toFixed(2)));
       if (customPdfDoc) {
         renderCustomPdfPage(customPdfPageNum);
-      }
-      const fallbackEl = document.getElementById('custom-pdf-fallback-frame');
-      if (fallbackEl && fallbackEl.style.display !== 'none') {
-        fallbackEl.style.transform = `scale(${pdfZoomLevel})`;
+      } else {
+        applyFallbackPdfZoomLayout();
       }
       updateCustomPdfIndicatorOnly();
-      showToast(`PDF Zoom: ${Math.round(pdfZoomLevel * 100)}%`);
     }
 
 export function resetPdfZoom() {
       pdfZoomLevel = 1.0;
       if (customPdfDoc) {
         renderCustomPdfPage(customPdfPageNum);
-      }
-      const fallbackEl = document.getElementById('custom-pdf-fallback-frame');
-      if (fallbackEl) {
-        fallbackEl.style.transform = 'scale(1)';
+      } else {
+        applyFallbackPdfZoomLayout();
       }
       updateCustomPdfIndicatorOnly();
-      showToast('PDF Zoom reset to 100%');
     }
 
 export function stopAllPortalAudioAndMediaPlayback() {
@@ -1980,12 +2021,14 @@ export let customImageRotationDeg = 0;
 export function updateImageTransform() {
       const wrapper = document.getElementById('zoomable-image-wrapper');
       const img = document.getElementById('embedded-modal-img');
+      const topBar = document.getElementById('embedded-image-top-bar');
+      const isBarHidden = Boolean(topBar && topBar.style.display === 'none');
       const pct = Math.round(customImageZoomLevel * 100);
       if (img) {
         if (customImageZoomLevel === 1) {
           img.style.width = 'auto';
-          img.style.maxWidth = '92%';
-          img.style.maxHeight = '82vh';
+          img.style.maxWidth = '98%';
+          img.style.maxHeight = isBarHidden ? 'calc(100dvh - 14px)' : 'calc(100dvh - 54px)';
         } else {
           img.style.width = `${pct}%`;
           img.style.maxWidth = 'none';
@@ -2403,14 +2446,23 @@ export function toggleAudioExamHallNoiseMaster(checked) {
 
 export function changeExamHallNoiseProfile(profileVal) {
       window.examHallNoiseProfile = profileVal || 'full_mix';
+      document.querySelectorAll('.exam-hall-profile-select').forEach(sel => {
+        if (sel && sel.value !== window.examHallNoiseProfile) sel.value = window.examHallNoiseProfile;
+      });
       if (portalState.isExamHallSoundActive) {
         startExamHallSynth();
-        showToast(`🎧 Exam Hall Noise profile switched to: ${profileVal}`);
+        showToast(`🎧 Exam Hall Noise profile switched to: ${window.examHallNoiseProfile}`);
       }
     }
 
 export function changeExamHallNoiseVolume(val) {
-      const pct = Math.max(5, Math.min(100, parseInt(val, 10) || 45));
+      const num = parseFloat(val);
+      let pct = 45;
+      if (!isNaN(num)) {
+        // Support both float multipliers (0.4 / 0.8 / 1.35) and integer percentages (5..100)
+        pct = num <= 2.5 ? Math.round(Math.max(10, Math.min(100, num * 75))) : Math.round(Math.max(5, Math.min(100, num)));
+        window.examHallNoiseVolume = num <= 2.5 ? num : +(pct / 75).toFixed(2);
+      }
       window.examHallNoiseVolumePct = pct;
       const label = document.getElementById('audio-exam-hall-noise-vol-label');
       if (label) label.innerText = `${pct}%`;
@@ -2533,12 +2585,40 @@ document.addEventListener("change", function (event) {
 
 portalState.pendingAudioDictationItem = null;
 
-export function playOrVerifyStenoshalaDictationAudio(action = 'play') {
+export let activePreAudioBeepTimeout = null;
+
+export function cancelPreAudioStartAutoBeep() {
+      if (activePreAudioBeepTimeout) {
+        clearTimeout(activePreAudioBeepTimeout);
+        activePreAudioBeepTimeout = null;
+      }
+    }
+
+export function playPreAudioStartAutoBeep(onAfterBeep) {
+      cancelPreAudioStartAutoBeep();
+      const statusBadge = document.getElementById('stenoshala-audio-verify-status');
+      if (statusBadge) {
+        statusBadge.style.color = '#d97706';
+        statusBadge.innerHTML = `<i class="fa-solid fa-bell"></i> Beep! Starting dictation audio...`;
+      }
+      // Crisp attention dual-beep (ready pip + clear GO beep) right before audio begins
+      playCountdownToneBeep(880, 0.14, false);
+      activePreAudioBeepTimeout = setTimeout(() => {
+        playCountdownToneBeep(1320, 0.28, true);
+        activePreAudioBeepTimeout = setTimeout(() => {
+          activePreAudioBeepTimeout = null;
+          if (typeof onAfterBeep === 'function') onAfterBeep();
+        }, 300);
+      }, 220);
+    }
+
+export function playOrVerifyStenoshalaDictationAudio(action = 'play', options = {}) {
       const statusBadge = document.getElementById('stenoshala-audio-verify-status');
       const dictAudio = document.getElementById('stenoshala-dictation-audio');
       const ytIframe = document.getElementById('stenoshala-youtube-audio');
 
       if (action === 'pause') {
+        cancelPreAudioStartAutoBeep();
         if (dictAudio) dictAudio.pause();
         if (ytIframe) sendYouTubeAudioCommand('pauseVideo');
         if ('speechSynthesis' in window && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
@@ -2548,6 +2628,19 @@ export function playOrVerifyStenoshalaDictationAudio(action = 'play') {
           statusBadge.style.color = '#d97706';
           statusBadge.innerHTML = `<i class="fa-solid fa-pause"></i> Audio Paused`;
         }
+        return;
+      }
+
+      // Auto-beep before starting audio on play / replay (unless already beeped)
+      const skipAutoBeep = Boolean(options && options.skipAutoBeep);
+      const isAlreadyPlaying = Boolean(
+        (dictAudio && !dictAudio.paused && !dictAudio.ended && action === 'play') ||
+        ('speechSynthesis' in window && window.speechSynthesis.speaking && !window.speechSynthesis.paused && action === 'play')
+      );
+      if (!skipAutoBeep && !isAlreadyPlaying && (action === 'play' || action === 'replay')) {
+        playPreAudioStartAutoBeep(() => {
+          playOrVerifyStenoshalaDictationAudio(action, { skipAutoBeep: true });
+        });
         return;
       }
 
@@ -2567,17 +2660,18 @@ export function playOrVerifyStenoshalaDictationAudio(action = 'play') {
         if (dictAudio && (dictAudio.getAttribute('src') || dictAudio.querySelector('source')) && !dictAudio.dataset.useTtsFallback) {
           const clipStart = Number(dictAudio.dataset.clipStartSec || 0) || 0;
           dictAudio.currentTime = clipStart;
+          dictAudio.dataset.skipNextAutoBeep = 'true';
           dictAudio.play().then(() => {
             if (statusBadge) {
               statusBadge.style.color = '#16a34a';
               statusBadge.innerHTML = `<i class="fa-solid fa-volume-high"></i> Voice Stream Playing (${currentDictationWpm || 80} WPM • Low-Bitrate Mode)`;
             }
           }).catch(() => {
-            startTtsDictationSpeech();
+            startTtsDictationSpeech({ forceSpeechSynthesis: true, skipAutoBeep: true });
           });
           return;
         }
-        startTtsDictationSpeech();
+        startTtsDictationSpeech({ forceSpeechSynthesis: true, skipAutoBeep: true });
         return;
       }
 
@@ -2604,6 +2698,7 @@ export function playOrVerifyStenoshalaDictationAudio(action = 'play') {
               }
             }
           } catch (e) {}
+          dictAudio.dataset.skipNextAutoBeep = 'true';
           dictAudio.play().then(() => {
             if (statusBadge) {
               statusBadge.style.color = '#16a34a';
@@ -2618,7 +2713,7 @@ export function playOrVerifyStenoshalaDictationAudio(action = 'play') {
               statusBadge.style.color = '#2563eb';
               statusBadge.innerHTML = `<i class="fa-solid fa-microphone-lines"></i> Master Passage Voice Dictation Active (${currentDictationWpm || 80} WPM)`;
             }
-            startTtsDictationSpeech();
+            startTtsDictationSpeech({ forceSpeechSynthesis: true, skipAutoBeep: true });
           });
           return;
         }
@@ -2637,7 +2732,28 @@ export function playOrVerifyStenoshalaDictationAudio(action = 'play') {
         statusBadge.style.color = '#2563eb';
         statusBadge.innerHTML = `<i class="fa-solid fa-microphone-lines"></i> Master Passage Voice Dictation Active (${currentDictationWpm || 80} WPM)`;
       }
-      startTtsDictationSpeech();
+      startTtsDictationSpeech({ forceSpeechSynthesis: true, skipAutoBeep: true });
+    }
+
+// Auto-beep before native <audio id="stenoshala-dictation-audio"> play when triggered directly from browser controls
+if (!window.__stenoshalaNativeAudioAutoBeepBound) {
+      window.__stenoshalaNativeAudioAutoBeepBound = true;
+      document.addEventListener('play', (ev) => {
+        const target = ev && ev.target;
+        if (!target || target.id !== 'stenoshala-dictation-audio') return;
+        if (target.dataset.skipNextAutoBeep === 'true') {
+          delete target.dataset.skipNextAutoBeep;
+          return;
+        }
+        if (target.dataset.autoBeepInProgress === 'true') return;
+        target.dataset.autoBeepInProgress = 'true';
+        try { target.pause(); } catch (e) {}
+        playPreAudioStartAutoBeep(() => {
+          delete target.dataset.autoBeepInProgress;
+          target.dataset.skipNextAutoBeep = 'true';
+          target.play().catch(() => {});
+        });
+      }, true);
     }
 
 window.customUserDictationVoiceUrl = '';
@@ -2679,15 +2795,15 @@ export function classifyAndConvertVoiceMediaUrl(rawInputUrl) {
           driveId: '',
           ytVideoId: ytId,
           streamUrl: ytId ? `https://www.youtube.com/embed/${ytId}?autoplay=0&enablejsapi=1&vq=tiny&playsinline=1&controls=0&rel=0&origin=${encodeURIComponent(window.location.origin)}` : '',
-          label: 'YouTube Video → Audio-Only Low-Bitrate (vq=tiny • 0fps Hidden)'
+          label: 'YouTube Video → MP3 Audio-Only Mode'
         };
       }
 
-      const isVideoExt = /\.(mp4|webm|mkv|mov|avi|m3u8|ogv)(\?.*)?$/i.test(clean) || clean.includes('/video/');
+      const isVideoExt = /\.(mp4|webm|mkv|mov|avi|m3u8|ogv|m4v|3gp|flv|ts)(\?.*)?$/i.test(clean) || /\/video\//i.test(clean);
       let finalUrl = getUniversalUrl(clean, 'audio');
       let isDrive = false;
       let driveId = '';
-      let cloudProviderLabel = 'Direct Voice / Audio Stream';
+      let cloudProviderLabel = 'MP3 Audio Stream';
 
       if (clean.includes('drive.google.com') || clean.includes('docs.google.com')) {
         const match = clean.match(/\/d\/([a-zA-Z0-9_-]+)/) || clean.match(/[?&]id=([a-zA-Z0-9_-]+)/);
@@ -2695,19 +2811,19 @@ export function classifyAndConvertVoiceMediaUrl(rawInputUrl) {
           isDrive = true;
           driveId = match[1];
           finalUrl = `https://docs.google.com/uc?export=download&id=${driveId}`;
-          cloudProviderLabel = 'Google Drive Audio / Video → Audio Stream';
+          cloudProviderLabel = 'Google Drive → MP3 Audio Stream';
         }
       } else if (clean.includes('github.com') || clean.includes('raw.githubusercontent.com')) {
         finalUrl = clean
           .replace(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i, 'https://raw.githubusercontent.com/$1/$2/$3')
           .replace(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/raw\/(.+)$/i, 'https://raw.githubusercontent.com/$1/$2/$3');
-        cloudProviderLabel = 'GitHub Cloud Audio / Video → Audio Stream';
+        cloudProviderLabel = 'GitHub Cloud → MP3 Audio Stream';
       } else if (clean.includes('supabase.co') || clean.includes('supabase.in')) {
         finalUrl = clean;
-        cloudProviderLabel = 'Supabase Storage Audio / Video → Audio Stream';
+        cloudProviderLabel = 'Supabase Cloud → MP3 Audio Stream';
       } else if (clean.startsWith('blob:') || clean.startsWith('data:')) {
         finalUrl = clean;
-        cloudProviderLabel = 'Recorded Microphone Audio Stream';
+        cloudProviderLabel = 'Recorded Microphone MP3 Stream';
       }
 
       return {
@@ -2718,7 +2834,7 @@ export function classifyAndConvertVoiceMediaUrl(rawInputUrl) {
         driveId: driveId,
         ytVideoId: '',
         streamUrl: finalUrl,
-        label: isVideoExt ? `${cloudProviderLabel} (Video Auto-Converted to Audio-Only)` : `${cloudProviderLabel} (Ready)`
+        label: isVideoExt ? `${cloudProviderLabel} (Video → MP3 Audio-Only)` : `${cloudProviderLabel} (Ready)`
       };
     }
 
@@ -2754,7 +2870,7 @@ export function playCustomUserVoiceUrlInTab(tabType = 'audio') {
         inp.parentElement.parentElement.appendChild(mount);
       }
       if (!mount) {
-        openUniversalMediaViewer(rawUrl, 'Custom User Voice / Audio Stream');
+        openUniversalMediaViewer(rawUrl, 'Custom User Voice / Audio Stream', true);
         return;
       }
 
@@ -2763,22 +2879,28 @@ export function playCustomUserVoiceUrlInTab(tabType = 'audio') {
       mount.style.display = 'block';
 
       if (info.isYouTube && info.ytVideoId) {
+        const ytFrameId = `tab-custom-yt-mp3-${tabType}`;
         mount.innerHTML = `
-          <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:6px; position:relative;">
+            <iframe id="${ytFrameId}" src="https://www.youtube.com/embed/${info.ytVideoId}?autoplay=1&enablejsapi=1&vq=tiny&playsinline=1&controls=0&origin=${encodeURIComponent(window.location.origin)}" style="width:1px; height:1px; opacity:0; position:absolute; pointer-events:none; border:none;" allow="autoplay; encrypted-media"></iframe>
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-              <span style="font-size:12px; font-weight:800; color:#059669;"><i class="fa-brands fa-youtube"></i> ${info.label}</span>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="document.getElementById('${mountId}').style.display='none'; document.getElementById('${mountId}').innerHTML='';"><i class="fa-solid fa-xmark"></i> Close Player</button>
+              <span style="font-size:12px; font-weight:800; color:#059669;"><i class="fa-solid fa-music"></i> ${info.label}</span>
+              <div style="display:flex; gap:5px; align-items:center;">
+                <button type="button" class="btn btn-sm btn-success" style="padding:3px 9px; font-size:11px;" onclick="document.getElementById('${ytFrameId}')?.contentWindow?.postMessage(JSON.stringify({event:'command',func:'playVideo',args:[]}),'*')"><i class="fa-solid fa-play"></i> Play</button>
+                <button type="button" class="btn btn-sm btn-warning" style="padding:3px 9px; font-size:11px;" onclick="document.getElementById('${ytFrameId}')?.contentWindow?.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:[]}),'*')"><i class="fa-solid fa-pause"></i> Pause</button>
+                <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px; font-size:11px;" onclick="document.getElementById('${mountId}').style.display='none'; document.getElementById('${mountId}').innerHTML='';"><i class="fa-solid fa-xmark"></i></button>
+              </div>
             </div>
-            <iframe src="https://www.youtube.com/embed/${info.ytVideoId}?autoplay=1&vq=tiny&playsinline=1" style="width:100%; height:80px; border:none; border-radius:8px;" allow="autoplay; encrypted-media"></iframe>
           </div>
         `;
       } else {
+        const driveFallbackId = `tab-custom-drive-fb-${tabType}`;
         mount.innerHTML = `
-          <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:8px;">
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
-              <span style="font-size:12px; font-weight:800; color:#059669;"><i class="fa-solid fa-volume-high"></i> ${info.label}</span>
-              <div style="display:flex; gap:6px; align-items:center;">
-                <select onchange="const a=document.getElementById('${audioElId}'); if(a) a.playbackRate=parseFloat(this.value)||1;" style="margin:0; padding:3px 8px; font-size:11px; font-weight:700; width:auto;">
+              <span style="font-size:12px; font-weight:800; color:#059669;"><i class="fa-solid fa-music"></i> ${info.label}</span>
+              <div style="display:flex; gap:5px; align-items:center;">
+                <select onchange="const a=document.getElementById('${audioElId}'); if(a) a.playbackRate=parseFloat(this.value)||1;" style="margin:0; padding:2px 6px; font-size:11px; font-weight:700; width:auto;">
                   <option value="0.75">0.75x (~60 WPM)</option>
                   <option value="0.88">0.88x (~70 WPM)</option>
                   <option value="1" selected>1.0x (80 WPM)</option>
@@ -2788,43 +2910,64 @@ export function playCustomUserVoiceUrlInTab(tabType = 'audio') {
                   <option value="1.75">1.75x (140 WPM)</option>
                   <option value="2">2.0x (160 WPM)</option>
                 </select>
-                <button type="button" class="btn btn-sm btn-secondary" onclick="openUniversalMediaViewer('${safeRawUrl}', 'Custom User Voice / Audio')"><i class="fa-solid fa-expand"></i> Studio Player</button>
-                <button type="button" class="btn btn-sm btn-danger" onclick="document.getElementById('${mountId}').style.display='none'; document.getElementById('${mountId}').innerHTML='';"><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" class="btn btn-sm btn-secondary" style="padding:3px 8px; font-size:11px;" onclick="openUniversalMediaViewer('${safeRawUrl}', 'Custom Audio Stream', true)"><i class="fa-solid fa-headphones"></i> Player</button>
+                <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px; font-size:11px;" onclick="document.getElementById('${mountId}').style.display='none'; document.getElementById('${mountId}').innerHTML='';"><i class="fa-solid fa-xmark"></i></button>
               </div>
             </div>
-            <audio id="${audioElId}" controls autoplay preload="auto" style="width:100%; height:38px;">
+            <audio id="${audioElId}" controls autoplay preload="auto" controlsList="nodownload" style="width:100%; height:36px;">
               <source src="${info.streamUrl}">
             </audio>
             ${info.isDrive && info.driveId ? `
-              <iframe src="https://drive.google.com/file/d/${info.driveId}/preview" style="width:100%; height:72px; border:1px solid var(--border); border-radius:8px; background:#0f172a;" allow="autoplay"></iframe>
+              <div id="${driveFallbackId}" style="display:none; font-size:11px; color:var(--text-muted);">
+                <iframe src="https://drive.google.com/file/d/${info.driveId}/preview" style="width:100%; height:54px; border:1px solid var(--border); border-radius:8px; background:#0f172a;" allow="autoplay"></iframe>
+              </div>
             ` : ''}
           </div>
         `;
         const audioEl = document.getElementById(audioElId);
         if (audioEl) {
+          audioEl.onerror = () => {
+            const fb = document.getElementById(driveFallbackId);
+            if (fb) fb.style.display = 'block';
+          };
           audioEl.play().catch(() => {});
         }
         if (info.isDrive) {
           tryLoadDriveAudioIntoElement(rawUrl, audioElId);
         }
       }
-      showToast('🔊 Playing Custom User Voice / Audio / Video URL!');
+      showToast('🔊 Playing in MP3 Audio-Only Mode!');
     }
 
 export let __activeReadingPhaseInterval = null;
 
 export let __pendingReadingUnlockCallback = null;
 
+window.toggleActiveTestToolsBar = function(forceShow) {
+      const statusBar = document.getElementById('live-typing-status-bar');
+      const toggleBtn = document.getElementById('test-tools-drawer-toggle-btn');
+      if (!statusBar) return;
+      const isHidden = statusBar.style.display === 'none' || !statusBar.style.display;
+      const showNext = typeof forceShow === 'boolean' ? forceShow : isHidden;
+      statusBar.style.display = showNext ? 'flex' : 'none';
+      if (toggleBtn) {
+        toggleBtn.innerHTML = showNext
+          ? '<i class="fa-solid fa-chevron-up"></i> <span>Hide Tools</span>'
+          : '<i class="fa-solid fa-sliders"></i> <span>Tools</span>';
+      }
+    };
+
 export function configureActiveTestModalChrome(mode) {
       // mode: 'dictation_room' | 'audio_transcription' | 'pitman_transcription' | 'typing_exam' | 'learning_exercise'
       const isDictationRoom = mode === 'dictation_room';
-      const isAudioTrans = mode === 'audio_transcription';
+      const isCompactStartMode = mode === 'audio_transcription' || mode === 'pitman_transcription';
 
-      const focusBtn = document.getElementById('mobile-exam-focus-toggle-btn');
       const zoomWrap = document.getElementById('test-header-font-zoom-wrap');
       const submitBtn = document.getElementById('test-header-quick-submit-btn');
       const exitBtn = document.getElementById('test-header-exit-btn');
       const timerWrap = document.getElementById('test-timer-pill-wrap');
+      const inlineWords = document.getElementById('test-header-inline-words');
+      const toolsToggleBtn = document.getElementById('test-tools-drawer-toggle-btn');
       const fsBtn = document.getElementById('test-fullscreen-toggle-btn');
       const statusBar = document.getElementById('live-typing-status-bar');
       const footerBar = document.getElementById('active-test-footer-bar');
@@ -2834,18 +2977,20 @@ export function configureActiveTestModalChrome(mode) {
       const hardWordsDrawer = document.getElementById('modal-hard-words-glossary-box');
       const legacyComfortBar = document.getElementById('rp-mobile-test-comfort-bar');
       if (legacyComfortBar) legacyComfortBar.remove();
+      document.body.classList.remove('mobile-exam-focus-mode');
       if (hardWordsDrawer) {
         hardWordsDrawer.classList.add('hidden');
         hardWordsDrawer.style.display = 'none';
       }
 
       if (isDictationRoom) {
-        // Step 1 Dictation Room: hide text-size zoom, timer, submit, status bar, focus button, reading banner & footer
+        // Step 1 Dictation Room: ultra-slim header with only title + Exit
         document.body.classList.remove('reading-time-fullscreen-lock');
-        if (focusBtn) focusBtn.style.display = 'none';
         if (zoomWrap) zoomWrap.style.display = 'none';
         if (submitBtn) submitBtn.style.display = 'none';
         if (timerWrap) timerWrap.style.display = 'none';
+        if (inlineWords) inlineWords.style.display = 'none';
+        if (toolsToggleBtn) toolsToggleBtn.style.display = 'none';
         if (statusBar) statusBar.style.display = 'none';
         if (footerBar) footerBar.style.display = 'none';
         if (readingBanner) {
@@ -2854,23 +2999,38 @@ export function configureActiveTestModalChrome(mode) {
           readingBanner.style.display = 'none';
         }
         if (exitBtn) exitBtn.style.display = 'inline-flex';
-        if (fsBtn) fsBtn.style.display = 'inline-flex';
+        if (fsBtn) fsBtn.style.display = 'none';
       } else {
-        // Active Transcription / Typing / Pitman / Learning Test Started — single unified zoom + single Full Screen toggle
-        // Keep ONLY the single footer Submit Test & Exit/Cancel Test buttons visible so no duplicate header Exit/Submit buttons appear
-        if (focusBtn) focusBtn.style.display = (window.innerWidth <= 768) ? 'inline-flex' : 'none';
+        // Active Transcription / Pitman / Typing / Learning Test Started:
+        // Slim 38px top bar (Title + inline word count + Timer + 1-click Tools toggle) so workspace fills nearly the entire viewport.
+        // Audio & Pitman start with secondary tools strip collapsed by default; click "Tools" anytime for Zoom (A-/A+), Hall Noise, Full Screen & live stats.
         if (zoomWrap) zoomWrap.style.display = 'inline-flex';
         if (submitBtn) submitBtn.style.display = 'none';
         if (exitBtn) exitBtn.style.display = 'none';
         if (timerWrap) timerWrap.style.display = 'inline-flex';
+        if (inlineWords) inlineWords.style.display = 'inline-flex';
+        if (toolsToggleBtn) toolsToggleBtn.style.display = 'inline-flex';
         if (fsBtn) fsBtn.style.display = 'inline-flex';
-        if (statusBar) statusBar.style.display = 'flex';
         if (footerBar) footerBar.style.display = 'flex';
+        if (typeof window.toggleActiveTestToolsBar === 'function') {
+          window.toggleActiveTestToolsBar(!isCompactStartMode);
+        } else if (statusBar) {
+          statusBar.style.display = isCompactStartMode ? 'none' : 'flex';
+        }
         if (hallSoundStatusWrap) {
-          hallSoundStatusWrap.style.display = isAudioTrans ? 'inline-flex' : 'none';
+          hallSoundStatusWrap.style.display = 'inline-flex';
         }
         if (hallChk) {
           hallChk.checked = Boolean(portalState.isExamHallSoundActive);
+        }
+        const statusProfSel = document.getElementById('status-bar-hall-profile-select');
+        if (statusProfSel) {
+          statusProfSel.value = window.examHallNoiseProfile || 'full_mix';
+        }
+        const statusVolSel = document.getElementById('status-bar-hall-vol-select');
+        if (statusVolSel) {
+          const curPct = Number(window.examHallNoiseVolumePct || 45);
+          statusVolSel.value = curPct <= 35 ? '30' : (curPct >= 80 ? '95' : '60');
         }
       }
     }
@@ -3264,7 +3424,7 @@ export function startAudioDictationTestById(id) {
             </div>
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <button type="button" id="dictation-toggle-hard-words-btn" class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.1); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.22); padding: 9px 14px; font-size: 12px; font-weight: 700;" onclick="toggleExerciseHardWordsPanel()">
-                <i class="fa-solid fa-eye"></i> Show Hard Words
+                <i class="fa-solid fa-eye"></i> Show 50 Hard Words
               </button>
               <button type="button" class="btn btn-success" style="padding: 10px 20px; font-size: 13.5px; font-weight: 800; box-shadow: 0 6px 18px rgba(16, 185, 129, 0.3);" onclick="window.openTranscribeExamSelector('audio')">
                 <i class="fa-solid fa-keyboard"></i> Step 2: Transcribe Now &rarr;
@@ -3272,11 +3432,11 @@ export function startAudioDictationTestById(id) {
             </div>
           </div>
 
-          <!-- COLLAPSIBLE HARD WORDS DRAWER (Hidden By Default — Opens Only When User Clicks "Show Hard Words") -->
+          <!-- COLLAPSIBLE HARD WORDS DRAWER (Hidden By Default — Opens Only When User Clicks "Show 50 Hard Words") -->
           <div id="stenoshala-exercise-hard-words-card" style="display: none; background: var(--surface); border: 1px solid rgba(16,185,129,0.4); border-radius: 14px; padding: 14px 18px;">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">
               <div>
-                <strong style="font-size: 13.5px; color: var(--secondary);"><i class="fa-solid fa-spell-check" style="color: #059669;"></i> Top Hard &amp; Legal Words in This Passage</strong>
+                <strong style="font-size: 13.5px; color: var(--secondary);"><i class="fa-solid fa-spell-check" style="color: #059669;"></i> Top 50 Hard &amp; Legal Words in This Passage</strong>
                 <span style="font-size: 11.5px; color: var(--text-muted); margin-left: 8px;">Click any word to inspect its Pitman Shorthand outline</span>
               </div>
               <button type="button" class="btn btn-sm btn-secondary" onclick="toggleExerciseHardWordsPanel(false)">Hide</button>
@@ -3321,19 +3481,20 @@ export function startAudioDictationTestById(id) {
                 ${isYouTube && ytVideoId ? `
                   <iframe id="stenoshala-youtube-audio" data-yt-id="${ytVideoId}" src="https://www.youtube.com/embed/${ytVideoId}?autoplay=0&enablejsapi=1&vq=tiny&playsinline=1&controls=0${ytClipQuery}&origin=${encodeURIComponent(window.location.origin)}" style="width:1px; height:1px; opacity:0; position:absolute; pointer-events:none; border:none;" allow="autoplay"></iframe>
                   <div style="padding:10px 12px; border-radius:10px; background:var(--background); border:1px solid var(--border); font-size:12px; font-weight:700; color:var(--secondary); display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                    <span><i class="fa-brands fa-youtube" style="color:#dc2626;"></i> YouTube Audio-Only Stream Ready</span>
+                    <span><i class="fa-solid fa-music" style="color:#059669;"></i> MP3 Audio-Only Mode (Video Hidden)</span>
                     <span style="font-size:11px; color:#059669;">Click Play below</span>
                   </div>
-                ` : mediaInfo.isVideoConverted ? `
-                  <video id="stenoshala-dictation-audio" controls playsinline preload="metadata" data-video-converted-to-audio="true" controlsList="nodownload" style="width:100%; height:42px; background:#0f172a; border-radius:10px;">
-                    <source src="${audioFileUrl}">
-                  </video>
                 ` : `
-                  <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="false" ${!isDirectMediaUrl ? 'data-use-tts-fallback="true"' : ''} controlsList="nodownload" style="width:100%; height:40px;">
+                  <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="${mediaInfo.isVideoConverted ? 'true' : 'false'}" ${!isDirectMediaUrl ? 'data-use-tts-fallback="true"' : ''} controlsList="nodownload" style="width:100%; height:40px;">
                     ${isDirectMediaUrl ? `<source src="${audioFileUrl}">` : ''}
                   </audio>
+                  ${mediaInfo.isVideoConverted ? `
+                    <div style="margin-top:5px; font-size:11px; font-weight:700; color:#059669;"><i class="fa-solid fa-music"></i> Video URL playing strictly in MP3 Audio-Only Mode</div>
+                  ` : ''}
                   ${mediaInfo.isDrive && mediaInfo.driveId ? `
-                    <iframe src="https://drive.google.com/file/d/${mediaInfo.driveId}/preview" style="width:100%; height:70px; border:1px solid var(--border); border-radius:8px; margin-top:6px; background:#0f172a;"></iframe>
+                    <div id="stenoshala-drive-mp3-fallback" style="display:none; margin-top:6px;">
+                      <iframe src="https://drive.google.com/file/d/${mediaInfo.driveId}/preview" style="width:100%; height:54px; border:1px solid var(--border); border-radius:8px; background:#0f172a;" allow="autoplay"></iframe>
+                    </div>
                   ` : ''}
                 `}
               </div>
@@ -3575,6 +3736,10 @@ export function startAudioDictationTestById(id) {
           }
         });
         dictAudioEl.addEventListener('error', () => {
+          const driveFb = document.getElementById('stenoshala-drive-mp3-fallback');
+          if (driveFb) {
+            driveFb.style.display = 'block';
+          }
           dictAudioEl.dataset.useTtsFallback = 'true';
           const statusBadge = document.getElementById('stenoshala-audio-verify-status');
           if (statusBadge) {
@@ -3622,14 +3787,11 @@ window.switchDictationMergedTrack = function(nextIdx, autoPlayNow = true) {
             </div>
           `;
         } else {
-          mount.innerHTML = mediaInfo.isVideoConverted ? `
-            <video id="stenoshala-dictation-audio" controls playsinline preload="metadata" data-video-converted-to-audio="true" controlsList="nodownload" style="width:100%; height:42px; background:#0f172a; border-radius:10px;">
-              <source src="${mediaInfo.streamUrl}">
-            </video>
-          ` : `
-            <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="false" controlsList="nodownload" style="width:100%; height:40px;">
+          mount.innerHTML = `
+            <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="${mediaInfo.isVideoConverted ? 'true' : 'false'}" controlsList="nodownload" style="width:100%; height:40px;">
               <source src="${mediaInfo.streamUrl}">
             </audio>
+            ${mediaInfo.isVideoConverted ? `<div style="margin-top:5px; font-size:11px; font-weight:700; color:#059669;"><i class="fa-solid fa-music"></i> Video URL playing in MP3 Audio-Only Mode</div>` : ''}
           `;
           if (mediaInfo.isDrive) tryLoadDriveAudioIntoElement(tr.url, 'stenoshala-dictation-audio');
           const el = document.getElementById('stenoshala-dictation-audio');
@@ -3701,8 +3863,22 @@ export function loadAndPlayCloudMediaInSynthesizer(autoPlayNow = true, preferAdm
         : (customTypedUrl || window.currentAdminAudioCloudUrl || window.lastRecordedSynthAudioBlobUrl || '');
 
       if (!rawUrl) {
-        // Fallback to primary player / smart voice if no URL was attached to the item
-        playOrVerifyStenoshalaDictationAudio('play');
+        // Fallback to existing playable media element if mounted, otherwise directly use Speech Synthesis
+        // (avoids bouncing back into cloud_url mode and overflowing the call stack).
+        const ytIframe = document.getElementById('stenoshala-youtube-audio');
+        const dictAudio = document.getElementById('stenoshala-dictation-audio');
+        const hasPlayableEl = Boolean(ytIframe) || Boolean(
+          dictAudio && !dictAudio.dataset.useTtsFallback && (
+            /^https?:\/\//i.test((dictAudio.querySelector('source')?.getAttribute('src') || dictAudio.getAttribute('src') || '')) ||
+            (dictAudio.querySelector('source')?.getAttribute('src') || dictAudio.getAttribute('src') || '').startsWith('data:audio') ||
+            (dictAudio.querySelector('source')?.getAttribute('src') || dictAudio.getAttribute('src') || '').startsWith('blob:')
+          )
+        );
+        if (hasPlayableEl) {
+          playOrVerifyStenoshalaDictationAudio('play');
+        } else if (autoPlayNow) {
+          startTtsDictationSpeech({ forceSpeechSynthesis: true });
+        }
         return;
       }
 
@@ -3742,17 +3918,17 @@ export function loadAndPlayCloudMediaInSynthesizer(autoPlayNow = true, preferAdm
             </div>
           `;
         } else {
-          mount.innerHTML = mediaInfo.isVideoConverted ? `
-            <video id="stenoshala-dictation-audio" controls playsinline preload="metadata" data-video-converted-to-audio="true" controlsList="nodownload" style="width:100%; height:42px; background:#0f172a; border-radius:8px;">
-              <source src="${mediaInfo.streamUrl}">
-            </video>
-            <div style="margin-top:6px; font-size:11px; font-weight:700; color:#059669;"><i class="fa-solid fa-film"></i> Video Container Stream Playing in Audio-Only Dictation Mode</div>
-          ` : `
-            <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="false" controlsList="nodownload" style="width:100%; height:38px;">
+          mount.innerHTML = `
+            <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="${mediaInfo.isVideoConverted ? 'true' : 'false'}" controlsList="nodownload" style="width:100%; height:38px;">
               <source src="${mediaInfo.streamUrl}">
             </audio>
+            ${mediaInfo.isVideoConverted ? `
+              <div style="margin-top:5px; font-size:11px; font-weight:700; color:#059669;"><i class="fa-solid fa-music"></i> Video URL playing strictly in MP3 Audio-Only Mode</div>
+            ` : ''}
             ${mediaInfo.isDrive && mediaInfo.driveId ? `
-              <iframe src="https://drive.google.com/file/d/${mediaInfo.driveId}/preview" style="width:100%; height:70px; border:1px solid var(--border); border-radius:8px; margin-top:6px; background:#0f172a;"></iframe>
+              <div id="stenoshala-drive-mp3-fallback" style="display:none; margin-top:6px;">
+                <iframe src="https://drive.google.com/file/d/${mediaInfo.driveId}/preview" style="width:100%; height:54px; border:1px solid var(--border); border-radius:8px; background:#0f172a;" allow="autoplay"></iframe>
+              </div>
             ` : ''}
           `;
           if (mediaInfo.isDrive) {
@@ -3875,7 +4051,9 @@ export let currentDictationWpm = 80;
 
 export let activeTtsUtterance = null;
 
-export function startTtsDictationSpeech() {
+export function startTtsDictationSpeech(options = {}) {
+      const forceSpeechSynthesis = Boolean(options && options.forceSpeechSynthesis);
+      const skipAutoBeep = Boolean(options && options.skipAutoBeep);
       const modeSelect = document.getElementById('tts-voice-mode-select');
       const wpmSelect = document.getElementById('tts-wpm-speed-select');
       const statusBadge = document.getElementById('tts-live-status-badge');
@@ -3884,11 +4062,26 @@ export function startTtsDictationSpeech() {
       const targetWpm = Math.max(40, Math.min(250, wpmSelect ? (parseInt(wpmSelect.value) || 80) : (currentDictationWpm || 80)));
       currentDictationWpm = targetWpm;
 
-      // Mode 3: Uploaded Cloud Audio / Video URL (YouTube, Google Drive, GitHub, Supabase, MP4/MP3 -> Audio)
-      if (voiceMode === 'cloud_url') {
-        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-        loadAndPlayCloudMediaInSynthesizer(true);
+      if (!skipAutoBeep) {
+        playPreAudioStartAutoBeep(() => {
+          startTtsDictationSpeech({ forceSpeechSynthesis, skipAutoBeep: true });
+        });
         return;
+      }
+
+      // Mode 3: Uploaded Cloud Audio / Video URL (YouTube, Google Drive, GitHub, Supabase, MP4/MP3 -> Audio)
+      if (voiceMode === 'cloud_url' && !forceSpeechSynthesis) {
+        const urlInp = document.getElementById('synth-cloud-media-url-input');
+        const hasCloudMediaUrl = Boolean(
+          (urlInp && urlInp.value.trim()) ||
+          window.currentAdminAudioCloudUrl ||
+          window.lastRecordedSynthAudioBlobUrl
+        );
+        if (hasCloudMediaUrl) {
+          if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+          loadAndPlayCloudMediaInSynthesizer(true);
+          return;
+        }
       }
 
       // Mode 4: Recorded Mic Audio
@@ -4168,63 +4361,44 @@ export function confirmExamAndStartTranscription() {
         ? 'UNTIL SPACEBAR ONLY'
         : (rules.backspaceMode === 'limited' ? `LIMITED (${rules.backspaceLimit || 15})` : (rules.backspaceMode || 'on').toUpperCase());
 
-      // 👉 REQUIREMENT #10: Cleanly Rearranged Step 2 Transcription Desk Layout
+      // Compact Step 2 Transcription Desk: razor-slim 1-line header + full-screen typing area
       const mainBody = document.getElementById('test-main-body-container');
       mainBody.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 1140px; margin: 0 auto; flex: 1;">
-          <!-- Step 2 Header & Active Evaluation Rule Summary Strip (Auto-hidden on < 768px to maximize transcription space) -->
-          <div id="step2-transcription-meta-banner" class="exam-collapsible-banner test-non-essential-mobile" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; padding: 14px 18px; border-radius: 12px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <span style="background: rgba(16,185,129,0.22); color: #6ee7b7; padding: 3px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 800;">
-                  <i class="fa-solid fa-keyboard"></i> STEP 2 OF 2 • OFFICIAL TRANSCRIPTION DESK
-                </span>
-                <span style="background: rgba(79,70,229,0.25); color: #c7d2fe; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;">
-                  <i class="fa-solid fa-scale-balanced"></i> Rule: ${ruleDisplay}
-                </span>
-              </div>
-              <div style="font-size: 12px; color: #cbd5e1; margin-top: 2px;">
-                Passage: <strong>${baseTitle}</strong> (${refWordsTotal} Words • ${refStrokesTotal} Strokes) • Duration: <strong>${portalState.testDurationMinutes} Mins</strong> • Formula: <strong>${rules.wordCountRule === '5stroke' ? '5 Strokes = 1 Word' : '1 Space = 1 Word'}</strong> • Punctuation: <strong>${rules.punctRuleMode === 'fullstop_only' ? 'Full Stop Only' : 'All'}</strong> • Backspace: <strong>${bsRuleBadge}</strong>
-              </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <button type="button" class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);" onclick="if(pendingAudioDictationItem) startAudioDictationTestById(pendingAudioDictationItem.ID || pendingAudioDictationItem.id)">
-                <i class="fa-solid fa-arrow-left"></i> Back to Audio Room
-              </button>
-
-            </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 1280px; margin: 0 auto; flex: 1; min-height: 0;">
+          <div id="step2-transcription-meta-banner" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
+            <span style="font-size: 11.5px; font-weight: 700; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">
+              <i class="fa-solid fa-scale-balanced" style="color: var(--primary);"></i> ${ruleDisplay} · ${refWordsTotal}w · ${portalState.testDurationMinutes}m · BS: ${bsRuleBadge}
+            </span>
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 11px; min-height: 24px; white-space: nowrap; flex-shrink: 0;" onclick="if(pendingAudioDictationItem) startAudioDictationTestById(pendingAudioDictationItem.ID || pendingAudioDictationItem.id)">
+              <i class="fa-solid fa-arrow-left"></i> Audio Room
+            </button>
           </div>
-
-          <!-- Transcription Editor Box (Uses Single Unified Text Size Control in Modal Header) -->
-          <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; flex: 1;">
-            <div class="test-non-essential-mobile" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-              <label style="font-weight: 700; font-size: 13px; color: var(--secondary); margin: 0;">
-                <i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i> Type Your Shorthand Transcription Below (Auto-Submits at 00:00)
-              </label>
-            </div>
-            <textarea id="test-user-input" 
-                      class="form-control" 
-                      spellcheck="false" 
-                      autocorrect="off" 
-                      autocapitalize="off" 
-                      autocomplete="off" 
-                      style="width: 100%; flex: 1; min-height: 320px; resize: vertical; font-family: 'Segoe UI', monospace; padding: 16px; border-radius: 10px; font-size: ${(rules.defaultTextSize || 16)}px; line-height: 1.7;" 
-                      placeholder="Start typing your shorthand transcription here (Visual countdown timer is running and auto-submits at 00:00)..." 
-                      oninput="handleTestInput()" 
-                      onkeydown="handleTestKeyDown(event)" 
-                      onpaste="handleTestPaste(event)" 
-                      oncopy="handleTestCopy(event)" 
-                      oncut="handleTestCut(event)"></textarea>
-          </div>
+          <textarea id="test-user-input" 
+                    class="form-control" 
+                    spellcheck="false" 
+                    autocorrect="off" 
+                    autocapitalize="off" 
+                    autocomplete="off" 
+                    style="width: 100%; flex: 1; min-height: clamp(280px, 66vh, 720px); resize: none; font-family: 'Segoe UI', monospace; padding: 14px; border-radius: 10px; font-size: ${(rules.defaultTextSize || 16)}px; line-height: 1.7; background: var(--surface);" 
+                    placeholder="Start typing your shorthand transcription here (Auto-submits at 00:00)..." 
+                    oninput="handleTestInput()" 
+                    onkeydown="handleTestKeyDown(event)" 
+                    onpaste="handleTestPaste(event)" 
+                    oncopy="handleTestCopy(event)" 
+                    oncut="handleTestCut(event)"></textarea>
         </div>
       `;
 
-      const fontSizeBadge = document.getElementById('test-header-font-size-badge');
-      if (fontSizeBadge) fontSizeBadge.textContent = (rules.defaultTextSize || 16) + 'px';
+      const initTransFontSize = parseInt(rules.defaultTextSize, 10) || 16;
+      portalState.currentTestFontSize = initTransFontSize;
+      portalState.currentPassageFontSize = initTransFontSize;
+      document.documentElement.style.setProperty('--test-active-font-size', initTransFontSize + 'px');
+      document.documentElement.style.setProperty('--mobile-test-font-size', initTransFontSize + 'px');
+      const initTransInput = document.getElementById('test-user-input');
+      if (initTransInput) initTransInput.style.setProperty('font-size', initTransFontSize + 'px', 'important');
 
-      if (window.innerWidth <= 768 && typeof toggleMobileExamFocusMode === 'function') {
-        toggleMobileExamFocusMode(true);
-      }
+      const fontSizeBadge = document.getElementById('test-header-font-size-badge');
+      if (fontSizeBadge) fontSizeBadge.textContent = initTransFontSize + 'px';
 
       updateLiveTypingStatusBar('Ready - Evaluation Rule Applied');
       // Auto-fetch Reading Time from Admin Evaluation Rule (with Skip option to start test immediately)
@@ -4257,17 +4431,31 @@ export function getActiveEvaluationRules(subtabName, categoryType) {
 export function adjustTestFontSize(amount) {
       const userInput = document.getElementById('test-user-input');
       const passageElem = document.getElementById('test-material-passage-text');
+      const refDisplayElem = document.getElementById('test-reference-display');
       const badge = document.getElementById('test-header-font-size-badge');
       const rules = (typeof getEvaluationRulesForTab === 'function' && portalState.activeTestSubtabKey) ? (getEvaluationRulesForTab(portalState.activeTestSubtabKey) || {}) : {};
       const defaultSize = parseInt(rules.defaultTextSize, 10) || 16;
-      const baseEl = userInput || passageElem;
-      let currentSize = baseEl ? (parseInt(window.getComputedStyle(baseEl).fontSize, 10) || defaultSize) : defaultSize;
-      let newSize = amount === 0 ? defaultSize : Math.max(12, Math.min(32, currentSize + amount));
-      if (userInput) userInput.style.fontSize = newSize + 'px';
-      if (passageElem) {
-        portalState.currentPassageFontSize = newSize;
-        passageElem.style.fontSize = newSize + 'px';
+      const baseEl = userInput || passageElem || refDisplayElem;
+      const badgeSize = badge ? parseInt(badge.textContent, 10) : NaN;
+      let currentSize = Number(portalState.currentTestFontSize)
+        || (isFinite(badgeSize) ? badgeSize : 0)
+        || (baseEl ? (parseInt(window.getComputedStyle(baseEl).fontSize, 10) || defaultSize) : defaultSize);
+      const delta = Number(amount) || 0;
+      const newSize = delta === 0 ? defaultSize : Math.max(12, Math.min(36, currentSize + delta));
+
+      portalState.currentTestFontSize = newSize;
+      portalState.currentPassageFontSize = newSize;
+      document.documentElement.style.setProperty('--test-active-font-size', newSize + 'px');
+      document.documentElement.style.setProperty('--mobile-test-font-size', newSize + 'px');
+      const modalRoot = document.getElementById('active-test-modal');
+      if (modalRoot) {
+        modalRoot.style.setProperty('--test-active-font-size', newSize + 'px');
+        modalRoot.style.setProperty('--mobile-test-font-size', newSize + 'px');
       }
+
+      if (userInput) userInput.style.setProperty('font-size', newSize + 'px', 'important');
+      if (passageElem) passageElem.style.setProperty('font-size', newSize + 'px', 'important');
+      if (refDisplayElem) refDisplayElem.style.setProperty('font-size', newSize + 'px', 'important');
       if (badge) badge.textContent = newSize + 'px';
     }
 
@@ -5564,6 +5752,66 @@ window.previewSelectedTranscribeExamRule = function(forceExpand = true) {
 
 
 
+export function extractTop50HardWordsFromPassage(passageText) {
+    return extractHardWordsFromPassage(String(passageText || ''), 50);
+  }
+window.extractTop50HardWordsFromPassage = extractTop50HardWordsFromPassage;
+
+export function extractTop15HardWordsFromPassage(passageText) {
+    return extractHardWordsFromPassage(String(passageText || ''), 50);
+  }
+window.extractTop15HardWordsFromPassage = extractTop15HardWordsFromPassage;
+
+export function populateExerciseHardWordsChips(passageText) {
+    const chips = document.getElementById('stenoshala-exercise-hard-words-chips');
+    if (!chips) return [];
+    const fallbackItem = portalState.pendingAudioDictationItem || window.pendingAudioDictationItem || null;
+    const rawCandidate =
+      (passageText && String(passageText).trim()) ||
+      portalState.currentReferenceText ||
+      window.currentReferenceText ||
+      window.fullMasterPassageText ||
+      document.getElementById('test-reference-text')?.textContent ||
+      (fallbackItem && !/^https?:\/\//i.test(String(fallbackItem.ThumbnailUrl || '')) ? fallbackItem.ThumbnailUrl : '') ||
+      (fallbackItem && !/^https?:\/\//i.test(String(fallbackItem.ContentOrUrl || '')) ? fallbackItem.ContentOrUrl : '') ||
+      '';
+    const topWords = extractTop50HardWordsFromPassage(rawCandidate);
+    if (topWords.length === 0) {
+      chips.innerHTML = `<span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">No passage transcript available to extract hard words for this dictation.</span>`;
+      return [];
+    }
+    chips.innerHTML = topWords.map((w, i) => {
+      const safeWord = escapeHtml(String(w));
+      const safeJs = String(w).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      return `
+        <button type="button" onclick="inspectPitmanWordInVault('${safeJs}')" style="padding: 5px 11px; border-radius: 8px; background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.42); color: var(--secondary); font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+          <span style="color: #059669; font-family: monospace;">#${i + 1}</span> ${safeWord} <i class="fa-solid fa-pen-nib" style="font-size: 10px; opacity: 0.75; color: #059669;"></i>
+        </button>
+      `;
+    }).join('');
+    return topWords;
+  }
+window.populateExerciseHardWordsChips = populateExerciseHardWordsChips;
+
+export function toggleExerciseHardWordsPanel(forceState) {
+    const card = document.getElementById('stenoshala-exercise-hard-words-card');
+    const btn = document.getElementById('dictation-toggle-hard-words-btn');
+    if (!card) return;
+    const isHidden = card.style.display === 'none' || card.classList.contains('hidden');
+    const shouldShow = typeof forceState === 'boolean' ? forceState : isHidden;
+
+    if (shouldShow) {
+      const words = populateExerciseHardWordsChips();
+      card.classList.remove('hidden');
+      card.style.display = 'block';
+      if (btn) btn.innerHTML = `<i class="fa-solid fa-eye-slash"></i> Hide Hard Words (${words.length})`;
+    } else {
+      card.style.display = 'none';
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-eye"></i> Show 50 Hard Words';
+    }
+  }
+window.toggleExerciseHardWordsPanel = toggleExerciseHardWordsPanel;
+
 window.togglePreDictationHardWordsGlossary = function(mode) {
     if (mode === 'modal' && typeof window.toggleExerciseHardWordsPanel === 'function') {
       window.toggleExerciseHardWordsPanel();
@@ -5605,6 +5853,19 @@ window.togglePreDictationHardWordsGlossary = function(mode) {
 
 
 
+window.toggleUniversalAudioJumpToolbar = function() {
+    const bar = document.getElementById('vc-audio-jump-toolbar');
+    const btn = document.getElementById('vc-audio-toggle-jump-btn');
+    if (!bar) return;
+    const isHidden = bar.style.display === 'none' || !bar.style.display;
+    bar.style.display = isHidden ? 'flex' : 'none';
+    if (btn) {
+      btn.innerHTML = isHidden
+        ? '<i class="fa-solid fa-chevron-up"></i> <span>Hide Jump</span>'
+        : '<i class="fa-solid fa-clock"></i> <span>Jump</span>';
+    }
+  };
+
 window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode = false) {
     if (typeof isActionBlockedByUnverifiedEmail === 'function' && isActionBlockedByUnverifiedEmail('opening this media file')) return;
     if (!rawUrl || rawUrl === '-') {
@@ -5615,6 +5876,7 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
     const modal = document.getElementById('reader-modal');
     const viewport = document.getElementById('modal-viewport');
     const titleElem = document.getElementById('modal-title');
+    const inlineControls = document.getElementById('reader-modal-inline-controls');
 
     let url = String(rawUrl).trim();
     const isAudioLectureMode = Boolean(
@@ -5626,7 +5888,7 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
 
     if (titleElem) {
       titleElem.innerText = isAudioLectureMode
-        ? ('🎧 Audio-Only Lecture Mode: ' + (title || 'Video Course Lecture'))
+        ? ('🎧 Audio Only: ' + (title || 'Video Course Lecture'))
         : (title || 'Media Viewer');
     }
 
@@ -5656,88 +5918,71 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
     const hasClipWindow = clipCfg.startSec !== null || clipCfg.endSec !== null;
 
     if (isAudioLectureMode) {
+      if (inlineControls) {
+        inlineControls.innerHTML = `
+          <button type="button" id="vc-audio-toggle-jump-btn" class="rp-viewer-ico-btn" style="width:auto; padding:0 8px; gap:4px; font-size:11px; font-weight:700;" onclick="window.toggleUniversalAudioJumpToolbar()" title="Show / Hide Jump Controls"><i class="fa-solid fa-clock"></i> <span>Jump</span></button>
+          <button type="button" class="rp-viewer-ico-btn" style="width:auto; padding:0 8px; gap:4px; font-size:11px; font-weight:700;" onclick="openReferenceVideoModal('${safeUrlJs}', '${safeTitleJs}')" title="Switch to Full Video Mode"><i class="fa-solid fa-film"></i> <span>Video</span></button>
+        `;
+      }
       viewport.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; width:100%; min-height:100%; background:linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color:#fff; padding:24px; box-sizing:border-box;">
-          <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(99,102,241,0.35); border-radius:20px; padding:24px; max-width:680px; width:100%; display:flex; flex-direction:column; align-items:center; gap:16px; box-shadow:0 20px 50px rgba(0,0,0,0.45);">
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center;">
-              <div style="display:flex; align-items:center; gap:8px; background:rgba(16,185,129,0.15); color:#6ee7b7; border:1px solid rgba(16,185,129,0.35); padding:5px 14px; border-radius:999px; font-size:11.5px; font-weight:800;">
-                <i class="fa-solid fa-headphones"></i> LOW-DATA AUDIO-ONLY LECTURE STREAM ACTIVE
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0f172a; color:#fff; padding:14px; box-sizing:border-box; gap:12px;">
+          <!-- Collapsible Jump to Time Strip (Hidden by default so audio view stays ultra-clean) -->
+          <div id="vc-audio-jump-toolbar" style="display:none; width:100%; max-width:560px; background:rgba(30,41,59,0.92); border:1px solid #334155; border-radius:10px; padding:7px 10px; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:5px;">
+              <input type="text" id="audio-lecture-jump-time-input" placeholder="MM:SS" style="width:82px; padding:3px 7px; border-radius:6px; border:1px solid #475569; background:#0f172a; color:#fff; font-size:11px; font-weight:700; margin:0;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.seekActiveMediaPlayerToInput('audio-lecture-jump-time-input');}">
+              <button type="button" class="btn btn-sm btn-primary" style="padding:3px 8px; font-size:10.5px; min-height:24px;" onclick="window.seekActiveMediaPlayerToInput('audio-lecture-jump-time-input')">Go</button>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+              <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 7px; font-size:10.5px; min-height:24px; background:#1e293b; color:#e2e8f0; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerByOffset(-30)">-30s</button>
+              <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 7px; font-size:10.5px; min-height:24px; background:#1e293b; color:#e2e8f0; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerByOffset(30)">+30s</button>
+              <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 7px; font-size:10.5px; min-height:24px; background:#1e293b; color:#38bdf8; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerToSeconds(300)">05:00</button>
+              <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 7px; font-size:10.5px; min-height:24px; background:#1e293b; color:#38bdf8; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerToSeconds(600)">10:00</button>
+            </div>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(148,163,184,0.22); border-radius:16px; padding:18px 20px; max-width:560px; width:100%; display:flex; flex-direction:column; align-items:center; gap:14px;">
+            <div style="text-align:center;">
+              <div style="font-size:11px; font-weight:800; color:#34d399; letter-spacing:0.04em; margin-bottom:4px;">
+                <i class="fa-solid fa-headphones"></i> MP3 AUDIO-ONLY MODE${hasClipWindow ? ` · ✂️ ${clipCfg.startLabel || '00:00'}–${clipCfg.endLabel || 'End'}` : ''}
               </div>
-              ${hasClipWindow ? `<div style="background:rgba(56,189,248,0.18); color:#7dd3fc; border:1px solid rgba(56,189,248,0.4); padding:5px 12px; border-radius:999px; font-size:11.5px; font-weight:800;">✂️ Clip: ${clipCfg.startLabel || '00:00'} – ${clipCfg.endLabel || 'End'}</div>` : ''}
+              <h3 style="margin:0; font-size:16px; font-weight:800; color:#f8fafc; line-height:1.35;">${title || 'Video Course Lecture'}</h3>
             </div>
 
-            <h3 style="margin:0; font-size:18px; font-weight:900; text-align:center; color:#f8fafc; line-height:1.35;">
-              ${title || 'Video Course Lecture'}
-            </h3>
-
-            <div id="vc-audio-eq-visualizer" style="display:flex; align-items:flex-end; justify-content:center; gap:5px; height:32px; padding:4px 16px;">
+            <div id="vc-audio-eq-visualizer" style="display:flex; align-items:flex-end; justify-content:center; gap:5px; height:24px;">
               <span class="rp-eq-bar" style="animation-delay:0s;"></span>
               <span class="rp-eq-bar" style="animation-delay:0.15s;"></span>
               <span class="rp-eq-bar" style="animation-delay:0.3s;"></span>
               <span class="rp-eq-bar" style="animation-delay:0.1s;"></span>
               <span class="rp-eq-bar" style="animation-delay:0.25s;"></span>
-              <span class="rp-eq-bar" style="animation-delay:0.4s;"></span>
-              <span class="rp-eq-bar" style="animation-delay:0.2s;"></span>
             </div>
 
             ${ytId ? `
-              <div style="width:100%; max-width:480px; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); background:#000;">
-                <iframe id="hidden-youtube-audio" src="https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&playsinline=1&vq=tiny${ytClipQuery}&origin=${encodeURIComponent(window.location.origin)}" style="width:100%; height:56px; border:none;" allow="autoplay; encrypted-media"></iframe>
-              </div>
-              <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-                <button type="button" class="btn btn-success btn-sm" onclick="sendYouTubeAudioCommand('playVideo'); document.getElementById('vc-audio-eq-visualizer')?.classList.remove('rp-eq-paused');"><i class="fa-solid fa-play"></i> Play Audio</button>
-                <button type="button" class="btn btn-warning btn-sm" onclick="sendYouTubeAudioCommand('pauseVideo'); document.getElementById('vc-audio-eq-visualizer')?.classList.add('rp-eq-paused');"><i class="fa-solid fa-pause"></i> Pause</button>
+              <iframe id="hidden-youtube-audio" src="https://www.youtube.com/embed/${ytId}?autoplay=1&enablejsapi=1&playsinline=1&vq=tiny&controls=0${ytClipQuery}&origin=${encodeURIComponent(window.location.origin)}" style="width:1px; height:1px; opacity:0; position:absolute; pointer-events:none; border:none;" allow="autoplay; encrypted-media"></iframe>
+              <div style="display:flex; gap:8px; justify-content:center; align-items:center;">
+                <button type="button" class="btn btn-success btn-sm" style="padding:6px 16px; border-radius:10px;" onclick="sendYouTubeAudioCommand('playVideo'); document.getElementById('vc-audio-eq-visualizer')?.classList.remove('rp-eq-paused');"><i class="fa-solid fa-play"></i> Play</button>
+                <button type="button" class="btn btn-warning btn-sm" style="padding:6px 16px; border-radius:10px;" onclick="sendYouTubeAudioCommand('pauseVideo'); document.getElementById('vc-audio-eq-visualizer')?.classList.add('rp-eq-paused');"><i class="fa-solid fa-pause"></i> Pause</button>
               </div>
             ` : `
-              <audio id="universal-audio-player" controls autoplay controlsList="nodownload" style="width:100%; max-width:520px; height:46px; border-radius:10px;"
-                     onplay="document.getElementById('vc-audio-eq-visualizer')?.classList.remove('rp-eq-paused')"
-                     onpause="document.getElementById('vc-audio-eq-visualizer')?.classList.add('rp-eq-paused')"
-                     src="${directStreamUrl}"></audio>
-
-              <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; align-items:center;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="const a=document.getElementById('universal-audio-player'); if(a){a.currentTime=Math.max(Number(a.dataset.clipStartSec||0),(a.currentTime||0)-10);}">⏪ -10s</button>
-                <button type="button" class="btn btn-success btn-sm" onclick="const a=document.getElementById('universal-audio-player'); if(a){a.paused?a.play():a.pause();}">⏯️ Play / Pause</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="const a=document.getElementById('universal-audio-player'); if(a){a.currentTime=(a.currentTime||0)+10;}">⏩ +10s</button>
-                <select onchange="const a=document.getElementById('universal-audio-player'); if(a){a.playbackRate=parseFloat(this.value)||1;}" style="padding:5px 10px; border-radius:8px; background:#1e293b; color:#fff; border:1px solid #475569; font-size:12px; font-weight:800;">
-                  <option value="0.75">0.75x Speed</option>
-                  <option value="1" selected>1.0x Normal</option>
-                  <option value="1.25">1.25x Fast</option>
-                  <option value="1.5">1.5x Rapid</option>
+              <div style="width:100%; display:flex; align-items:center; gap:8px;">
+                <audio id="universal-audio-player" controls autoplay controlsList="nodownload" style="flex:1; min-width:0; height:40px; border-radius:8px;"
+                       onplay="document.getElementById('vc-audio-eq-visualizer')?.classList.remove('rp-eq-paused')"
+                       onpause="document.getElementById('vc-audio-eq-visualizer')?.classList.add('rp-eq-paused')"
+                       src="${directStreamUrl}"></audio>
+                <select onchange="const a=document.getElementById('universal-audio-player'); if(a){a.playbackRate=parseFloat(this.value)||1;}" title="Playback Speed" style="width:68px; margin:0; padding:6px 6px; border-radius:8px; background:#1e293b; color:#fff; border:1px solid #475569; font-size:11.5px; font-weight:800; flex-shrink:0;">
+                  <option value="0.75">0.75x</option>
+                  <option value="1" selected>1.0x</option>
+                  <option value="1.25">1.25x</option>
+                  <option value="1.5">1.5x</option>
+                  <option value="2">2.0x</option>
                 </select>
               </div>
 
               ${drivePreviewUrl ? `
-                <div id="vc-drive-audio-fallback-wrap" style="width:100%; max-width:520px; display:none; flex-direction:column; gap:6px;">
-                  <span style="font-size:11px; color:#93c5fd; text-align:center;">Google Drive Stream Player:</span>
-                  <iframe src="${drivePreviewUrl}" style="width:100%; height:72px; border:1px solid rgba(255,255,255,0.2); border-radius:10px; background:#000;" allow="autoplay"></iframe>
+                <div id="vc-drive-audio-fallback-wrap" style="width:100%; display:none; flex-direction:column; gap:5px;">
+                  <iframe src="${drivePreviewUrl}" style="width:100%; height:56px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:#000;" allow="autoplay"></iframe>
                 </div>
               ` : ''}
             `}
-
-            <!-- Interactive Jump to Specific Time Bar for Audio Lectures -->
-            <div style="width:100%; background:rgba(15,23,42,0.85); border:1px solid rgba(56,189,248,0.35); border-radius:12px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                <span style="font-size:11px; font-weight:800; color:#38bdf8;"><i class="fa-solid fa-clock"></i> Jump to Time:</span>
-                <input type="text" id="audio-lecture-jump-time-input" placeholder="MM:SS (e.g. 04:30)" style="width:125px; padding:5px 9px; border-radius:7px; border:1px solid #475569; background:#0f172a; color:#fff; font-size:11.5px; font-weight:700; margin:0;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.seekActiveMediaPlayerToInput('audio-lecture-jump-time-input');}">
-                <button type="button" class="btn btn-sm btn-primary" style="padding:5px 10px; font-size:11px; font-weight:800; background:#0284c7; border:none;" onclick="window.seekActiveMediaPlayerToInput('audio-lecture-jump-time-input')">
-                  ⏱️ Jump
-                </button>
-              </div>
-              <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-sm btn-secondary" style="padding:3px 8px; font-size:10.5px; background:#1e293b; color:#e2e8f0; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerByOffset(-30)">-30s</button>
-                <button type="button" class="btn btn-sm btn-secondary" style="padding:3px 8px; font-size:10.5px; background:#1e293b; color:#e2e8f0; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerByOffset(30)">+30s</button>
-                <button type="button" class="btn btn-sm btn-secondary" style="padding:3px 8px; font-size:10.5px; background:#1e293b; color:#38bdf8; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerToSeconds(120)">02:00</button>
-                <button type="button" class="btn btn-sm btn-secondary" style="padding:3px 8px; font-size:10.5px; background:#1e293b; color:#38bdf8; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerToSeconds(300)">05:00</button>
-                <button type="button" class="btn btn-sm btn-secondary" style="padding:3px 8px; font-size:10.5px; background:#1e293b; color:#38bdf8; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerToSeconds(600)">10:00</button>
-                <button type="button" class="btn btn-sm btn-secondary" style="padding:3px 8px; font-size:10.5px; background:#1e293b; color:#38bdf8; border:1px solid #334155;" onclick="window.seekActiveMediaPlayerToSeconds(900)">15:00</button>
-              </div>
-            </div>
-
-            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; padding-top:10px; border-top:1px solid rgba(255,255,255,0.12); width:100%;">
-              <button type="button" class="btn btn-primary btn-sm" onclick="openReferenceVideoModal('${safeUrlJs}', '${safeTitleJs}')">
-                <i class="fa-solid fa-film"></i> Switch to Full Video Mode
-              </button>
-            </div>
           </div>
         </div>
       `;

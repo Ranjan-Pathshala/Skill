@@ -6,10 +6,10 @@
 
 import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
-import { onDomReady } from '../core/domReady.ts';
+import { onDomReady, scheduleFrameTasks } from '../core/domReady.ts';
 import { ALL_STUDENT_PORTAL_TABS, TAB_DISPLAY_META, applyStudentPortalTabPermissions, closeAllDeviceNavMenu, ensureHelpDeskFeedbackFormVisible, getMaintenanceConfig, getUserCustomPreferences, getWorkingTabsUnderMaintenance, isUserEmailAlreadyVerified, markUserEmailVerified, markUserMobileVerified, navigateTo, openAllDeviceNavMenu, renderAuthView, renderNotificationCenterUI, sortMaterialsLatestFirst, startUserEngagementSessionTracker, switchAuthTab, syncUnverifiedEmailPortalLockUI, syncVerifiedBadgesAcrossPortal, toggleNotificationCenterDrawer, updateActiveTabHeaderBadge } from './authAndNavigation.js';
-import { applyAdminTabPermissions, getInstituteBatchesList, getUserAssignedBatch, getUserAssignedBatchesList, getUserMonitorBatchesList, isUserMonitorForBatch, populateAllBatchSelectDropdowns, renderAdminBatchDiscussionBoard, renderAdminFeedback, renderAdminLeaderboard, renderAdminLogs, renderAdminMaterialsTable, renderAdminSubtabsTable, renderAdminUsers, renderDashboardBatchMonitoringHub, userHasBatchAssigned } from './adminPanel.js';
-import { DEFAULT_LOGO_URL, SITE_NAME, apiCall, applyAppTheme, cleanupAllAuthAndSessionResources, clearAllPortalCacheOnLogout, fetchPublicFooterStats, logPortalAction, mergeMaterialsByType, normalizeMaterialRecord, renderGlobalWatermark, showToast } from './apiAndCore.js';
+import { applyAdminTabPermissions, getBatchMonitorsList, getBatchMonitorsMap, getInstituteBatchesList, getUserAssignedBatch, getUserAssignedBatchesList, getUserMonitorBatchesList, isUserMonitorForBatch, parseBatchListValue, populateAllBatchSelectDropdowns, renderAdminBatchDiscussionBoard, renderAdminFeedback, renderAdminLeaderboard, renderAdminLogs, renderAdminMaterialsTable, renderAdminSubtabsTable, renderAdminUsers, renderDashboardBatchMonitoringHub, userHasBatchAssigned } from './adminPanel.js';
+import { DEFAULT_LOGO_URL, SITE_NAME, apiCall, applyAppTheme, cleanupAllAuthAndSessionResources, clearAllPortalCacheOnLogout, fetchPublicFooterStats, logPortalAction, mergeMaterialsByType, normalizeMaterialRecord, renderGlobalWatermark, showToast, syncPortalDataInBackground } from './apiAndCore.js';
 import { escapeHtml, formatLocalDate, getLocalDateString } from '../utils/formatting.ts';
 import { initLearningTypingTutor, renderLearningUploadedExercisesGrid, renderVideoCourseView, seedRichDemoDataIfNeeded } from './videoAndTutor.js';
 import { renderAdminEvaluationRulesTable, renderLiveTestsEverywhere } from './mediaAndDictation.js';
@@ -858,14 +858,25 @@ export function renderDashboardUI() {
       seedRichDemoDataIfNeeded();
 
       const materials = (portalState.globalData && portalState.globalData.materials && portalState.globalData.materials.length > 0) ? portalState.globalData.materials : portalState.materialsData;
-      const pdfCount = materials.filter(m => (m.Type || '').toLowerCase() === 'pdf').length;
-      const wordCount = materials.filter(m => (m.Type || '').toLowerCase() === 'word').length;
-      const audioCount = materials.filter(m => (m.Type || '').toLowerCase() === 'audio').length;
-      const typingCount = materials.filter(m => (m.Type || '').toLowerCase() === 'typingtest').length;
-      const pitmanCount = materials.filter(m => (m.Type || '').toLowerCase() === 'pitman').length;
-      const videoCourseCount = materials.filter(m => (m.Type || '').toLowerCase() === 'videocourse').length;
-      const learningUploadedCount = materials.filter(m => (m.Type || '').toLowerCase() === 'learningtyping').length;
-      const cbtCount = materials.filter(m => (m.Type || '').toLowerCase() === 'cbttest').length;
+      let pdfCount = 0;
+      let wordCount = 0;
+      let audioCount = 0;
+      let typingCount = 0;
+      let pitmanCount = 0;
+      let videoCourseCount = 0;
+      let learningUploadedCount = 0;
+      let cbtCount = 0;
+      for (let i = 0; i < materials.length; i++) {
+        const t = String(materials[i] && materials[i].Type || '').toLowerCase();
+        if (t === 'pdf') pdfCount++;
+        else if (t === 'word') wordCount++;
+        else if (t === 'audio') audioCount++;
+        else if (t === 'typingtest') typingCount++;
+        else if (t === 'pitman') pitmanCount++;
+        else if (t === 'videocourse') videoCourseCount++;
+        else if (t === 'learningtyping') learningUploadedCount++;
+        else if (t === 'cbttest') cbtCount++;
+      }
 
       const allHist = (portalState.globalData && Array.isArray(portalState.globalData.history) && portalState.globalData.history.length > 0) ? portalState.globalData.history : (portalState.allTestHistoryList || []);
       const totalTestsGivenCount = (portalState.globalData.stats && portalState.globalData.stats.totalTestsGiven) ? portalState.globalData.stats.totalTestsGiven : allHist.length;
@@ -883,20 +894,25 @@ export function renderDashboardUI() {
       if (document.getElementById('footer-total-users')) document.getElementById('footer-total-users').innerText = (portalState.globalData.stats && portalState.globalData.stats.totalUsers) || 0;
       if (document.getElementById('footer-total-visits')) document.getElementById('footer-total-visits').innerText = (portalState.globalData.stats && portalState.globalData.stats.totalVisits) || 0;
 
+      // Critical above-the-fold UI renders immediately
       renderPromoBanner();
       if (typeof renderDashboardFreeTierNotice === 'function') renderDashboardFreeTierNotice();
       if (typeof syncUnverifiedEmailPortalLockUI === 'function') syncUnverifiedEmailPortalLockUI(false);
       if (typeof renderDashboardCustomBanner === 'function') renderDashboardCustomBanner();
       if (typeof window.renderDashboardExpiryRenewalAlert === 'function') window.renderDashboardExpiryRenewalAlert();
       if (typeof renderLiveTestsEverywhere === 'function') renderLiveTestsEverywhere();
-      renderDailyPracticeGoalUI();
-      if (typeof renderDashboardBatchMonitoringHub === 'function') renderDashboardBatchMonitoringHub();
-      renderAnnouncements();
-      renderHomework();
-      renderVideoReferences();
-      renderUserDashboardLeaderboards();
-      renderD3WeeklyProgressHeatmap();
-      renderUserPerformanceChart();
+
+      // Heavy below-the-fold widgets & SVG/Canvas charts render across animation frames to keep mobile scrolling smooth
+      scheduleFrameTasks('dashboard-render', [
+        () => renderDailyPracticeGoalUI(),
+        () => { if (typeof renderDashboardBatchMonitoringHub === 'function') renderDashboardBatchMonitoringHub(); },
+        () => renderAnnouncements(),
+        () => renderHomework(),
+        () => renderVideoReferences(),
+        () => renderUserDashboardLeaderboards(),
+        () => renderD3WeeklyProgressHeatmap(),
+        () => renderUserPerformanceChart()
+      ], 8);
     }
 
 export function renderDashboardFreeTierNotice() {
@@ -967,6 +983,7 @@ export function renderPromoBanner() {
         _topPromoBannerCycleTimer = null;
       }
 
+      const isLoggedIn = Boolean(portalState.currentUser && portalState.currentUser.userId);
       const activeTopBanners = [];
 
       // 1. Maintenance Mode Notice (if active)
@@ -979,16 +996,16 @@ export function renderPromoBanner() {
         activeTopBanners.push(`🛠️ [MAINTENANCE MODE — ${scopeInfo}] ${maintCfg.message}`);
       }
 
-      // 2. Date-Specific Top Website Banner Matter (if active for today)
+      // 2. Date-Specific Top Website Banner Matter (shown for logged-in students)
       const todayStr = getLocalDateString();
       const dateBannersMap = getDateSpecificBannersMap();
       const todaySpecificMatter = dateBannersMap[todayStr];
-      if (todaySpecificMatter && String(todaySpecificMatter.text || todaySpecificMatter || '').trim() !== '') {
+      if (isLoggedIn && todaySpecificMatter && String(todaySpecificMatter.text || todaySpecificMatter || '').trim() !== '') {
         const textVal = typeof todaySpecificMatter === 'object' ? todaySpecificMatter.text : String(todaySpecificMatter);
         activeTopBanners.push(`📅 [${todayStr}] ${textVal}`);
       }
 
-      // 3. General Admin Top Website Banner — only use configured banner data; if no data exists, show a distinct "No Active Announcement" banner
+      // 3. General Admin Top Website Banner — separate Logged-Out vs Logged-In scrolling banners
       const serverBanner = (portalState.globalData && portalState.globalData.banner && typeof portalState.globalData.banner === 'object')
         ? portalState.globalData.banner
         : ((portalState.adminData && portalState.adminData.banner && typeof portalState.adminData.banner === 'object') ? portalState.adminData.banner : null);
@@ -996,13 +1013,16 @@ export function renderPromoBanner() {
       try {
         cachedBanner = JSON.parse(localStorage.getItem('steno_public_top_banner') || '{}') || {};
       } catch (e) {}
-      const banner = (serverBanner && (serverBanner.text !== undefined || serverBanner.enabled !== undefined))
-        ? serverBanner
+      const banner = (serverBanner && (serverBanner.text !== undefined || serverBanner.loggedOutText !== undefined || serverBanner.enabled !== undefined))
+        ? { ...cachedBanner, ...serverBanner }
         : cachedBanner;
 
-      const rawBannerText = String((banner && banner.text) || '').trim();
-      const hasRealBannerData = Boolean(rawBannerText && rawBannerText !== '-');
-      let isForceEnabled = hasRealBannerData && (banner.enabled === undefined ? true : (banner.enabled === true || String(banner.enabled).toLowerCase() === 'true'));
+      const rawLoggedInText = String((banner && banner.text) || '').trim();
+      const rawLoggedOutText = String((banner && banner.loggedOutText) || '').trim();
+      const hasLoggedInText = Boolean(rawLoggedInText && rawLoggedInText !== '-');
+      const hasLoggedOutText = Boolean(rawLoggedOutText && rawLoggedOutText !== '-');
+
+      let isForceEnabled = (hasLoggedInText || hasLoggedOutText) && (banner.enabled === undefined ? true : (banner.enabled === true || String(banner.enabled).toLowerCase() === 'true'));
       const now = new Date();
       const startTime = banner && banner.startTime ? new Date(banner.startTime) : null;
       const stopTime = banner && banner.stopTime ? new Date(banner.stopTime) : null;
@@ -1020,23 +1040,35 @@ export function renderPromoBanner() {
       }
 
       const isWithinTimeRange = (!startTime || isNaN(startTime.getTime()) || now >= startTime) && (!stopTime || isNaN(stopTime.getTime()) || now <= stopTime);
-      if (isForceEnabled && isWithinTimeRange && hasRealBannerData) {
-        activeTopBanners.push(rawBannerText);
-      }
 
-      // 👉 Requirement #1: If there is NO active banner on the top of the website, hide #announcement-banner in both logged-out and logged-in views
-      if (activeTopBanners.length === 0) {
-        bannerElem.style.display = 'none';
-        if (bannerTextElem) {
-          bannerTextElem.innerText = '';
+      if (!isLoggedIn) {
+        // Distinct Logged-Out / Public Visitor Scrolling Banner
+        if (isForceEnabled && isWithinTimeRange && hasLoggedOutText) {
+          activeTopBanners.push(rawLoggedOutText);
+        } else {
+          activeTopBanners.push('🎓 Welcome to RP Skill | Ranjan Pathshala — Sign In or Register to access Live SSC, High Court, DSSSB & Reporter Steno Dictations, Pitman Tests & CBT Exams!');
         }
-        return;
+      } else {
+        // Distinct Logged-In Student Scrolling Banner
+        if (isForceEnabled && isWithinTimeRange && hasLoggedInText) {
+          activeTopBanners.push(rawLoggedInText);
+        } else if (activeTopBanners.length === 0) {
+          const userName = String(portalState.currentUser?.name || 'Student').trim();
+          const userBatch = String(portalState.currentUser?.batch || '').trim();
+          const batchSnippet = (userBatch && userBatch !== '-') ? ` (${userBatch})` : '';
+          activeTopBanners.push(`✨ Welcome back, ${userName}${batchSnippet}! Practice Daily Audio Dictations, Pitman Tests, CBT Arena & track Weak Outlines from your workspace.`);
+        }
       }
 
       bannerElem.style.display = 'flex';
-      // Restore vibrant active announcement banner styling when real banner data exists
-      bannerElem.style.background = 'linear-gradient(90deg, #1e3a8a, #2563eb, #0d9488)';
-      bannerElem.style.borderBottom = 'none';
+      // Distinct visual themes for Logged-Out vs Logged-In scrolling top banner
+      if (!isLoggedIn) {
+        bannerElem.style.background = 'linear-gradient(90deg, #0f172a, #4338ca, #0284c7)';
+        bannerElem.style.borderBottom = '1px solid rgba(129, 140, 248, 0.35)';
+      } else {
+        bannerElem.style.background = 'linear-gradient(90deg, #065f46, #0d9488, #2563eb)';
+        bannerElem.style.borderBottom = '1px solid rgba(52, 211, 153, 0.3)';
+      }
 
       if (activeTopBanners.length === 1) {
         if (bannerTextElem) bannerTextElem.innerText = activeTopBanners[0];
@@ -1990,220 +2022,394 @@ export async function renderHelpAdminContacts(forceServerFetch = false) {
         return (!s || s === '-' || s === 'undefined' || s === 'null' || s === 'N/A') ? fallback : s;
       };
 
-      const buildServerContactsList = (serverList = [], serverMonitorsMap = null) => {
-        const viewerRoleLower = portalState.currentUser ? String(portalState.currentUser.role || portalState.currentUser.Role || 'user').toLowerCase().trim() : 'user';
+      const splitBatchNames = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) {
+          const out = [];
+          val.forEach(item => {
+            String(item || '').split(/[,;|]+/).forEach(p => {
+              const t = p.trim();
+              if (t && t !== '-' && !out.some(x => x.toLowerCase() === t.toLowerCase())) out.push(t);
+            });
+          });
+          return out;
+        }
+        return (typeof parseBatchListValue === 'function')
+          ? parseBatchListValue(val).filter(b => b && b !== '-')
+          : String(val).split(/[,;|]+/).map(s => s.trim()).filter(b => b && b !== '-');
+      };
+
+      const buildMergedContactsList = (serverList = [], serverMonitorsMap = null) => {
+        const curUser = portalState.currentUser;
+        const viewerUid = curUser ? String(curUser.userId || curUser.UserID || '').trim() : '';
+        const viewerRoleLower = curUser ? String(curUser.role || curUser.Role || 'user').toLowerCase().trim() : 'user';
         const isViewerAdmin = viewerRoleLower === 'admin' || viewerRoleLower === 'superadmin';
+        const viewerMonitoredBatches = (viewerUid && typeof getUserMonitorBatchesList === 'function')
+          ? getUserMonitorBatchesList(viewerUid)
+          : [];
+        const isViewerMonitor = viewerMonitoredBatches.length > 0 || viewerRoleLower === 'monitor' || Boolean(curUser && curUser.isBatchMonitor);
+
         const myBatchesLower = (() => {
-          if (!portalState.currentUser) return [];
-          const list = (typeof getUserAssignedBatchesList === 'function')
-            ? getUserAssignedBatchesList(portalState.currentUser.userId, portalState.currentUser.batch || portalState.currentUser.Batch || '')
-            : [portalState.currentUser.batch || portalState.currentUser.Batch || 'RP-Trail'];
-          return (list || []).map(b => String(b || '').trim().toLowerCase()).filter(Boolean);
+          if (!curUser) return [];
+          const assigned = (typeof getUserAssignedBatchesList === 'function')
+            ? getUserAssignedBatchesList(viewerUid, curUser.batch || curUser.Batch || '')
+            : splitBatchNames(curUser.batch || curUser.Batch || 'RP-Trail');
+          const combined = [...(assigned || []), ...viewerMonitoredBatches];
+          return Array.from(new Set(combined.map(b => String(b || '').trim().toLowerCase()).filter(Boolean)));
         })();
 
-        const rawSources = Array.isArray(serverList) ? [...serverList] : [];
-        if (serverMonitorsMap && typeof serverMonitorsMap === 'object') {
-          Object.keys(serverMonitorsMap).forEach(batchName => {
-            const entry = serverMonitorsMap[batchName];
-            if (!entry) return;
-            const bLower = String(batchName || '').trim().toLowerCase();
-            if (!isViewerAdmin && !myBatchesLower.includes(bLower)) return;
-            const mUid = typeof entry === 'object' ? String(entry.userId || '').trim() : String(entry).trim();
-            const mName = typeof entry === 'object' ? cleanField(entry.userName || entry.name, '') : '';
-            const mEmail = typeof entry === 'object' ? cleanField(entry.email, '') : '';
-            const mMob = typeof entry === 'object' ? cleanField(entry.mobile, '') : '';
-            if (!mName && !mUid) return;
+        // Collect a lookup directory of synced users so monitor entries always resolve complete contact details
+        const syncedUsersPool = [
+          ...(Array.isArray(portalState.adminData?.users) ? portalState.adminData.users : []),
+          ...(Array.isArray(portalState.globalData?.users) ? portalState.globalData.users : []),
+          ...(Array.isArray(portalState.globalData?.adminContacts) ? portalState.globalData.adminContacts : [])
+        ];
+        const userByIdMap = new Map();
+        syncedUsersPool.forEach(u => {
+          if (!u) return;
+          const uid = cleanField(u.UserID || u.userId, '');
+          if (uid && !userByIdMap.has(uid.toLowerCase())) {
+            userByIdMap.set(uid.toLowerCase(), u);
+          }
+        });
+        if (curUser && viewerUid && !userByIdMap.has(viewerUid.toLowerCase())) {
+          userByIdMap.set(viewerUid.toLowerCase(), curUser);
+        }
+
+        const rawSources = [];
+        if (Array.isArray(serverList)) rawSources.push(...serverList);
+        if (Array.isArray(portalState.globalData?.adminContacts)) {
+          rawSources.push(...portalState.globalData.adminContacts);
+        }
+
+        // Include synced Admin & Superadmin accounts from portal user pools as reliable fallback
+        syncedUsersPool.forEach(u => {
+          if (!u) return;
+          const uRole = String(u.Role || u.role || '').toLowerCase().trim();
+          if (uRole === 'admin' || uRole === 'superadmin') {
             rawSources.push({
-              userId: mUid,
-              name: mName || mUid,
-              email: mEmail,
-              mobile: mMob,
-              role: 'monitor',
-              isBatchMonitor: true,
-              isMyBatchMonitor: true,
-              monitoredBatches: [batchName],
-              monitorDesignation: typeof entry === 'object' ? cleanField(entry.monitorType || entry.designation, 'Batch Monitor') : 'Batch Monitor',
-              department: 'Batch Coordination & Doubt Desk',
+              userId: u.UserID || u.userId,
+              name: u.Name || u.name,
+              email: u.Email || u.email,
+              mobile: u.Mobile || u.mobile,
+              role: uRole,
+              designation: uRole === 'superadmin' ? 'Superadmin' : 'Administrator',
+              department: uRole === 'superadmin' ? 'Administration' : 'Academic Operations',
               officeHours: '09:00 AM – 08:00 PM IST'
             });
+          }
+        });
+
+        // Include current user if Admin/Superadmin so Help & Desk is never empty even before admin users table syncs
+        if (curUser && isViewerAdmin) {
+          rawSources.push({
+            userId: viewerUid,
+            name: curUser.name || curUser.Name || viewerUid,
+            email: curUser.email || curUser.Email || '',
+            mobile: curUser.mobile || curUser.Mobile || '',
+            role: viewerRoleLower,
+            isBatchMonitor: isViewerMonitor,
+            monitoredBatches: viewerMonitoredBatches,
+            designation: viewerRoleLower === 'superadmin' ? 'Superadmin' : 'Administrator',
+            department: viewerRoleLower === 'superadmin' ? 'Administration' : 'Academic Operations',
+            officeHours: '09:00 AM – 08:00 PM IST'
           });
         }
 
-        const seen = new Set();
-        const unique = [];
+        // Collect Batch Monitors from BOTH serverMonitorsMap and local/synced getBatchMonitorsMap() (supporting arrays of up to 3 monitors per batch)
+        const ingestMonitorsMap = (mMap) => {
+          if (!mMap || typeof mMap !== 'object') return;
+          Object.keys(mMap).forEach(batchName => {
+            const bClean = String(batchName || '').trim();
+            if (!bClean) return;
+            const bLower = bClean.toLowerCase();
+            if (!isViewerAdmin && !isViewerMonitor && !myBatchesLower.includes(bLower)) return;
+            if (!isViewerAdmin && isViewerMonitor && !myBatchesLower.includes(bLower)) return;
+
+            const entries = (typeof getBatchMonitorsList === 'function')
+              ? getBatchMonitorsList(bClean, mMap)
+              : (Array.isArray(mMap[bClean]) ? mMap[bClean] : [mMap[bClean]]);
+
+            entries.forEach(entry => {
+              if (!entry) return;
+              const mUid = typeof entry === 'object' ? cleanField(entry.userId || entry.UserID, '') : cleanField(entry, '');
+              const lookupUser = mUid ? userByIdMap.get(mUid.toLowerCase()) : null;
+              const mName = cleanField(
+                (typeof entry === 'object' ? (entry.userName || entry.name) : '') || (lookupUser && (lookupUser.Name || lookupUser.name)),
+                ''
+              );
+              const mEmail = cleanField(
+                (typeof entry === 'object' ? entry.email : '') || (lookupUser && (lookupUser.Email || lookupUser.email)),
+                ''
+              );
+              const mMob = cleanField(
+                (typeof entry === 'object' ? entry.mobile : '') || (lookupUser && (lookupUser.Mobile || lookupUser.mobile)),
+                ''
+              );
+              const lookupRole = lookupUser ? String(lookupUser.Role || lookupUser.role || '').toLowerCase().trim() : '';
+              if (!mName && !mUid) return;
+              rawSources.push({
+                userId: mUid,
+                name: mName || mUid,
+                email: mEmail,
+                mobile: mMob,
+                role: (lookupRole === 'superadmin' || lookupRole === 'admin') ? lookupRole : 'monitor',
+                isBatchMonitor: true,
+                isMyBatchMonitor: myBatchesLower.includes(bLower),
+                monitoredBatches: [bClean],
+                monitorDesignation: typeof entry === 'object' ? cleanField(entry.monitorType || entry.designation, 'Batch Monitor') : 'Batch Monitor',
+                department: 'Batch Coordination & Doubt Desk',
+                officeHours: '09:00 AM – 08:00 PM IST'
+              });
+            });
+          });
+        };
+
+        ingestMonitorsMap(serverMonitorsMap);
+        if (typeof getBatchMonitorsMap === 'function') {
+          ingestMonitorsMap(getBatchMonitorsMap());
+        }
+
+        // Merge contacts by person so a user who is monitor of 2, 3, or more batches (or Admin + Monitor) appears as ONE unified, rich card
+        const mergedByKey = new Map();
+        const rolePriority = { superadmin: 3, admin: 2, monitor: 1 };
+
         rawSources.forEach(c => {
           if (!c) return;
-          let r = String(c.role || c.Role || '').toLowerCase().trim();
-          const isMon = Boolean(c.isBatchMonitor || r === 'monitor');
-          if (isMon) r = 'monitor';
-          if (r !== 'admin' && r !== 'superadmin' && r !== 'monitor') return;
+          const rawRole = String(c.role || c.Role || '').toLowerCase().trim();
+          const parsedMonBatches = splitBatchNames(
+            (Array.isArray(c.monitoredBatches) && c.monitoredBatches.length > 0)
+              ? c.monitoredBatches
+              : (c.monitoredBatches || c.assignedBatch || c.monitorBatches || '')
+          );
+          const isMon = Boolean(c.isBatchMonitor || rawRole === 'monitor' || parsedMonBatches.length > 0);
+          const isAdm = rawRole === 'admin' || rawRole === 'superadmin';
+          if (!isAdm && !isMon) return;
 
-          const monBatches = Array.isArray(c.monitoredBatches) && c.monitoredBatches.length > 0
-            ? c.monitoredBatches.filter(Boolean)
-            : (c.assignedBatch ? [String(c.assignedBatch)] : []);
-
-          // Strictly show ONLY the logged-in user's own enrolled batch monitor(s) for non-admin users
-          if (isMon && !isViewerAdmin) {
-            const matchedMyBatches = monBatches.filter(b => myBatchesLower.includes(String(b || '').trim().toLowerCase()));
-            if (matchedMyBatches.length === 0) return;
+          // Non-admin users only see monitors for batches they belong to or monitor (Admins/Superadmins see all)
+          const scopedBatches = (isMon && !isViewerAdmin)
+            ? parsedMonBatches.filter(b => myBatchesLower.includes(String(b || '').trim().toLowerCase()))
+            : parsedMonBatches;
+          if (isMon && !isAdm && !isViewerAdmin && parsedMonBatches.length > 0 && scopedBatches.length === 0) {
+            return;
           }
 
-          const cName = cleanField(c.name ?? c.Name, '');
-          const cEmail = cleanField(c.email ?? c.Email, '');
-          const cMob = cleanField(c.mobile ?? c.Mobile, '');
           const cUid = cleanField(c.userId ?? c.UserID, '');
-          if (!cName && !cEmail && !cMob) return;
+          const lookupUser = cUid ? userByIdMap.get(cUid.toLowerCase()) : null;
+          const cName = cleanField(c.name ?? c.Name ?? (lookupUser && (lookupUser.Name || lookupUser.name)), '');
+          const cEmail = cleanField(c.email ?? c.Email ?? (lookupUser && (lookupUser.Email || lookupUser.email)), '');
+          const cMob = cleanField(c.mobile ?? c.Mobile ?? (lookupUser && (lookupUser.Mobile || lookupUser.mobile)), '');
+          if (!cName && !cEmail && !cMob && !cUid) return;
 
-          const scopedBatches = (isMon && !isViewerAdmin)
-            ? monBatches.filter(b => myBatchesLower.includes(String(b || '').trim().toLowerCase()))
-            : monBatches;
+          const effectiveRole = isAdm ? rawRole : 'monitor';
+          const personKey = cUid
+            ? `uid_${cUid.toLowerCase()}`
+            : (cEmail ? `email_${cEmail.toLowerCase()}` : `name_${cName.toLowerCase()}_${cMob}`);
 
-          const dedupeKey = isMon
-            ? `monitor_${cUid}_${scopedBatches.join(',')}`
-            : `${r}_${cEmail.toLowerCase()}_${cName.toLowerCase()}`;
-          if (seen.has(dedupeKey)) return;
-          seen.add(dedupeKey);
-
-          unique.push({
-            userId: cUid || '-',
-            name: cName || 'Official Contact',
-            email: cEmail || '-',
-            mobile: cMob || '-',
-            role: r,
-            isBatchMonitor: isMon,
-            isMyBatchMonitor: Boolean(c.isMyBatchMonitor || isMon),
-            monitoredBatches: scopedBatches,
-            monitorDesignation: cleanField(
-              c.monitorDesignation || c.designation,
-              r === 'superadmin' ? 'Superadmin' : (isMon ? 'Batch Monitor' : 'Administrator')
-            ),
-            department: cleanField(c.department, r === 'superadmin' ? 'Administration' : (isMon ? 'Batch Coordination' : 'Academic Operations')),
-            officeHours: cleanField(c.officeHours, '09:00 AM – 08:00 PM IST')
-          });
+          const existing = mergedByKey.get(personKey);
+          if (existing) {
+            if ((rolePriority[effectiveRole] || 0) > (rolePriority[existing.role] || 0)) {
+              existing.role = effectiveRole;
+            }
+            if (isMon) existing.isBatchMonitor = true;
+            if (c.isMyBatchMonitor) existing.isMyBatchMonitor = true;
+            scopedBatches.forEach(b => {
+              if (b && !existing.monitoredBatches.some(x => x.toLowerCase() === b.toLowerCase())) {
+                existing.monitoredBatches.push(b);
+              }
+            });
+            if (existing.name === 'Official Contact' && cName) existing.name = cName;
+            if (existing.email === '-' && cEmail) existing.email = cEmail;
+            if (existing.mobile === '-' && cMob) existing.mobile = cMob;
+          } else {
+            mergedByKey.set(personKey, {
+              userId: cUid || '-',
+              name: cName || cUid || 'Official Contact',
+              email: cEmail || '-',
+              mobile: cMob || '-',
+              role: effectiveRole,
+              isBatchMonitor: isMon,
+              isMyBatchMonitor: Boolean(c.isMyBatchMonitor || isMon),
+              monitoredBatches: [...scopedBatches],
+              monitorDesignation: cleanField(
+                c.monitorDesignation || c.designation,
+                effectiveRole === 'superadmin' ? 'Superadmin' : (effectiveRole === 'admin' ? 'Administrator' : 'Batch Monitor')
+              ),
+              department: cleanField(
+                c.department,
+                effectiveRole === 'superadmin' ? 'Administration' : (effectiveRole === 'admin' ? 'Academic Operations' : 'Batch Coordination')
+              ),
+              officeHours: cleanField(c.officeHours, '09:00 AM – 08:00 PM IST')
+            });
+          }
         });
 
+        const unique = Array.from(mergedByKey.values());
         unique.sort((a, b) => {
-          const rank = { monitor: 1, superadmin: 2, admin: 3 };
-          if ((rank[a.role] || 9) !== (rank[b.role] || 9)) return (rank[a.role] || 9) - (rank[b.role] || 9);
+          const rankOf = (x) => (x.role === 'superadmin' ? 1 : (x.role === 'admin' ? 2 : 3));
+          const ra = xRank(a, rankOf);
+          const rb = xRank(b, rankOf);
+          if (ra !== rb) return ra - rb;
           return String(a.name || '').localeCompare(String(b.name || ''));
         });
+        function xRank(item, fallbackFn) {
+          if (item.isBatchMonitor && item.role === 'monitor') return 1;
+          return fallbackFn(item) + 1;
+        }
         return unique;
+      };
+
+      const buildContactCardEl = (c) => {
+        const isSuper = c.role === 'superadmin';
+        const isAdmin = c.role === 'admin';
+        const isMonitor = Boolean(c.isBatchMonitor || c.role === 'monitor');
+        const accent = isSuper ? '#4f46e5' : (isAdmin ? '#0284c7' : '#059669');
+        const roleLabels = [];
+        if (isSuper) roleLabels.push('Superadmin');
+        else if (isAdmin) roleLabels.push('Admin');
+        if (isMonitor) roleLabels.push('Batch Monitor');
+        const roleText = roleLabels.join(' • ') || 'Support';
+
+        const dispBatches = Array.isArray(c.monitoredBatches) && c.monitoredBatches.length > 0 ? c.monitoredBatches.join(', ') : '-';
+        const dispName = escapeHtml(c.name);
+        const dispEmail = escapeHtml(c.email);
+        const dispMob = escapeHtml(c.mobile);
+        const dispDesig = escapeHtml(c.monitorDesignation);
+        const dispDept = escapeHtml(c.department);
+        const rawEmail = String(c.email || '').replace(/'/g, "\\'");
+        const rawMob = String(c.mobile || '').replace(/'/g, "\\'");
+        const rawName = String(c.name || '').replace(/'/g, "\\'");
+        const cleanDigits = String(c.mobile || '').replace(/[^0-9]/g, '');
+
+        const card = document.createElement('div');
+        card.style.cssText = 'background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;';
+        card.innerHTML = `
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+              <div>
+                <strong style="font-size: 14.5px; color: var(--secondary); display: block; line-height: 1.3;">${dispName}</strong>
+                <span style="font-size: 11.5px; color: var(--text-muted);">${dispDesig}</span>
+              </div>
+              <span style="font-size: 11px; font-weight: 700; color: ${accent}; white-space: nowrap;">${roleText}</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.45;">
+              ${dispDept}${dispBatches !== '-' ? ` · Batch${c.monitoredBatches.length > 1 ? 'es' : ''}: <strong style="color:var(--secondary);">${escapeHtml(dispBatches)}</strong>` : ''}
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 9px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border);">
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><i class="fa-solid fa-envelope" style="color: var(--primary); width: 16px;"></i> ${dispEmail}</span>
+                ${c.email !== '-' ? `<button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 7px; font-size: 10px; min-height: 24px;" onclick="copyOfficialContactValue('${rawEmail}', 'Email ID')">Copy</button>` : ''}
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 9px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border);">
+                <span class="mono-num"><i class="fa-solid fa-phone" style="color: #10b981; width: 16px;"></i> ${dispMob}</span>
+                ${c.mobile !== '-' ? `<button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 7px; font-size: 10px; min-height: 24px;" onclick="copyOfficialContactValue('${rawMob}', 'Mobile Number')">Copy</button>` : ''}
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${c.email !== '-' ? `<a href="mailto:${dispEmail}" class="btn btn-sm btn-secondary" style="flex: 1; text-decoration: none; font-size: 11px; padding: 6px 8px;">Email</a>` : ''}
+            ${cleanDigits.length >= 10 ? `<a href="tel:${cleanDigits.slice(-10)}" class="btn btn-sm btn-secondary" style="flex: 1; text-decoration: none; font-size: 11px; padding: 6px 8px;">Call</a>` : ''}
+            ${cleanDigits.length >= 10 ? `<a href="https://wa.me/91${cleanDigits.slice(-10)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success" style="flex: 1; text-decoration: none; font-size: 11px; padding: 6px 8px;">WhatsApp</a>` : ''}
+            <button type="button" class="btn btn-sm btn-primary" style="flex: 1; font-size: 11px; padding: 6px 8px;" onclick="window.prefillHelpFeedbackTemplate('General Query', 'Dear ${rawName}, I need assistance regarding: ');">Message</button>
+          </div>
+        `;
+        return card;
       };
 
       const renderCards = (allContacts) => {
         let contacts = Array.isArray(allContacts) ? [...allContacts] : [];
 
-        const superCount = contacts.filter(c => c.role === 'superadmin').length;
-        const adminCount = contacts.filter(c => c.role === 'admin').length;
-        const monitorCount = contacts.filter(c => c.role === 'monitor').length;
-
         if (_activeHelpContactRoleFilter !== 'ALL') {
-          contacts = contacts.filter(c => c.role === _activeHelpContactRoleFilter);
+          if (_activeHelpContactRoleFilter === 'monitor') {
+            contacts = contacts.filter(c => c.role === 'monitor' || c.isBatchMonitor);
+          } else {
+            contacts = contacts.filter(c => c.role === _activeHelpContactRoleFilter);
+          }
         }
 
         if (contacts.length === 0) {
           container.innerHTML = `
-            <div class="inline-data-load-status done" style="grid-column: 1 / -1;">
+            <div class="inline-data-load-status done" data-end-of-list="true" style="grid-column: 1 / -1;">
               <i class="fa-solid fa-circle-info" style="color:var(--primary);"></i>
-              <span>${allContacts.length === 0 ? 'No official contacts found on the server yet.' : 'No matching contacts for this filter.'}</span>
+              <span>${allContacts.length === 0 ? 'No official contacts found yet. No more data.' : 'No matching contacts for this filter. No more data.'}</span>
             </div>`;
           return;
         }
 
-        const cardsHtml = contacts.map((c) => {
-          const isSuper = c.role === 'superadmin';
-          const isMonitor = c.role === 'monitor';
-          const accent = isMonitor ? '#059669' : (isSuper ? '#4f46e5' : '#0284c7');
-          const roleText = isMonitor ? 'Batch Monitor' : (isSuper ? 'Superadmin' : 'Admin');
-          const dispBatches = Array.isArray(c.monitoredBatches) && c.monitoredBatches.length > 0 ? c.monitoredBatches.join(', ') : '-';
-          const dispName = escapeHtml(c.name);
-          const dispEmail = escapeHtml(c.email);
-          const dispMob = escapeHtml(c.mobile);
-          const dispDesig = escapeHtml(c.monitorDesignation);
-          const dispDept = escapeHtml(c.department);
-          const rawEmail = String(c.email || '').replace(/'/g, "\\'");
-          const rawMob = String(c.mobile || '').replace(/'/g, "\\'");
-          const rawName = String(c.name || '').replace(/'/g, "\\'");
-          const cleanDigits = String(c.mobile || '').replace(/[^0-9]/g, '');
-
-          return `
-            <div style="background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px;">
-              <div>
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
-                  <div>
-                    <strong style="font-size: 14.5px; color: var(--secondary); display: block; line-height: 1.3;">${dispName}</strong>
-                    <span style="font-size: 11.5px; color: var(--text-muted);">${dispDesig}</span>
-                  </div>
-                  <span style="font-size: 11px; font-weight: 700; color: ${accent}; white-space: nowrap;">${roleText}</span>
-                </div>
-                <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px;">
-                  ${dispDept}${dispBatches !== '-' ? ` · Batch: <strong style="color:var(--secondary);">${escapeHtml(dispBatches)}</strong>` : ''}
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 9px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border);">
-                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><i class="fa-solid fa-envelope" style="color: var(--primary); width: 16px;"></i> ${dispEmail}</span>
-                    ${c.email !== '-' ? `<button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 7px; font-size: 10px; min-height: 24px;" onclick="copyOfficialContactValue('${rawEmail}', 'Email ID')">Copy</button>` : ''}
-                  </div>
-                  <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 9px; background: var(--surface); border-radius: 8px; border: 1px solid var(--border);">
-                    <span class="mono-num"><i class="fa-solid fa-phone" style="color: #10b981; width: 16px;"></i> ${dispMob}</span>
-                    ${c.mobile !== '-' ? `<button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 7px; font-size: 10px; min-height: 24px;" onclick="copyOfficialContactValue('${rawMob}', 'Mobile Number')">Copy</button>` : ''}
-                  </div>
-                </div>
-              </div>
-              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                ${c.email !== '-' ? `<a href="mailto:${dispEmail}" class="btn btn-sm btn-secondary" style="flex: 1; text-decoration: none; font-size: 11px; padding: 6px 8px;">Email</a>` : ''}
-                ${cleanDigits.length >= 10 ? `<a href="tel:${cleanDigits.slice(-10)}" class="btn btn-sm btn-secondary" style="flex: 1; text-decoration: none; font-size: 11px; padding: 6px 8px;">Call</a>` : ''}
-                ${cleanDigits.length >= 10 ? `<a href="https://wa.me/91${cleanDigits.slice(-10)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success" style="flex: 1; text-decoration: none; font-size: 11px; padding: 6px 8px;">WhatsApp</a>` : ''}
-                <button type="button" class="btn btn-sm btn-primary" style="flex: 1; font-size: 11px; padding: 6px 8px;" onclick="window.prefillHelpFeedbackTemplate('General Query', 'Dear ${rawName}, I need assistance regarding: ');">Message</button>
-              </div>
-            </div>
-          `;
-        }).join('');
-
-        container.innerHTML = cardsHtml;
+        streamRenderCardsToContainer(container, contacts, (c) => buildContactCardEl(c), 1);
       };
 
       // Use already-fetched server data only when filtering/searching without forceServerFetch
-      if (!forceServerFetch && Array.isArray(window._serverOfficialContactsCache)) {
+      if (!forceServerFetch && Array.isArray(window._serverOfficialContactsCache) && window._serverOfficialContactsCache.length > 0) {
         renderCards(window._serverOfficialContactsCache);
         return;
       }
 
-      container.innerHTML = `
-        <div class="inline-data-load-status" style="grid-column: 1 / -1;">
-          <i class="fa-solid fa-spinner fa-spin" style="color: var(--primary);"></i>
-          <span>Loading official contacts from server...</span>
-        </div>
-      `;
+      // Immediately render locally synced contacts if available so Monitors/Admins/Superadmins see instant data
+      const localBaseline = buildMergedContactsList([], null);
+      if (localBaseline.length > 0) {
+        renderCards(localBaseline);
+      } else {
+        container.innerHTML = `
+          <div class="inline-data-load-status loading" style="grid-column: 1 / -1;">
+            <span class="mini-spin"></span>
+            <span>Loading official contacts...</span>
+          </div>
+        `;
+      }
 
       if (_isFetchingHelpContacts) return;
       _isFetchingHelpContacts = true;
       try {
-        const myBatchQuery = (portalState.currentUser && portalState.currentUser.batch) ? String(portalState.currentUser.batch).trim() : '';
+        const curUid = portalState.currentUser ? String(portalState.currentUser.userId || '').trim() : '';
+        const assignedBatches = (portalState.currentUser && typeof getUserAssignedBatchesList === 'function')
+          ? getUserAssignedBatchesList(curUid, portalState.currentUser.batch || portalState.currentUser.Batch || '')
+          : [];
+        const monBatches = (curUid && typeof getUserMonitorBatchesList === 'function')
+          ? getUserMonitorBatchesList(curUid)
+          : [];
+        const allUserBatches = Array.from(new Set([...assignedBatches, ...monBatches].filter(Boolean)));
+        // Send primary batch or compact comma-list so long multi-batch strings never break backend parsing
+        const myBatchQuery = allUserBatches.slice(0, 6).join(', ');
+
         const res = await apiCall('getHelpContacts', {
-          userId: portalState.currentUser ? portalState.currentUser.userId : '',
+          userId: curUid,
           userBatch: myBatchQuery
         }, true);
+
         if (res && res.success) {
-          const serverContacts = buildServerContactsList(res.adminContacts || [], res.batchMonitors || null);
-          window._serverOfficialContactsCache = serverContacts;
-          renderCards(serverContacts);
+          const mergedContacts = buildMergedContactsList(res.adminContacts || [], res.batchMonitors || res.batchMonitorsMap || null);
+          window._serverOfficialContactsCache = mergedContacts;
+          renderCards(mergedContacts);
         } else {
-          window._serverOfficialContactsCache = [];
+          const fallbackContacts = buildMergedContactsList([], null);
+          if (fallbackContacts.length > 0) {
+            window._serverOfficialContactsCache = fallbackContacts;
+            renderCards(fallbackContacts);
+          } else {
+            window._serverOfficialContactsCache = null;
+            container.innerHTML = `
+              <div class="inline-data-load-status" style="grid-column: 1 / -1;">
+                <i class="fa-solid fa-triangle-exclamation" style="color: #d97706;"></i>
+                <span>Could not load official contacts from server. Click Refresh Help Desk to retry.</span>
+              </div>
+            `;
+          }
+        }
+      } catch (e) {
+        const fallbackContacts = buildMergedContactsList([], null);
+        if (fallbackContacts.length > 0) {
+          window._serverOfficialContactsCache = fallbackContacts;
+          renderCards(fallbackContacts);
+        } else {
+          window._serverOfficialContactsCache = null;
           container.innerHTML = `
             <div class="inline-data-load-status" style="grid-column: 1 / -1;">
-              <i class="fa-solid fa-triangle-exclamation" style="color: #d97706;"></i>
-              <span>Could not load official contacts from server. Click Refresh Help Desk to retry.</span>
+              <i class="fa-solid fa-triangle-exclamation" style="color: #dc2626;"></i>
+              <span>Unable to reach server for official contacts. Click Refresh Help Desk to retry.</span>
             </div>
           `;
         }
-      } catch (e) {
-        container.innerHTML = `
-          <div class="inline-data-load-status" style="grid-column: 1 / -1;">
-            <i class="fa-solid fa-triangle-exclamation" style="color: #dc2626;"></i>
-            <span>Unable to reach server for official contacts. Click Refresh Help Desk to retry.</span>
-          </div>
-        `;
       } finally {
         _isFetchingHelpContacts = false;
       }
@@ -2316,13 +2522,16 @@ export function getInlineDataLoadStatusHtml(forceStreaming = false) {
       if (forceStreaming || window.isPortalDataLoading) {
         return `<span class="mini-spin"></span> <span>Loading data...</span>`;
       }
-      return `<i class="fa-solid fa-circle-info" style="color:var(--text-muted);"></i> <span>No items available yet</span>`;
+      return `<i class="fa-solid fa-circle-check" style="color:var(--text-muted);"></i> <span>No more data</span>`;
     }
 
 export function createInlineDataLoadStatusEl(spanFullGrid = false, forceStreaming = false) {
       const el = document.createElement('div');
       const isLoading = forceStreaming || Boolean(window.isPortalDataLoading);
       el.className = 'inline-data-load-status ' + (isLoading ? 'loading' : 'done');
+      if (!isLoading) {
+        el.dataset.endOfList = 'true';
+      }
       if (spanFullGrid) {
         el.style.gridColumn = '1 / -1';
       }
@@ -2334,15 +2543,10 @@ export function refreshVisibleDataLoadFooters() {
       const nodes = document.querySelectorAll('.inline-data-load-status');
       nodes.forEach(node => {
         if (node.dataset && node.dataset.cardStreaming === 'true') return;
-        const parent = node.parentElement;
-        if (parent) {
-          const siblingCards = Array.from(parent.children).filter(ch => !ch.classList.contains('inline-data-load-status'));
-          if (siblingCards.length > 0 && !window.isPortalDataLoading) {
-            node.remove();
-            return;
-          }
-        }
         node.className = 'inline-data-load-status ' + (window.isPortalDataLoading ? 'loading' : 'done');
+        if (!window.isPortalDataLoading) {
+          node.dataset.endOfList = 'true';
+        }
         node.innerHTML = getInlineDataLoadStatusHtml(false);
       });
     }
@@ -2359,7 +2563,7 @@ export function countMasterPassageStrokes(rawText) {
       return str.length;
     }
 
-export function streamRenderCardsToContainer(container, items, buildCardElementFn, batchSize = 4) {
+export function streamRenderCardsToContainer(container, items, buildCardElementFn, _batchSize = 1) {
       if (!container) return;
       const streamToken = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 7);
       container.dataset.streamToken = streamToken;
@@ -2370,55 +2574,71 @@ export function streamRenderCardsToContainer(container, items, buildCardElementF
         return;
       }
 
-      const statusEl = items.length > batchSize ? createInlineDataLoadStatusEl(true, true) : null;
-      if (statusEl) {
-        statusEl.dataset.cardStreaming = 'true';
-        container.appendChild(statusEl);
-      }
+      const statusEl = createInlineDataLoadStatusEl(true, true);
+      statusEl.dataset.cardStreaming = 'true';
+      statusEl.innerHTML = `<span class="mini-spin"></span> <span>Loading data (0 of ${items.length})...</span>`;
+      container.appendChild(statusEl);
 
       let cursor = 0;
-      const renderNextBatch = () => {
+      const renderNextCard = () => {
         if (container.dataset.streamToken !== streamToken) return;
+
+        // Render strictly 1 card at a time for the first 25 cards so each card visibly streams in one-by-one;
+        // for very large catalogs (>40 items), step up slightly after 25 cards so 200+ items finish smoothly without lag.
+        const stepCount = (items.length > 40 && cursor >= 25) ? 3 : 1;
         const frag = document.createDocumentFragment();
-        const end = Math.min(items.length, cursor + batchSize);
-        for (let i = cursor; i < end; i++) {
+
+        for (let s = 0; s < stepCount && cursor < items.length; s++) {
+          const i = cursor++;
           let cardEl = null;
           try {
             cardEl = buildCardElementFn(items[i], i);
           } catch (cardErr) {
             console.error('Error building card for item:', items[i], cardErr);
           }
-          if (!cardEl) continue;
-          if (typeof cardEl === 'string') {
-            const tempWrapper = document.createElement('div');
-            tempWrapper.innerHTML = cardEl.trim();
-            while (tempWrapper.firstElementChild) {
-              frag.appendChild(tempWrapper.firstElementChild);
+          if (cardEl) {
+            if (typeof cardEl === 'string') {
+              const tempWrapper = document.createElement('div');
+              tempWrapper.innerHTML = cardEl.trim();
+              while (tempWrapper.firstElementChild) {
+                const elChild = tempWrapper.firstElementChild;
+                elChild.classList.add('rp-stream-card-in');
+                frag.appendChild(elChild);
+              }
+            } else if (cardEl instanceof Node) {
+              if (cardEl.nodeType === 1 && cardEl.classList) {
+                cardEl.classList.add('rp-stream-card-in');
+              }
+              frag.appendChild(cardEl);
             }
-          } else if (cardEl instanceof Node) {
-            frag.appendChild(cardEl);
           }
         }
+
         if (statusEl && statusEl.parentNode === container) {
           container.insertBefore(frag, statusEl);
         } else {
           container.appendChild(frag);
         }
-        cursor = end;
 
         if (cursor < items.length) {
-          if (statusEl) {
-            statusEl.dataset.cardStreaming = 'true';
+          statusEl.dataset.cardStreaming = 'true';
+          statusEl.className = 'inline-data-load-status loading';
+          statusEl.innerHTML = `<span class="mini-spin"></span> <span>Loading data (${cursor} of ${items.length})...</span>`;
+          requestAnimationFrame(renderNextCard);
+        } else {
+          delete statusEl.dataset.cardStreaming;
+          if (window.isPortalDataLoading) {
             statusEl.className = 'inline-data-load-status loading';
-            statusEl.innerHTML = `<span class="mini-spin"></span> <span>Loading (${cursor}/${items.length})...</span>`;
+            statusEl.innerHTML = `<span class="mini-spin"></span> <span>Loading more data (${items.length} loaded)...</span>`;
+          } else {
+            statusEl.dataset.endOfList = 'true';
+            statusEl.className = 'inline-data-load-status done';
+            statusEl.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--text-muted);"></i> <span>No more data</span>`;
           }
-          requestAnimationFrame(renderNextBatch);
-        } else if (statusEl && statusEl.parentNode) {
-          statusEl.remove();
         }
       };
 
-      renderNextBatch();
+      requestAnimationFrame(renderNextCard);
     }
 
 export function renderAnnouncements() {
@@ -2618,28 +2838,24 @@ export function getThumbnailUrl(item) {
 export function renderVideoReferences() {
       const grid = document.getElementById('video-grid');
       if (!grid) return;
-      grid.innerHTML = '';
-      
-      const videos = sortMaterialsLatestFirst((portalState.globalData.materials || []).filter(m => m.Type === 'video'));
-      if (videos.length === 0) {
-        grid.appendChild(createInlineDataLoadStatusEl(true));
-        return;
-      }
 
-      videos.forEach(vid => {
+      const videos = sortMaterialsLatestFirst((portalState.globalData.materials || []).filter(m => m.Type === 'video'));
+      streamRenderCardsToContainer(grid, videos, (vid) => {
         const card = document.createElement('div');
         card.className = 'card video-card';
         const thumbUrl = getThumbnailUrl(vid);
+        const safeUrl = String(vid.ContentOrUrl || '').replace(/'/g, "\\'");
+        const safeTitle = String(vid.Title || '').replace(/'/g, "\\'");
 
         card.innerHTML = `
           <div class="rp-thumb-frame">
             <img src="${thumbUrl}" class="card-thumb" onerror="this.onerror=null;this.src='${DEFAULT_LOGO_URL}'">
           </div>
-          <strong style="color:var(--secondary); font-size:12.5px; margin: 4px 0; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${vid.Title || ''}</strong>
-          <button class="btn btn-primary btn-sm" style="margin-top:auto; width: 100%; font-size: 11px; padding: 5px 8px;" onclick="openReferenceVideoModal('${vid.ContentOrUrl || ''}', '${vid.Title || ''}')"><i class="fa-solid fa-play"></i> Watch</button>
+          <strong style="color:var(--secondary); font-size:12.5px; margin: 4px 0; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(vid.Title || '')}</strong>
+          <button class="btn btn-primary btn-sm" style="margin-top:auto; width: 100%; font-size: 11px; padding: 5px 8px;" onclick="openReferenceVideoModal('${safeUrl}', '${safeTitle}')"><i class="fa-solid fa-play"></i> Watch</button>
         `;
-        grid.appendChild(card);
-      });
+        return card;
+      }, 1);
     }
 
 export function getWatermarkText() {
@@ -2688,10 +2904,11 @@ export async function loadMaterials(type, silent = true) {
       // Render immediately from any cached records (0ms)
       renderByType();
 
-      // Strict 1-record-at-a-time progressive streaming with "Loading..." -> "No more data"
+      // Progressive chunked streaming — merges & renders once per chunk (never blocks mobile UI)
       if (typeof window.streamCollectionOneByOne === 'function') {
         const footerAnchorId = getStreamMountTargetForMaterialType(normType);
         const streamedForType = [];
+        const seenIds = new Set();
         let streamedSubtabs = null;
         await window.streamCollectionOneByOne({
           streamKey: 'materials_' + normType,
@@ -2708,25 +2925,36 @@ export async function loadMaterials(type, silent = true) {
           onMeta: (res) => {
             if (res && Array.isArray(res.subtabs) && res.subtabs.length > 0) {
               streamedSubtabs = res.subtabs;
-              mergeMaterialsByType(normType, streamedForType, streamedSubtabs);
+              mergeMaterialsByType(normType, streamedForType, streamedSubtabs, { skipCache: true });
               renderByType();
             }
           },
-          onRecord: (rec) => {
-            if (!rec) return;
-            const normRec = typeof normalizeMaterialRecord === 'function' ? normalizeMaterialRecord(rec) : rec;
-            const recId = String(normRec.ID || normRec.MaterialID || '');
-            if (recId && !streamedForType.some(x => String(x.ID || x.MaterialID || '') === recId)) {
+          onBatch: (records) => {
+            if (!Array.isArray(records) || records.length === 0) return;
+            let added = false;
+            for (let i = 0; i < records.length; i++) {
+              const rec = records[i];
+              if (!rec) continue;
+              const normRec = typeof normalizeMaterialRecord === 'function' ? normalizeMaterialRecord(rec) : rec;
+              const recId = String(normRec.ID || normRec.MaterialID || '');
+              if (recId) {
+                if (seenIds.has(recId)) continue;
+                seenIds.add(recId);
+              }
               streamedForType.push(normRec);
-            } else if (!recId) {
-              streamedForType.push(normRec);
+              added = true;
             }
-            mergeMaterialsByType(normType, streamedForType, streamedSubtabs);
-            renderByType();
+            if (added) {
+              mergeMaterialsByType(normType, streamedForType, streamedSubtabs, { skipCache: true });
+              renderByType();
+            }
           },
           onDone: () => {
             mergeMaterialsByType(normType, streamedForType, streamedSubtabs);
             renderByType();
+            if (normType === 'cbttest' && streamedForType.length === 0 && typeof syncPortalDataInBackground === 'function') {
+              syncPortalDataInBackground(false);
+            }
           }
         });
         return;
@@ -2878,11 +3106,17 @@ export async function loadUserFeedback() {
       const totalBadge = document.getElementById('fb-user-total-badge');
       if (!container || !portalState.currentUser || !portalState.currentUser.userId) return;
 
-      try {
-        const res = await apiCall('getFeedbackHistory', { userId: portalState.currentUser.userId }, true);
-        const serverList = (res && res.success && Array.isArray(res.feedbackList)) ? res.feedbackList : [];
+      const curUid = String(portalState.currentUser.userId || '').trim();
+      const getSyncedFallbackFeedback = () => {
+        const pool = [
+          ...(Array.isArray(portalState.globalData?.feedback) ? portalState.globalData.feedback : []),
+          ...(Array.isArray(portalState.adminData?.feedback) ? portalState.adminData.feedback : [])
+        ];
+        return pool.filter(item => String(item.UserID || item.userId || '').trim().toLowerCase() === curUid.toLowerCase());
+      };
 
-        let sortedList = [...serverList].sort((a, b) => new Date(b.SubmittedDate || 0) - new Date(a.SubmittedDate || 0));
+      const renderFeedbackList = (rawList) => {
+        let sortedList = [...rawList].sort((a, b) => new Date(b.SubmittedDate || b.submittedDate || 0) - new Date(a.SubmittedDate || a.submittedDate || 0));
         if (totalBadge) totalBadge.innerText = `${sortedList.length} Ticket${sortedList.length === 1 ? '' : 's'}`;
 
         if (_activeUserFeedbackStatusFilter === 'REPLIED') {
@@ -2892,7 +3126,7 @@ export async function loadUserFeedback() {
         }
 
         if (sortedList.length === 0) {
-          container.innerHTML = `<div style="padding: 14px; border-radius: 10px; background: var(--background); border: 1px dashed var(--border); color: var(--text-muted); text-align: center; font-size: 13px;">No ${_activeUserFeedbackStatusFilter !== 'ALL' ? _activeUserFeedbackStatusFilter.toLowerCase() + ' ' : ''}tickets found. Use the form above or Quick Templates to send a question to Admin.</div>`;
+          container.innerHTML = `<div class="inline-data-load-status done" data-end-of-list="true" style="padding: 14px; border-radius: 10px; background: var(--background); border: 1px dashed var(--border); color: var(--text-muted); text-align: center; font-size: 13px;">No ${_activeUserFeedbackStatusFilter !== 'ALL' ? _activeUserFeedbackStatusFilter.toLowerCase() + ' ' : ''}tickets found. No more data.</div>`;
           return;
         }
 
@@ -2907,18 +3141,18 @@ export async function loadUserFeedback() {
           const hasReply = item.AdminResponse && String(item.AdminResponse).trim() !== '' && String(item.AdminResponse).trim() !== '-';
           const isUrgent = String(item.Category || '').toLowerCase().includes('urgent') || String(item.Category || '').toLowerCase().includes('high');
           return `
-          <div class="feedback-card" style="background: var(--background); border: 1px solid var(--border); border-left: 4px solid ${hasReply ? '#10b981' : (isUrgent ? '#ef4444' : 'var(--primary)')}; padding: 14px; margin-bottom: 12px; border-radius: 10px;">
+          <div class="feedback-card rp-stream-card-in" style="background: var(--background); border: 1px solid var(--border); border-left: 4px solid ${hasReply ? '#10b981' : (isUrgent ? '#ef4444' : 'var(--primary)')}; padding: 14px; margin-bottom: 12px; border-radius: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap;">
-              <span style="font-size: 11.5px; font-weight: 800; color: ${isUrgent ? '#dc2626' : 'var(--primary)'}; background: ${isUrgent ? 'rgba(239,68,68,0.12)' : 'rgba(37,99,235,0.1)'}; padding: 2px 9px; border-radius: 999px;">${window.escapeHtml(item.Category || 'Query')}</span>
+              <span style="font-size: 11.5px; font-weight: 800; color: ${isUrgent ? '#dc2626' : 'var(--primary)'}; background: ${isUrgent ? 'rgba(239,68,68,0.12)' : 'rgba(37,99,235,0.1)'}; padding: 2px 9px; border-radius: 999px;">${escapeHtml(item.Category || 'Query')}</span>
               <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: ${hasReply ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color: ${hasReply ? '#059669' : '#d97706'};">
                 ${hasReply ? '✅ Replied by Admin' : '⏳ Pending Review'}
               </span>
             </div>
-            <p style="margin: 0 0 6px 0; font-size: 13.5px; color: var(--secondary); font-weight: 600;">${window.escapeHtml(item.Message || '-')}</p>
-            <p style="margin: 0 0 10px 0;"><small style="color: var(--text-muted); font-size: 11px;">Submitted: ${window.escapeHtml(new Date(item.SubmittedDate).toLocaleString())}</small></p>
+            <p style="margin: 0 0 6px 0; font-size: 13.5px; color: var(--secondary); font-weight: 600;">${escapeHtml(item.Message || '-')}</p>
+            <p style="margin: 0 0 10px 0;"><small style="color: var(--text-muted); font-size: 11px;">Submitted: ${escapeHtml(new Date(item.SubmittedDate || item.submittedDate || Date.now()).toLocaleString())}</small></p>
             <div class="admin-response" style="background: var(--surface); padding: 9px 12px; border-radius: 8px; border-left: 3px solid ${hasReply ? '#10b981' : 'var(--primary)'}; font-size: 12.5px;">
               <strong style="color: var(--secondary);"><i class="fa-solid fa-reply" style="color: var(--primary); margin-right: 4px;"></i>Admin Response:</strong>
-              <span style="margin-left: 4px;">${hasReply ? window.escapeHtml(item.AdminResponse) : '<em style="color: var(--text-muted);">Waiting for official response...</em>'}</span>
+              <span style="margin-left: 4px;">${hasReply ? escapeHtml(item.AdminResponse) : '<em style="color: var(--text-muted);">Waiting for official response...</em>'}</span>
             </div>
           </div>
         `;
@@ -2932,11 +3166,26 @@ export async function loadUserFeedback() {
               <button class="btn btn-sm btn-secondary" onclick="changeFeedbackPage(1)" ${currentFeedbackPage === totalPages ? 'disabled style="opacity: 0.5;"' : ''}>Next <i class="fa-solid fa-chevron-right"></i></button>
             </div>
           `;
+        } else {
+          htmlContent += `<div class="inline-data-load-status done" data-end-of-list="true"><i class="fa-solid fa-circle-check" style="color:var(--text-muted);"></i> <span>No more data</span></div>`;
         }
 
         container.innerHTML = htmlContent;
+      };
+
+      try {
+        const res = await apiCall('getFeedbackHistory', { userId: curUid }, true);
+        const serverList = (res && res.success)
+          ? (Array.isArray(res.feedbackList) ? res.feedbackList : (Array.isArray(res.feedbacks) ? res.feedbacks : (Array.isArray(res.data) ? res.data : [])))
+          : getSyncedFallbackFeedback();
+        renderFeedbackList(serverList);
       } catch (error) {
-        container.innerHTML = '<p style="color: var(--danger); font-size: 13px;">Failed to load feedback history.</p>';
+        const fallback = getSyncedFallbackFeedback();
+        if (fallback.length > 0) {
+          renderFeedbackList(fallback);
+        } else {
+          container.innerHTML = '<p style="color: var(--danger); font-size: 13px;">Failed to load feedback history.</p>';
+        }
       }
     }
 
@@ -3502,13 +3751,20 @@ window.renderBatchShorthandDoubtWall = function() {
       ? window.currentDashboardMonitoredBatch
       : (monitorBatches[0] || allowedBatches[0] || 'RP-Trail');
 
+    const isMonitorForBatch = isAdminUser || monitorBatches.some(mb => String(mb).toLowerCase() === String(activeBatch).toLowerCase());
+    const cuNameLow = String(portalState.currentUser.name || '').toLowerCase().trim();
     const allItems = (window.__enterpriseSuiteState && Array.isArray(window.__enterpriseSuiteState.doubtWallItems))
       ? window.__enterpriseSuiteState.doubtWallItems
       : [];
     const filteredItems = allItems.filter(it => {
       const b = String(it.batch || 'RP-Trail').trim();
-      return b.toLowerCase() === String(activeBatch).toLowerCase() &&
+      const sameBatch = b.toLowerCase() === String(activeBatch).toLowerCase() &&
         (isAdminUser || allowedBatches.some(ab => ab.toLowerCase() === b.toLowerCase()));
+      if (!sameBatch) return false;
+      if (isMonitorForBatch) return true;
+      const authorId = String(it.authorId || it.userId || '').trim();
+      const authorNameLow = String(it.author || '').toLowerCase().trim();
+      return (authorId && authorId === uid) || (cuNameLow && authorNameLow === cuNameLow);
     });
 
     container.innerHTML = `
@@ -3516,9 +3772,9 @@ window.renderBatchShorthandDoubtWall = function() {
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
           <div>
             <div style="font-size: 13px; font-weight: 900; color: var(--secondary); display: flex; align-items: center; gap: 6px;">
-              <i class="fa-solid fa-pen-nib" style="color: #0d9488;"></i> Peer &amp; Monitor Shorthand Doubt Wall — <span style="color:#0d9488;">${window.escapeHtml(activeBatch)}</span>
+              <i class="fa-solid fa-pen-nib" style="color: #0d9488;"></i> ${isMonitorForBatch ? 'Batch Shorthand Doubt Desk' : 'My Shorthand Outline Doubts'} — <span style="color:#0d9488;">${window.escapeHtml(activeBatch)}</span>
             </div>
-            <div style="font-size: 11px; color: var(--text-muted);">Visible only to enrolled members and appointed Batch Monitor of <strong>${window.escapeHtml(activeBatch)}</strong>.</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${isMonitorForBatch ? `Monitor / Admin view for all shorthand doubts in <strong>${window.escapeHtml(activeBatch)}</strong>.` : `Your personal outline doubts and Monitor replies for <strong>${window.escapeHtml(activeBatch)}</strong>.`}</div>
           </div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap;">
             <input type="text" id="doubt-wall-new-word" placeholder="Ask a word outline in ${window.escapeHtml(activeBatch)}..." style="padding: 6px 10px; font-size: 11.5px; border: 1px solid var(--border); border-radius: 8px; min-width: 220px; background: var(--background); color: var(--text-main);">
@@ -3619,6 +3875,10 @@ export function setupDedicatedTabsAndMoveSections() {
       // Remove deleted Official Dedicated Directory menu item if any exists
       const obsoleteOffBtn = authTabsList.querySelector('[data-tab="official-contacts"]');
       if (obsoleteOffBtn) obsoleteOffBtn.closest('li')?.remove();
+
+      if (portalState.currentUser && typeof applyStudentPortalTabPermissions === 'function') {
+        applyStudentPortalTabPermissions();
+      }
     }
 
     // Remove deleted Official Dedicated Directory section cleanly; keep contacts inside Help & Contact (#view-feedback)

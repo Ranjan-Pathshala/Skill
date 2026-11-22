@@ -97,3 +97,83 @@ export function evaluateMaintenanceWindow(
   }
   return { blocked: false, reason: '' };
 }
+
+export function parseBooleanFlag(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0 && !Number.isNaN(value);
+  if (typeof value === 'string') {
+    const norm = value.trim().toLowerCase();
+    if (!norm || norm === 'false' || norm === '0' || norm === 'no' || norm === 'off' || norm === 'null' || norm === 'undefined') {
+      return false;
+    }
+    if (norm === 'true' || norm === '1' || norm === 'yes' || norm === 'on') {
+      return true;
+    }
+  }
+  return false;
+}
+
+export interface StudentTabPermissionUser {
+  role?: unknown;
+  Role?: unknown;
+  studentTabPermissions?: unknown;
+  StudentTabPermissions?: unknown;
+  allowedTabs?: unknown;
+  preferences?: {
+    allowedPortalTabs?: unknown;
+    [key: string]: unknown;
+  } | null;
+  [key: string]: unknown;
+}
+
+export function resolveAllowedStudentPortalTabs(
+  userObj: StudentTabPermissionUser | null | undefined,
+  allTabs: readonly string[],
+): string[] {
+  const allList = Array.from(allTabs);
+  if (!userObj) return allList;
+
+  const roleStr = String(userObj.role ?? userObj.Role ?? 'user').toLowerCase().trim();
+  if (roleStr === 'superadmin') return allList;
+
+  const rawPerms =
+    userObj.studentTabPermissions ??
+    userObj.StudentTabPermissions ??
+    userObj.preferences?.allowedPortalTabs ??
+    userObj.allowedTabs ??
+    '';
+
+  if (rawPerms === null || rawPerms === undefined || rawPerms === '') {
+    return allList;
+  }
+
+  const parsed = Array.isArray(rawPerms)
+    ? rawPerms.map((s) => String(s ?? '').trim().toLowerCase()).filter(Boolean)
+    : String(rawPerms)
+        .split(/[,;|]+/)
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+
+  if (
+    parsed.length === 0 ||
+    parsed.includes('all') ||
+    parsed.includes('*') ||
+    parsed.includes('all_tabs')
+  ) {
+    return allList;
+  }
+
+  const allowed = new Set<string>(parsed);
+  allowed.add('dashboard');
+  allowed.add('profile');
+  allowed.add('buy-plans');
+
+  // Keep companion dedicated views accessible when their parent feature tab is allowed
+  if (allowed.has('attendance-matrix')) allowed.add('planner-goals');
+  if (allowed.has('words')) allowed.add('weak-vault');
+  if (allowed.has('cbttest')) allowed.add('cbt-revision');
+  if (allowed.has('batch-leaderboard')) allowed.add('batchhub');
+
+  return Array.from(allowed);
+}
+

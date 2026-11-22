@@ -177,7 +177,7 @@
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
-    z-index: 1200 !important;
+    z-index: 3700 !important;
   }
 
 #view-admin {

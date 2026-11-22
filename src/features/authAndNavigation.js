@@ -6,7 +6,7 @@
 
 import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
-import { onDomReady } from '../core/domReady.ts';
+import { onDomReady, scheduleFrameTasks } from '../core/domReady.ts';
 import { adjustAdminUploadForm, applyAdminTabPermissions, loadAdminData, loadDashboardBannerIntoAdminForm, loadMaintenanceSettingsIntoAdminForm, pushAdminRealtimeNotification, renderAdminBannersTable, renderAdminDateBannersTable, renderAdminFeedback, renderAdminLeaderboard, renderAdminLogs, renderAdminMaterialsTable, renderAdminPerformanceDashboard, renderAdminRealtimeNotifications, renderAdminSubtabsTable, renderAdminUsers, safeNotify, switchAdminTab } from './adminPanel.js';
 import { autoResetAdminFiltersOnSearch, loadMaterials, loadUserFeedback, renderDashboardUI, renderHelpAdminContacts, renderPitmanSubtabs, renderPromoBanner, renderSubtabs, setupAuthenticatedUI, syncProfileTabUI } from './dashboardAndProfile.js';
 import { escapeHtml } from '../utils/formatting.ts';
@@ -15,6 +15,7 @@ import { populateAdminLiveTestRankSelector, populateLiveTestMaterialOptions, ren
 import { FAKE_INJECTED_RULE_KEYS, initLearningTypingTutor, purgeFakeInjectedRules, renderVideoCourseView, seedRichDemoDataIfNeeded, switchLearningTypingSection } from './videoAndTutor.js';
 import { buildAlphabetBar, initTypingTestWizard, loadTestHistory, populateWordsCategoryDropdown, renderTestHistoryTable, renderWords } from './typingAndEvaluation.js';
 import { renderCbtTestCatalog } from './cbtArena.js';
+import { parseBooleanFlag, resolveAllowedStudentPortalTabs } from '../utils/permissions.ts';
 
 const switchHelpTabSection = (...args) => (typeof window.switchHelpTabSection === 'function' ? window.switchHelpTabSection(...args) : undefined);
 
@@ -23,6 +24,12 @@ export const TAB_DISPLAY_META = {
   'dashboard': { icon: 'fa-solid fa-compass', label: 'Command Center' },
   'profile': { icon: 'fa-solid fa-id-badge', label: 'My Profile & Fees' },
   'buy-plans': { icon: 'fa-solid fa-cart-shopping', label: 'Buy Batches & Plans' },
+  'batch-leaderboard': { icon: 'fa-solid fa-trophy', label: 'Batch Leaderboard' },
+  'attendance-matrix': { icon: 'fa-solid fa-calendar-check', label: 'Attendance & Streak' },
+  'planner-goals': { icon: 'fa-solid fa-calendar-days', label: '7-Day Planner & Goals' },
+  'batchhub': { icon: 'fa-solid fa-people-group', label: 'Batch Monitor & Polls' },
+  'weak-vault': { icon: 'fa-solid fa-vault', label: 'My Weak Outlines Vault' },
+  'cbt-revision': { icon: 'fa-solid fa-bookmark', label: 'Saved MCQs & Error Logbook' },
   'livetests': { icon: 'fa-solid fa-tower-broadcast', label: 'Live Tests & Contests' },
   'videocourse': { icon: 'fa-solid fa-clapperboard', label: 'Video Masterclasses' },
   'words': { icon: 'fa-solid fa-pen-nib', label: 'Steno Outlines & Vocab' },
@@ -223,24 +230,14 @@ window.currentActiveViewName = 'dashboard';
 export const MAINTENANCE_STORAGE_KEY = 'rp_skill_maintenance_config_v1';
 
 export const ALL_STUDENT_PORTAL_TABS = [
-  'auth', 'dashboard', 'profile', 'buy-plans', 'batch-leaderboard', 'attendance-matrix', 'livetests', 'videocourse', 'words', 'pdf', 'audio',
+  'auth', 'dashboard', 'profile', 'buy-plans', 'batch-leaderboard', 'attendance-matrix',
+  'planner-goals', 'batchhub', 'weak-vault', 'cbt-revision',
+  'livetests', 'videocourse', 'words', 'pdf', 'audio',
   'pitman', 'learningtyping', 'typingtest', 'cbttest', 'test', 'feedback'
 ];
 
 export function getAllowedStudentPortalTabsForUser(userObj) {
-  if (!userObj) return ALL_STUDENT_PORTAL_TABS;
-  const roleStr = String(userObj.role || userObj.Role || 'user').toLowerCase();
-  if (roleStr === 'superadmin') return ALL_STUDENT_PORTAL_TABS;
-  const rawPerms = userObj.studentTabPermissions || (userObj.preferences && userObj.preferences.allowedPortalTabs) || '';
-  if (!rawPerms) return ALL_STUDENT_PORTAL_TABS;
-  const arr = Array.isArray(rawPerms)
-    ? rawPerms.map(s => String(s).trim().toLowerCase()).filter(Boolean)
-    : String(rawPerms).split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  if (arr.length === 0) return ALL_STUDENT_PORTAL_TABS;
-  if (!arr.includes('dashboard')) arr.unshift('dashboard');
-  if (!arr.includes('profile')) arr.push('profile');
-  if (!arr.includes('buy-plans')) arr.push('buy-plans');
-  return arr;
+  return resolveAllowedStudentPortalTabs(userObj, ALL_STUDENT_PORTAL_TABS);
 }
 
 export function isStudentPortalTabAllowedForCurrentUser(tabName) {
@@ -259,12 +256,14 @@ export function applyStudentPortalTabPermissions() {
     if (!t || t === 'admin' || t === 'analytics') return;
     const isAllowed = allowed.includes(t);
     btn.style.display = isAllowed ? 'flex' : 'none';
+    const parentLi = btn.closest('li');
+    if (parentLi) parentLi.style.display = isAllowed ? '' : 'none';
   });
 }
 
 export function evaluateMaintenanceWindowClient(cfg, nowMs = Date.now()) {
   const c = cfg || {};
-  const manualEnabled = Boolean(c.manualEnabled !== undefined ? c.manualEnabled : c.enabled);
+  const manualEnabled = parseBooleanFlag(c.manualEnabled !== undefined ? c.manualEnabled : c.enabled);
   const startRaw = String(c.scheduledStart || '').trim();
   const endRaw = String(c.scheduledEnd || '').trim();
   const startMs = startRaw ? Date.parse(startRaw) : NaN;
@@ -303,7 +302,7 @@ export function getMaintenanceConfig() {
     baseCfg = portalState.globalData.maintenance;
   }
   const normalized = {
-    manualEnabled: Boolean(baseCfg && (baseCfg.manualEnabled !== undefined ? baseCfg.manualEnabled : baseCfg.enabled)),
+    manualEnabled: parseBooleanFlag(baseCfg && (baseCfg.manualEnabled !== undefined ? baseCfg.manualEnabled : baseCfg.enabled)),
     mode: (baseCfg && baseCfg.mode) || 'full_site',
     message: (baseCfg && baseCfg.message) || '🚧 Our portal is currently undergoing scheduled maintenance and upgrades. Please check back shortly!',
     workingTabs: (baseCfg && Array.isArray(baseCfg.workingTabs)) ? baseCfg.workingTabs : ['dashboard'],
@@ -780,27 +779,47 @@ export function navigateTo(tabName, pushHistory = true, fromMenu = false) {
 
       } else if (tabName === 'admin') {
         if (typeof applyAdminTabPermissions === 'function') applyAdminTabPermissions();
-        if (typeof renderAdminPerformanceDashboard === 'function') renderAdminPerformanceDashboard();
-        if (typeof renderAdminRealtimeNotifications === 'function') renderAdminRealtimeNotifications();
-        if (typeof populateAdminLiveTestRankSelector === 'function') populateAdminLiveTestRankSelector();
-        renderAdminMaterialsTable();
-        renderAdminUsers();
-        renderAdminSubtabsTable();
-        renderAdminFeedback();
-        renderAdminBannersTable();
-        if (typeof renderAdminDateBannersTable === 'function') renderAdminDateBannersTable();
-        if (typeof loadDashboardBannerIntoAdminForm === 'function') loadDashboardBannerIntoAdminForm();
-        if (typeof loadMaintenanceSettingsIntoAdminForm === 'function') loadMaintenanceSettingsIntoAdminForm();
-        if (typeof populateLiveTestMaterialOptions === 'function') populateLiveTestMaterialOptions();
-        if (typeof renderAdminLiveTestsTable === 'function') renderAdminLiveTestsTable();
-        renderAdminLeaderboard();
-        renderAdminLogs();
-        populateEvalCategoryDropdown();
-        if (typeof populateSavedRulesQuickDropdown === 'function') {
-          populateSavedRulesQuickDropdown();
-        }
-        loadSelectedEvaluationRulesIntoForm();
-        adjustAdminUploadForm();
+        const activeSubtabId = document.querySelector('#view-admin .admin-subtab-content.active')?.id || 'admin-subtab-analytics';
+        const immediateAdminTasks = [];
+        const deferredAdminTasks = [];
+        const routeAdminTask = (subtabId, fn) => {
+          if (typeof fn !== 'function') return;
+          if (activeSubtabId === subtabId) immediateAdminTasks.push(fn);
+          else deferredAdminTasks.push(fn);
+        };
+
+        routeAdminTask('admin-subtab-analytics', () => {
+          if (typeof renderAdminPerformanceDashboard === 'function') renderAdminPerformanceDashboard();
+          if (typeof renderAdminRealtimeNotifications === 'function') renderAdminRealtimeNotifications();
+        });
+        routeAdminTask('admin-subtab-content', () => {
+          renderAdminMaterialsTable();
+          adjustAdminUploadForm();
+        });
+        routeAdminTask('admin-subtab-users', () => renderAdminUsers());
+        routeAdminTask('admin-subtab-subtabs', () => renderAdminSubtabsTable());
+        routeAdminTask('admin-subtab-feedback-admin', () => renderAdminFeedback());
+        routeAdminTask('admin-subtab-banner', () => {
+          renderAdminBannersTable();
+          if (typeof renderAdminDateBannersTable === 'function') renderAdminDateBannersTable();
+          if (typeof loadDashboardBannerIntoAdminForm === 'function') loadDashboardBannerIntoAdminForm();
+          if (typeof loadMaintenanceSettingsIntoAdminForm === 'function') loadMaintenanceSettingsIntoAdminForm();
+        });
+        routeAdminTask('admin-subtab-livetests', () => {
+          if (typeof populateAdminLiveTestRankSelector === 'function') populateAdminLiveTestRankSelector();
+          if (typeof populateLiveTestMaterialOptions === 'function') populateLiveTestMaterialOptions();
+          if (typeof renderAdminLiveTestsTable === 'function') renderAdminLiveTestsTable();
+        });
+        routeAdminTask('admin-subtab-leaderboard', () => renderAdminLeaderboard());
+        routeAdminTask('admin-subtab-logs', () => renderAdminLogs());
+        routeAdminTask('admin-subtab-evaluation', () => {
+          populateEvalCategoryDropdown();
+          if (typeof populateSavedRulesQuickDropdown === 'function') populateSavedRulesQuickDropdown();
+          loadSelectedEvaluationRulesIntoForm();
+        });
+
+        immediateAdminTasks.forEach(fn => { try { fn(); } catch (e) {} });
+        scheduleFrameTasks('admin-open-render', deferredAdminTasks, 8);
         loadAdminData(true);
       }
     }, 0);
@@ -926,10 +945,10 @@ export function isUserEmailAlreadyVerified(userOrRes) {
       if (roleVal === 'superadmin') return true;
       const prefs = userOrRes.preferences || (userOrRes.user && userOrRes.user.preferences) || {};
       if (
-        prefs.emailVerified === true ||
-        userOrRes.emailVerified === true ||
-        userOrRes.EmailVerified === true ||
-        (userOrRes.user && (userOrRes.user.emailVerified === true || userOrRes.user.EmailVerified === true))
+        parseBooleanFlag(prefs.emailVerified) ||
+        parseBooleanFlag(userOrRes.emailVerified) ||
+        parseBooleanFlag(userOrRes.EmailVerified) ||
+        (userOrRes.user && (parseBooleanFlag(userOrRes.user.emailVerified) || parseBooleanFlag(userOrRes.user.EmailVerified)))
       ) {
         return true;
       }
@@ -960,10 +979,10 @@ export function isUserMobileAlreadyVerified(userOrRes) {
       if (roleVal === 'superadmin') return true;
       const prefs = userOrRes.preferences || userOrRes.userPreferences || (userOrRes.user && (userOrRes.user.preferences || userOrRes.user.userPreferences)) || {};
       if (
-        prefs.mobileVerified === true ||
-        userOrRes.mobileVerified === true ||
-        userOrRes.MobileVerified === true ||
-        (userOrRes.user && (userOrRes.user.mobileVerified === true || userOrRes.user.MobileVerified === true))
+        parseBooleanFlag(prefs.mobileVerified) ||
+        parseBooleanFlag(userOrRes.mobileVerified) ||
+        parseBooleanFlag(userOrRes.MobileVerified) ||
+        (userOrRes.user && (parseBooleanFlag(userOrRes.user.mobileVerified) || parseBooleanFlag(userOrRes.user.MobileVerified)))
       ) {
         return true;
       }
@@ -2329,6 +2348,47 @@ export function pushPortalNotification(titleOrObj, message = '', category = 'inf
       if (prefs.realtimeAlerts === 'off') return;
     }
 
+export function pushPortalNotificationsBatch(items) {
+      if (!Array.isArray(items) || items.length === 0) return 0;
+      const list = getPortalNotificationsList();
+      const existingIds = new Set(list.map(x => String(x && x.id || '')));
+      const nowMs = Date.now();
+      let addedCount = 0;
+
+      for (let i = 0; i < items.length; i++) {
+        const titleOrObj = items[i];
+        if (!titleOrObj || typeof titleOrObj !== 'object') continue;
+        const createdMs = Number(titleOrObj.createdAtMs || nowMs);
+        if ((nowMs - createdMs) > NOTIFICATION_TTL_24H_MS) continue;
+        const id = String(titleOrObj.id || ('notif_' + nowMs + '_' + i + '_' + Math.random().toString(36).slice(2, 6)));
+        if (existingIds.has(id)) continue;
+        existingIds.add(id);
+        const d = new Date(createdMs);
+        list.unshift({
+          id: id,
+          title: String(titleOrObj.title || 'Portal Alert').trim(),
+          message: String(titleOrObj.body || titleOrObj.message || '').trim(),
+          category: titleOrObj.type || titleOrObj.category || 'upload',
+          icon: titleOrObj.icon || '',
+          color: titleOrObj.color || '',
+          actionTab: titleOrObj.targetTab || titleOrObj.actionTab || '',
+          createdAtMs: createdMs,
+          timestamp: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' • ' + d.toLocaleDateString(),
+          read: false
+        });
+        addedCount++;
+      }
+
+      if (addedCount > 0) {
+        savePortalNotificationsList(list);
+        renderNotificationCenterUI();
+        if (typeof syncUserCloudStateToBackend === 'function') {
+          syncUserCloudStateToBackend(true);
+        }
+      }
+      return addedCount;
+    }
+
 export function renderNotificationCenterUI() {
       const list = getPortalNotificationsList();
       const unreadCount = list.filter(n => !n.read).length;
@@ -2676,7 +2736,7 @@ export function syncAuthHeaderAndMenuVisibility() {
       if (dmBtn) dmBtn.style.removeProperty('display');
       if (navTabs) {
         navTabs.style.removeProperty('display');
-        if (window.innerWidth >= 1024 && !window.isLaptopMenuUserHidden && !navTabs.classList.contains('menu-open')) {
+        if (window.innerWidth >= 1024 && !portalState.isLaptopMenuUserHidden && !navTabs.classList.contains('menu-open')) {
           navTabs.classList.add('menu-open');
           document.body.classList.add('laptop-menu-docked');
         }

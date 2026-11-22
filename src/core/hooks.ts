@@ -14,6 +14,7 @@ export type PortalHookName =
   | 'afterAuthViewRender'
   | 'afterAuthenticatedSetup'
   | 'afterNavMenuToggle'
+  | 'beforeNavigate'
   | 'afterNavigate'
   | 'afterAdminTabSwitch'
   | 'afterAnnouncementsRender'

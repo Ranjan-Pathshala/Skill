@@ -21,6 +21,8 @@ import {
   normalizeBatchList,
   evaluateMemberBatchAccess,
   evaluateMaintenanceWindow,
+  parseBooleanFlag,
+  resolveAllowedStudentPortalTabs,
 } from './permissions.ts';
 import {
   computeDiscountedFee,
@@ -30,6 +32,8 @@ import {
 } from './feeMath.ts';
 import { extractHardWordsFromPassage, buildPitmanStrokeSvg } from './pitman.ts';
 import { portalHooks } from '../core/hooks.ts';
+import { scheduleFrameTasks, cancelFrameTasks } from '../core/domReady.ts';
+import { parseCbtQuestionsPayload } from './cbtParser.ts';
 
 test('formatting utilities escape HTML, sanitize URLs, format dates & clip timestamps', () => {
   assert.equal(escapeHtml(`<script>"a"&'b'</script>`), '&lt;script&gt;&quot;a&quot;&amp;&#39;b&#39;&lt;/script&gt;');
@@ -163,6 +167,52 @@ test('permissions normalize batch lists, enforce batch scoping, and evaluate mai
     ).blocked,
     false,
   );
+
+  // parseBooleanFlag safely handles stringified booleans from sheets/storage
+  assert.equal(parseBooleanFlag(true), true);
+  assert.equal(parseBooleanFlag('true'), true);
+  assert.equal(parseBooleanFlag('TRUE'), true);
+  assert.equal(parseBooleanFlag('false'), false);
+  assert.equal(parseBooleanFlag('FALSE'), false);
+  assert.equal(parseBooleanFlag('0'), false);
+  assert.equal(parseBooleanFlag(''), false);
+
+  // resolveAllowedStudentPortalTabs treats 'ALL' / '*' / empty as full access for regular users
+  const sampleTabs = [
+    'dashboard', 'profile', 'buy-plans', 'audio', 'typingtest', 'cbttest',
+    'words', 'weak-vault', 'attendance-matrix', 'planner-goals', 'cbt-revision', 'batch-leaderboard', 'batchhub',
+  ];
+  assert.deepEqual(
+    resolveAllowedStudentPortalTabs({ role: 'user', studentTabPermissions: 'ALL' }, sampleTabs),
+    sampleTabs,
+  );
+  assert.deepEqual(
+    resolveAllowedStudentPortalTabs({ role: 'user', StudentTabPermissions: 'all' }, sampleTabs),
+    sampleTabs,
+  );
+  assert.deepEqual(
+    resolveAllowedStudentPortalTabs({ role: 'admin', studentTabPermissions: ['ALL'] }, sampleTabs),
+    sampleTabs,
+  );
+  assert.deepEqual(
+    resolveAllowedStudentPortalTabs({ role: 'user', studentTabPermissions: '*' }, sampleTabs),
+    sampleTabs,
+  );
+  assert.deepEqual(
+    resolveAllowedStudentPortalTabs({ role: 'user', studentTabPermissions: '' }, sampleTabs),
+    sampleTabs,
+  );
+  const subset = resolveAllowedStudentPortalTabs(
+    { role: 'user', studentTabPermissions: 'audio, words' },
+    sampleTabs,
+  );
+  assert.ok(subset.includes('dashboard'));
+  assert.ok(subset.includes('profile'));
+  assert.ok(subset.includes('buy-plans'));
+  assert.ok(subset.includes('audio'));
+  assert.ok(subset.includes('words'));
+  assert.ok(subset.includes('weak-vault'));
+  assert.equal(subset.includes('typingtest'), false);
 });
 
 test('feeMath computes coupon discounts, installments, UPI URI, and expiry countdowns', () => {
@@ -231,3 +281,81 @@ test('portalHooks executes listeners in order, supports unsubscribe/once, and is
   assert.deepEqual(seen, ['first:dashboard', 'once:dashboard', 'first:audio']);
   portalHooks.clear();
 });
+
+test('scheduleFrameTasks executes tasks in order, isolates errors, and cancels stale tokens', async () => {
+  const ran: string[] = [];
+  scheduleFrameTasks('test-cancel', [
+    () => ran.push('stale-1'),
+    () => ran.push('stale-2'),
+  ]);
+  cancelFrameTasks('test-cancel');
+
+  await new Promise<void>((resolve) => {
+    scheduleFrameTasks(
+      'test-order',
+      [
+        () => ran.push('a'),
+        () => {
+          throw new Error('non-fatal render error');
+        },
+        () => ran.push('b'),
+        () => resolve(),
+      ],
+      0,
+    );
+  });
+
+  assert.deepEqual(ran, ['a', 'b']);
+});
+
+test('parseCbtQuestionsPayload parses bare arrays, wrapped objects, sections, double-encoded JSON, and remote URLs', () => {
+  const bare = parseCbtQuestionsPayload(JSON.stringify([{ qEn: 'Q1', optionsEn: ['A', 'B'], correctIndex: 0 }]));
+  assert.equal(bare.questions.length, 1);
+  assert.equal(bare.remoteUrl, null);
+
+  const wrapped = parseCbtQuestionsPayload(JSON.stringify({ questions: [{ qEn: 'Q2' }, { qEn: 'Q3' }] }));
+  assert.equal(wrapped.questions.length, 2);
+
+  const sectioned = parseCbtQuestionsPayload(
+    JSON.stringify({
+      sections: [
+        { name: 'English', questions: [{ qEn: 'E1' }] },
+        { title: 'GK', mcqs: [{ qEn: 'G1' }] },
+      ],
+    }),
+  );
+  assert.equal(sectioned.questions.length, 2);
+  assert.equal(sectioned.questions[0].section, 'English');
+  assert.equal(sectioned.questions[1].section, 'GK');
+
+  const doubleEncoded = parseCbtQuestionsPayload(JSON.stringify(JSON.stringify([{ qEn: 'Q4' }])));
+  assert.equal(doubleEncoded.questions.length, 1);
+
+  const fenced = parseCbtQuestionsPayload('```json\n[{"qEn":"Q5"}]\n```');
+  assert.equal(fenced.questions.length, 1);
+
+  const remote = parseCbtQuestionsPayload('https://raw.githubusercontent.com/org/repo/main/mock.json');
+  assert.equal(remote.questions.length, 0);
+  assert.equal(remote.remoteUrl, 'https://raw.githubusercontent.com/org/repo/main/mock.json');
+
+  const htmlEscaped = parseCbtQuestionsPayload('[{&quot;question&quot;:&quot;Capital?&quot;,&quot;optionA&quot;:&quot;Delhi&quot;,&quot;optionB&quot;:&quot;Mumbai&quot;,&quot;answer&quot;:&quot;A&quot;}]');
+  assert.equal(htmlEscaped.questions.length, 1);
+  assert.deepEqual(htmlEscaped.questions[0].options, ['Delhi', 'Mumbai']);
+  assert.equal(htmlEscaped.questions[0].correctIndex, 0);
+
+  const plainText = parseCbtQuestionsPayload('1. Who invented shorthand?\nA) Pitman\nB) Newton\nC) Edison\nD) Tesla\nAns: A');
+  assert.equal(plainText.questions.length, 1);
+  assert.equal(plainText.questions[0].correctIndex, 0);
+
+  // Verify default hard words extractor returns up to 50 unique hard words
+  const bigPassage = Array.from({ length: 65 }, (_, i) => {
+    const a = String.fromCharCode(65 + Math.floor(i / 26));
+    const b = String.fromCharCode(97 + (i % 26));
+    return `parliamentary${a}${b}term`;
+  }).join(' ');
+  const defaultHardWords = extractHardWordsFromPassage(bigPassage);
+  assert.equal(defaultHardWords.length, 50);
+});
+
+
+

@@ -6,11 +6,12 @@
 
 import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
-import { DEFAULT_LOGO_URL, apiCall, getEvaluationRulesForTab, logPortalAction, showToast, syncUserCloudStateToBackend } from './apiAndCore.js';
+import { DEFAULT_LOGO_URL, apiCall, getEvaluationRulesForTab, isMaterialTypeMatch, logPortalAction, showToast, syncUserCloudStateToBackend } from './apiAndCore.js';
 import { closeAllDeviceNavMenu, isActionBlockedByUnverifiedEmail, isStudentPortalTabAllowedForCurrentUser, navigateTo, sortMaterialsLatestFirst } from './authAndNavigation.js';
 import { createInlineDataLoadStatusEl, getThumbnailUrl, isCbtSectionAutoLockActive, streamRenderCardsToContainer } from './dashboardAndProfile.js';
 import { checkMaterialAccessPermissions, renderTestHistoryTable } from './typingAndEvaluation.js';
-import { getLocalDateString } from '../utils/formatting.ts';
+import { escapeHtml, getLocalDateString } from '../utils/formatting.ts';
+import { parseCbtQuestionsPayload } from '../utils/cbtParser.ts';
 import { autoCalculateWordsAndStrokes, checkAndTriggerHighScoreNotification, pushAdminRealtimeNotification } from './adminPanel.js';
 import { CBT_BOOKMARKS_STORAGE_KEY, CBT_MISTAKES_STORAGE_KEY } from './weakVaultAndPlanner.js';
 
@@ -183,47 +184,91 @@ export function getAllAvailableCbtTests() {
           }
         });
       }
-      const adminCbts = sortMaterialsLatestFirst(
-        (portalState.materialsData || []).filter(m => String(m.Type || '').toLowerCase() === 'cbttest')
-      );
+
+      // Combine materialsData and globalData.materials (deduped) so CBT tests load regardless of which source hydrated first
+      const rawPool = [];
+      const seenMatIds = new Set();
+      const pushPool = (arr) => {
+        if (!Array.isArray(arr)) return;
+        for (let i = 0; i < arr.length; i++) {
+          const m = arr[i];
+          if (!m || !isMaterialTypeMatch(m.Type || m.type, 'cbttest')) continue;
+          const mid = String(m.ID || m.id || '');
+          if (mid) {
+            if (seenMatIds.has(mid)) continue;
+            seenMatIds.add(mid);
+          }
+          rawPool.push(m);
+        }
+      };
+      pushPool(portalState.materialsData);
+      pushPool(portalState.globalData && portalState.globalData.materials);
+
+      const adminCbts = sortMaterialsLatestFirst(rawPool);
       adminCbts.forEach(item => {
         try {
-          const parsedQuestions = JSON.parse(item.ContentOrUrl);
-          if (Array.isArray(parsedQuestions) && parsedQuestions.length > 0) {
-            const catName = item.Subtab || 'Custom CBT';
-            const boundRuleKey = item.CbtEvalRuleKey || (String(item.Category || '').startsWith('cbttest') ? item.Category : '');
-            const rCfg = getCbtRuleConfigForCategory(catName, boundRuleKey);
-            const arrangedQuestions = applyCbtSectionArrangementToQuestions(parsedQuestions, rCfg);
-            customTests.push({
-              id: `custom_cbt_${item.ID}`,
-              ID: item.ID,
-              Type: 'cbttest',
-              title: item.Title,
-              Title: item.Title,
-              examCategory: catName,
-              Subtab: catName,
-              ThumbnailUrl: item.ThumbnailUrl || item.LogoUrl || '',
-              LogoUrl: item.LogoUrl || item.ThumbnailUrl || '',
-              cbtEvalRuleKey: boundRuleKey,
-              hasValidRule: Boolean(rCfg.hasValidRule),
-              ruleDisplayName: rCfg.ruleDisplayName,
-              durationMinutes: rCfg.timeLimit,
-              positiveMarks: rCfg.positiveMarks,
-              negativeMarks: rCfg.negativeMarks,
-              unattemptedMarks: rCfg.unattemptedMarks,
-              passingMarks: rCfg.passingMarks,
-              cbtTimerMode: rCfg.cbtTimerMode,
-              cbtDefaultSectionTime: rCfg.cbtDefaultSectionTime,
-              cbtSectionLockMode: rCfg.cbtSectionLockMode,
-              cbtNumSections: rCfg.cbtNumSections,
-              cbtQuestionsPerSection: rCfg.cbtQuestionsPerSection,
-              cbtPerSectionTiming: rCfg.cbtPerSectionTiming,
-              cbtSectionGroups: rCfg.cbtSectionGroups,
-              scheduledStartTime: item.ScheduledStartTime || item.scheduledStartTime || '',
-              scheduledEndTime: item.ScheduledEndTime || item.scheduledEndTime || '',
-              questions: arrangedQuestions
-            });
+          const payloadCandidates = [
+            item.ContentOrUrl,
+            item.Content,
+            item.Questions,
+            item.questions,
+            item.Details,
+            item.Description,
+            item.FileUrl,
+            item.Url,
+            item.JsonUrl
+          ];
+          let parsed = { questions: [], remoteUrl: null };
+          for (let c = 0; c < payloadCandidates.length; c++) {
+            const cand = payloadCandidates[c];
+            if (!cand) continue;
+            const res = parseCbtQuestionsPayload(cand);
+            if ((Array.isArray(res.questions) && res.questions.length > 0) || res.remoteUrl) {
+              parsed = res;
+              break;
+            }
           }
+          const hasQuestions = Array.isArray(parsed.questions) && parsed.questions.length > 0;
+          const hasRemoteUrl = Boolean(parsed.remoteUrl);
+          const rawSub = String(item.Subtab || '').trim();
+          const catName = (rawSub && rawSub !== '-') ? rawSub : 'Custom CBT';
+          const boundRuleKey = item.CbtEvalRuleKey || item.cbtEvalRuleKey || (String(item.Category || '').toLowerCase().startsWith('cbttest') ? item.Category : '');
+          const rCfg = getCbtRuleConfigForCategory(catName, boundRuleKey);
+          const arrangedQuestions = hasQuestions ? applyCbtSectionArrangementToQuestions(parsed.questions, rCfg) : [];
+          customTests.push({
+            id: `custom_cbt_${item.ID || item.id || customTests.length + 1}`,
+            ID: item.ID || item.id || `cbt_${customTests.length + 1}`,
+            Type: 'cbttest',
+            title: item.Title || item.Name || 'CBT Mock Test',
+            Title: item.Title || item.Name || 'CBT Mock Test',
+            examCategory: catName,
+            Subtab: catName,
+            AccessLevel: item.AccessLevel || item.accessLevel || 'public',
+            TargetBatch: item.TargetBatch || item.targetBatch || item.Batch || '',
+            Batch: item.Batch || item.TargetBatch || '',
+            ThumbnailUrl: item.ThumbnailUrl || item.LogoUrl || '',
+            LogoUrl: item.LogoUrl || item.ThumbnailUrl || '',
+            cbtEvalRuleKey: boundRuleKey,
+            hasValidRule: Boolean(rCfg.hasValidRule),
+            ruleDisplayName: rCfg.ruleDisplayName,
+            durationMinutes: rCfg.timeLimit,
+            positiveMarks: rCfg.positiveMarks,
+            negativeMarks: rCfg.negativeMarks,
+            unattemptedMarks: rCfg.unattemptedMarks,
+            passingMarks: rCfg.passingMarks,
+            cbtTimerMode: rCfg.cbtTimerMode,
+            cbtDefaultSectionTime: rCfg.cbtDefaultSectionTime,
+            cbtSectionLockMode: rCfg.cbtSectionLockMode,
+            cbtNumSections: rCfg.cbtNumSections,
+            cbtQuestionsPerSection: rCfg.cbtQuestionsPerSection,
+            cbtPerSectionTiming: rCfg.cbtPerSectionTiming,
+            cbtSectionGroups: rCfg.cbtSectionGroups,
+            scheduledStartTime: item.ScheduledStartTime || item.scheduledStartTime || '',
+            scheduledEndTime: item.ScheduledEndTime || item.scheduledEndTime || '',
+            remoteQuestionsUrl: parsed.remoteUrl || '',
+            hasEmptyQuestions: !hasQuestions && !hasRemoteUrl,
+            questions: arrangedQuestions
+          });
         } catch (e) {}
       });
 
@@ -231,7 +276,10 @@ export function getAllAvailableCbtTests() {
     }
 
 export function filterCbtCatalogByCategory(cat, btn) {
-      activeCbtCategoryFilter = cat;
+      activeCbtCategoryFilter = cat || 'ALL';
+      if (portalState.currentSubtabFilter) {
+        portalState.currentSubtabFilter.cbttest = activeCbtCategoryFilter;
+      }
       if (btn && btn.parentElement) {
         btn.parentElement.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -240,15 +288,56 @@ export function filterCbtCatalogByCategory(cat, btn) {
     }
 
 export function renderCbtTestCatalog() {
+      const catSec = document.getElementById('cbt-catalog-container') || document.getElementById('cbt-catalog-section');
+      const examSec = document.getElementById('cbt-active-interface') || document.getElementById('cbt-exam-interface');
+      if (!window.isCbtExamActive) {
+        if (catSec && catSec.style.display === 'none') catSec.style.display = 'block';
+        if (examSec && examSec.style.display !== 'none') examSec.style.display = 'none';
+      }
+
       const container = document.getElementById('cbttest-grid') || document.getElementById('cbt-test-list');
       if (!container) return;
+      if (container.style.display === 'none') container.style.display = 'grid';
 
       const allTests = getAllAvailableCbtTests();
       const subtabBar = document.getElementById('cbttest-subtabs');
+
+      // Merge admin-created CBT subtabs from subtabsData + categories found on CBT tests
+      const categories = [];
+      const seenCatLower = new Set();
+      const addCategory = (rawName) => {
+        const clean = String(rawName || '').trim();
+        if (!clean || clean === '-' || clean.toUpperCase() === 'ALL') return;
+        const low = clean.toLowerCase();
+        if (seenCatLower.has(low)) return;
+        seenCatLower.add(low);
+        categories.push(clean);
+      };
+
+      const subtabPool = [
+        ...(Array.isArray(portalState.subtabsData) ? portalState.subtabsData : []),
+        ...(Array.isArray(portalState.globalData && portalState.globalData.subtabs) ? portalState.globalData.subtabs : [])
+      ];
+      subtabPool.forEach(s => {
+        if (s && isMaterialTypeMatch(s.Type || s.type, 'cbttest')) {
+          addCategory(s.SubtabName || s.name || s.Subtab);
+        }
+      });
+      allTests.forEach(t => addCategory(t.examCategory));
+
+      if (activeCbtCategoryFilter !== 'ALL' && !seenCatLower.has(String(activeCbtCategoryFilter).toLowerCase().trim())) {
+        activeCbtCategoryFilter = 'ALL';
+      }
+
       if (subtabBar) {
-        const categories = [...new Set(allTests.map(t => t.examCategory))];
-        subtabBar.innerHTML = `<button class="subtab-btn ${activeCbtCategoryFilter === 'ALL' ? 'active' : ''}" onclick="filterCbtCatalogByCategory('ALL', this)">All CBT Exams</button>` +
-          categories.map(cat => `<button class="subtab-btn ${activeCbtCategoryFilter === cat ? 'active' : ''}" onclick="filterCbtCatalogByCategory('${cat}', this)">${cat}</button>`).join('');
+        subtabBar.style.display = 'flex';
+        const activeLow = String(activeCbtCategoryFilter || 'ALL').toLowerCase().trim();
+        subtabBar.innerHTML = `<button type="button" class="subtab-btn ${activeCbtCategoryFilter === 'ALL' ? 'active' : ''}" onclick="filterCbtCatalogByCategory('ALL', this)">All CBT Exams</button>` +
+          categories.map(cat => {
+            const safeJs = cat.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const isActive = activeLow === cat.toLowerCase().trim();
+            return `<button type="button" class="subtab-btn ${isActive ? 'active' : ''}" onclick="filterCbtCatalogByCategory('${safeJs}', this)">${escapeHtml(cat)}</button>`;
+          }).join('');
       }
 
       const searchEl = document.getElementById('cbttest-search-input');
@@ -256,12 +345,13 @@ export function renderCbtTestCatalog() {
 
       let tests = allTests;
       if (activeCbtCategoryFilter !== 'ALL' && !query) {
-        tests = tests.filter(t => t.examCategory === activeCbtCategoryFilter);
+        const filterLow = String(activeCbtCategoryFilter).toLowerCase().trim();
+        tests = tests.filter(t => String(t.examCategory || '').toLowerCase().trim() === filterLow);
       }
       if (query) {
         tests = tests.filter(t =>
-          t.title.toLowerCase().includes(query) ||
-          t.examCategory.toLowerCase().includes(query)
+          String(t.title || '').toLowerCase().includes(query) ||
+          String(t.examCategory || '').toLowerCase().includes(query)
         );
       }
 
@@ -305,7 +395,7 @@ export function renderCbtTestCatalog() {
                 🖥️ ${t.examCategory}
               </span>
               <span style="position: absolute; bottom: 4px; right: 4px; background: rgba(15,23,42,0.85); color: #fff; padding: 2px 6px; border-radius: 6px; font-size: 9.5px; font-weight: 800;">
-                ${t.questions.length} MCQs
+                ${t.questions.length > 0 ? `${t.questions.length} MCQs` : (t.remoteQuestionsUrl ? 'Cloud JSON' : '0 MCQs')}
               </span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 3px;">
@@ -318,7 +408,7 @@ export function renderCbtTestCatalog() {
             </div>
             <h4 style="margin: 0 0 4px 0; font-size: 13px; line-height: 1.32; font-weight: 800; color: var(--secondary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${t.title}</h4>
             <div style="display: flex; gap: 8px; font-size: 10.5px; color: var(--text-muted); font-weight: 600; flex-wrap: wrap;">
-              <span><i class="fa-solid fa-list-ol"></i> ${t.questions.length} Qs (${uniqueSections.length} Sec)</span>
+              <span><i class="fa-solid fa-list-ol"></i> ${t.questions.length > 0 ? `${t.questions.length} Qs (${uniqueSections.length} Sec)` : (t.remoteQuestionsUrl ? 'Loads on Start' : 'Check Questions JSON')}</span>
               <span style="color: var(--primary); font-weight: 800;">${timerBadge}</span>
               <span><i class="fa-solid fa-language"></i> EN ⇄ HI</span>
             </div>
@@ -460,7 +550,7 @@ export function updateCbtConfidenceButtonsUI() {
       }
     }
 
-export function startCbtMockTest(testId, overrideLiveMinutes = null) {
+export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
       if (typeof isActionBlockedByUnverifiedEmail === 'function' && isActionBlockedByUnverifiedEmail('starting a CBT Mock Exam')) return;
       const tests = getAllAvailableCbtTests();
       const found = tests.find(t => t.id === testId || t.ID === testId) || tests[0];
@@ -484,11 +574,52 @@ export function startCbtMockTest(testId, overrideLiveMinutes = null) {
         }
       }
 
+      // If this CBT exam stores a remote JSON URL instead of inline questions, fetch & parse it on demand
+      if ((!Array.isArray(found.questions) || found.questions.length === 0) && found.remoteQuestionsUrl) {
+        try {
+          showToast('⏳ Loading CBT exam questions...');
+          let remoteText = '';
+          const rUrl = String(found.remoteQuestionsUrl).trim();
+          if (rUrl.includes('drive.google.com') || rUrl.includes('docs.google.com')) {
+            const proxyRes = await apiCall('getDriveFileBase64', { fileUrl: rUrl, url: rUrl }, true);
+            if (proxyRes && proxyRes.success && proxyRes.base64) {
+              remoteText = decodeURIComponent(escape(atob(proxyRes.base64)));
+            }
+          } else {
+            const fetchUrl = (rUrl.includes('github.com') && rUrl.includes('/blob/'))
+              ? rUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
+              : rUrl;
+            const resp = await fetch(fetchUrl);
+            if (resp.ok) remoteText = await resp.text();
+          }
+          const remoteParsed = parseCbtQuestionsPayload(remoteText);
+          if (remoteParsed.questions.length > 0) {
+            const rCfg = getCbtRuleConfigForCategory(found.examCategory, found.cbtEvalRuleKey);
+            found.questions = applyCbtSectionArrangementToQuestions(remoteParsed.questions, rCfg);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch remote CBT questions:', err);
+        }
+        if (!Array.isArray(found.questions) || found.questions.length === 0) {
+          showToast('⚠️ Could not load CBT questions from the configured link.');
+          return;
+        }
+      }
+
+      if (!Array.isArray(found.questions) || found.questions.length === 0) {
+        showToast('⚠️ This CBT test has no valid MCQ JSON questions configured yet. Please check the material content in Admin Panel.');
+        return;
+      }
+
       if (typeof navigateTo === 'function' && portalState.activeTab !== 'cbttest') {
         navigateTo('cbttest', false, true);
       }
 
       window.lastOriginTabBeforeTest = 'cbttest';
+      const cbtHallChk = document.getElementById('cbt-header-hall-sound-chk');
+      if (cbtHallChk) cbtHallChk.checked = Boolean(portalState.isExamHallSoundActive);
+      const cbtHallProf = document.getElementById('cbt-header-hall-profile-select');
+      if (cbtHallProf) cbtHallProf.value = window.examHallNoiseProfile || 'full_mix';
       portalState.activeCbtTest = found;
       activeCbtQIndex = 0;
       cbtUserResponses = {};
@@ -538,10 +669,9 @@ export function startCbtMockTest(testId, overrideLiveMinutes = null) {
         }
       };
       document.body.classList.add('cbt-exam-fullscreen-lock');
+      const cbtToastEl = document.getElementById('center-toast');
+      if (cbtToastEl) cbtToastEl.style.display = 'none';
       window.scrollTo(0, 0);
-      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      }
       if (titleEl) titleEl.innerText = found.title;
       if (candEl && portalState.currentUser) candEl.innerText = portalState.currentUser.name || 'Candidate';
 
@@ -743,6 +873,7 @@ export function submitCbtExam() {
   try { portalHooks.emit('beforeCbtSubmit', ...arguments); } catch (_hk) {}
 
       if (portalState.cbtTimerInterval) clearInterval(portalState.cbtTimerInterval);
+      if (typeof window.stopExamHallSynth === 'function') window.stopExamHallSynth();
       if (!portalState.activeCbtTest) return;
       recordCurrentCbtQuestionTimeElapsed();
       syncGlobalCbtWindowState();
@@ -1017,6 +1148,7 @@ export function confirmAndExitCbtExam() {
 
 export function exitCbtExam() {
       if (portalState.cbtTimerInterval) clearInterval(portalState.cbtTimerInterval);
+      if (typeof window.stopExamHallSynth === 'function') window.stopExamHallSynth();
       window.isCbtExamActive = false;
       window.activeScheduledLiveTestEndTime = null;
       window.activeScheduledLiveTestObj = null;
@@ -1036,7 +1168,7 @@ export function exitCbtExam() {
       logPortalAction('EXIT_CBT_EXAM', 'Exited CBT Exam to CBT Catalog');
       renderCbtTestCatalog();
       // Ensure we remain on the CBT Exam tab (Requirement #5)
-      if (currentActiveViewName !== 'cbttest') {
+      if (portalState.activeTab !== 'cbttest') {
         navigateTo('cbttest', false, true);
       }
     }

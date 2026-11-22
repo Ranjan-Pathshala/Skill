@@ -1292,29 +1292,43 @@ window.replyShorthandDoubtWord = function(idx) {
 
 window._activeImmersiveLocks = new Set();
 
+const MEDIA_VIEWER_LOCK_KEYS = new Set(['pdf-modal', 'image-modal', 'reference-video', 'universal-media', 'reader-modal']);
+
 window.enterImmersiveFullscreenLock = function(sourceKey = 'modal') {
     try {
       window._activeImmersiveLocks.add(sourceKey);
       document.body.classList.add('immersive-fullscreen-lock');
+      if (MEDIA_VIEWER_LOCK_KEYS.has(sourceKey)) {
+        document.body.classList.add('rp-media-viewer-open');
+      }
       if (typeof closeAllDeviceNavMenu === 'function') {
         closeAllDeviceNavMenu(true);
       }
-      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(() => {});
+      // Always hide any active toast immediately so no bottom/top popup obstructs active tests or fullscreen viewers
+      const toastEl = document.getElementById('center-toast');
+      if (toastEl) {
+        toastEl.style.display = 'none';
       }
+      // Note: Do NOT auto-trigger native browser document.documentElement.requestFullscreen() on test/viewer start,
+      // as browsers show an intrusive top/bottom "Press Esc to exit full screen" overlay popup.
+      // Our CSS already renders active tests and viewers edge-to-edge (100vw x 100dvh); users can still opt-in via the manual Full Screen button.
     } catch (e) {}
   };
 
 window.exitImmersiveFullscreenLock = function(sourceKey = 'modal') {
     try {
       if (sourceKey) window._activeImmersiveLocks.delete(sourceKey);
-      // Check if any full-screen modal or practice view is still visible
+      const mediaModalIds = ['reader-modal', 'embedded-image-modal', 'reference-video-modal', 'universal-media-modal'];
+      const anyMediaOpen = mediaModalIds.some(id => {
+        const el = document.getElementById(id);
+        return el && (el.style.display === 'flex' || el.style.display === 'block') && el.offsetWidth > 0;
+      });
+      if (!anyMediaOpen) {
+        document.body.classList.remove('rp-media-viewer-open');
+      }
       const fullScreenIds = [
         'active-test-modal',
-        'reader-modal',
-        'embedded-image-modal',
-        'reference-video-modal',
-        'universal-media-modal',
+        ...mediaModalIds,
         'cbt-active-interface'
       ];
       const practiceEl = document.getElementById('learning-studio-screen-practice');
@@ -1326,6 +1340,7 @@ window.exitImmersiveFullscreenLock = function(sourceKey = 'modal') {
       if (!stillActive) {
         window._activeImmersiveLocks.clear();
         document.body.classList.remove('immersive-fullscreen-lock');
+        document.body.classList.remove('rp-media-viewer-open');
         if (document.fullscreenElement && document.exitFullscreen) {
           document.exitFullscreen().catch(() => {});
         }
@@ -1334,20 +1349,23 @@ window.exitImmersiveFullscreenLock = function(sourceKey = 'modal') {
   };
 
 onDomReady(function() {
+    const mediaIds = ['reader-modal', 'embedded-image-modal', 'reference-video-modal', 'universal-media-modal'];
     const watchedIds = [
       'active-test-modal',
-      'reader-modal',
-      'embedded-image-modal',
-      'reference-video-modal',
-      'universal-media-modal'
+      ...mediaIds
     ];
     const syncImmersiveState = () => {
       const practiceEl = document.getElementById('learning-studio-screen-practice');
       const practiceFsOn = Boolean(practiceEl && practiceEl.classList.contains('rp-practice-fs-on') && practiceEl.style.display && practiceEl.style.display !== 'none');
+      const anyMediaOpen = mediaIds.some(id => {
+        const el = document.getElementById(id);
+        return el && el.style.display && el.style.display !== 'none';
+      });
       const anyOpen = practiceFsOn || watchedIds.some(id => {
         const el = document.getElementById(id);
         return el && el.style.display && el.style.display !== 'none';
       }) || document.body.classList.contains('cbt-exam-fullscreen-lock');
+      document.body.classList.toggle('rp-media-viewer-open', anyMediaOpen);
       if (anyOpen) {
         document.body.classList.add('immersive-fullscreen-lock');
         if (typeof closeAllDeviceNavMenu === 'function') closeAllDeviceNavMenu(true);
@@ -1871,17 +1889,31 @@ window.renderBatchPollsWidget = function() {
     }
 
     if (!container) return;
-    const polls = window.getBatchPollsList();
+    const allPolls = window.getBatchPollsList();
     const uid = (portalState.currentUser && portalState.currentUser.userId) ? String(portalState.currentUser.userId) : 'GUEST-USER';
+    const roleLower = String((portalState.currentUser && portalState.currentUser.role) || 'user').toLowerCase();
+    const isAdminOrSuper = ['admin', 'superadmin', 'instructor'].includes(roleLower);
+    const myBatchesLower = getCurrentUserAssignedBatchesList().map(b => String(b || '').toLowerCase().trim());
+
+    // Regular users only see polls for their own assigned batch(es)
+    const polls = isAdminOrSuper
+      ? allPolls
+      : (allPolls || []).filter(p => {
+          const pb = String(p.batchName || '').toLowerCase().trim();
+          if (!pb || pb === 'all' || pb === 'all batches') return true;
+          return myBatchesLower.includes(pb);
+        });
 
     if (!polls || polls.length === 0) {
-      container.innerHTML = `<div style="grid-column:1/-1; padding:18px; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:10px; font-size:12.5px;">${canCreate ? 'No batch polls created yet. Click <strong>+ Create New Batch Poll</strong> above to start one.' : 'No active batch polls yet. When your Batch Monitor or Admin publishes a poll, it will appear here for voting.'}</div>`;
+      container.innerHTML = `<div style="grid-column:1/-1; padding:18px; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:10px; font-size:12.5px;">${canCreate ? 'No batch polls created yet. Click <strong>+ Create New Batch Poll</strong> above to start one.' : 'No active polls for your batch yet. When your Batch Monitor or Admin publishes a poll, it will appear here for voting.'}</div>`;
       return;
     }
 
     container.innerHTML = polls.map(poll => {
       const totalVotes = (poll.options || []).reduce((acc, o) => acc + (Number(o.votes) || 0), 0);
       const timeStatus = window.getBatchPollTimeStatus(poll);
+      const canSeeBatchTotals = canCreate || window.canCurrentUserCreateBatchPoll(poll.batchName || activeBatch);
+      const userVotedAny = (poll.options || []).some(o => Array.isArray(o.voters) && o.voters.includes(uid));
       const scheduleLine = (poll.pollStartTime || poll.pollEndTime)
         ? `<div style="font-size:11px; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:8px;">
              ${poll.pollStartTime ? `<span>Start: <strong>${window.escapeHtml(new Date(poll.pollStartTime).toLocaleString('en-IN'))}</strong></span>` : ''}
@@ -1896,18 +1928,21 @@ window.renderBatchPollsWidget = function() {
           </div>
           <div style="font-size:13.5px; font-weight:800; color:var(--secondary); line-height:1.4;">${window.escapeHtml(poll.question)}</div>
           ${scheduleLine}
-          <div style="font-size:10.5px; color:var(--text-muted);">By <strong>${window.escapeHtml(poll.createdBy || 'Monitor')}</strong> &middot; <span class="mono-num">${totalVotes}</span> Vote(s)</div>
+          <div style="font-size:10.5px; color:var(--text-muted);">By <strong>${window.escapeHtml(poll.createdBy || 'Monitor')}</strong> &middot; ${canSeeBatchTotals ? `<span class="mono-num">${totalVotes}</span> Vote(s)` : (userVotedAny ? '<span style="color:#059669; font-weight:700;">Your vote recorded</span>' : 'Tap an option to vote')}</div>
           <div style="display:flex; flex-direction:column; gap:7px;">
             ${(poll.options || []).map((opt, idx) => {
               const v = Number(opt.votes) || 0;
               const pct = totalVotes > 0 ? Math.round((v / totalVotes) * 100) : 0;
               const votedByMe = Array.isArray(opt.voters) && opt.voters.includes(uid);
+              const barWidth = canSeeBatchTotals ? pct : (votedByMe ? 100 : 0);
               return `
                 <button type="button" ${timeStatus.canVote ? '' : 'disabled'} onclick="window.voteInBatchPoll('${window.escapeHtml(String(poll.id)).replace(/'/g, "\\'")}', ${idx})" style="position:relative; overflow:hidden; text-align:left; padding:8px 12px; border-radius:8px; border:1.5px solid ${votedByMe ? '#0284c7' : 'var(--border)'}; background:var(--surface); cursor:${timeStatus.canVote ? 'pointer' : 'not-allowed'}; opacity:${timeStatus.canVote ? '1' : '0.72'};">
-                  <div style="position:absolute; left:0; top:0; bottom:0; width:${pct}%; background:${votedByMe ? 'rgba(14,165,233,0.22)' : 'rgba(14,165,233,0.1)'}; transition:width 0.3s ease;"></div>
+                  <div style="position:absolute; left:0; top:0; bottom:0; width:${barWidth}%; background:${votedByMe ? 'rgba(14,165,233,0.22)' : 'rgba(14,165,233,0.1)'}; transition:width 0.3s ease;"></div>
                   <div style="position:relative; z-index:1; display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:12px; font-weight:700; color:var(--secondary);">
                     <span>${votedByMe ? '✓ ' : ''}${window.escapeHtml(opt.text)}</span>
-                    <span class="mono-num" style="font-weight:800; color:#0284c7;">${pct}% (${v})</span>
+                    ${canSeeBatchTotals
+                      ? `<span class="mono-num" style="font-weight:800; color:#0284c7;">${pct}% (${v})</span>`
+                      : (votedByMe ? `<span style="font-size:11px; font-weight:800; color:#0284c7;">Your Choice</span>` : '')}
                   </div>
                 </button>
               `;
@@ -1972,10 +2007,39 @@ window.syncFooterActiveAndTotalUsers = function() {
     const allUsers = (portalState.adminData && Array.isArray(portalState.adminData.users) && portalState.adminData.users.length > 0)
       ? portalState.adminData.users
       : ((portalState.globalData && Array.isArray(portalState.globalData.users)) ? portalState.globalData.users : []);
-    const totalCount = Math.max(allUsers.length, Number(portalState.globalData?.totalUsers || 0));
+    let cachedStats = {};
+    try {
+      cachedStats = JSON.parse(localStorage.getItem('rp_public_footer_stats_cache_v1') || '{}') || {};
+    } catch (e) {}
+    const statsObj = (portalState.globalData && portalState.globalData.stats && typeof portalState.globalData.stats === 'object')
+      ? portalState.globalData.stats
+      : {};
+    const domActive = Number(activeEl?.textContent || 0) || 0;
+    const domTotal = Number(totalEl?.textContent || 0) || 0;
+    const domVisits = Number(visitsEl?.textContent || 0) || 0;
+
+    const totalCount = Math.max(
+      allUsers.length,
+      Number(portalState.globalData?.totalUsers || 0) || 0,
+      Number(statsObj.totalUsers || 0) || 0,
+      Number(cachedStats.totalUsers || 0) || 0,
+      domTotal
+    );
     const activeFromList = allUsers.filter(u => String(u.Status || u.status || 'active').toLowerCase() === 'active').length;
-    const activeCount = Math.max(activeFromList, isUserAuthenticated() ? 1 : 0);
-    const visitsCount = Number(portalState.globalData?.totalVisits || 0);
+    const activeCount = Math.max(
+      activeFromList,
+      Number(portalState.globalData?.activeUsers || 0) || 0,
+      Number(statsObj.activeUsers || 0) || 0,
+      Number(cachedStats.activeUsers || 0) || 0,
+      domActive,
+      1
+    );
+    const visitsCount = Math.max(
+      Number(portalState.globalData?.totalVisits || 0) || 0,
+      Number(statsObj.totalVisits || 0) || 0,
+      Number(cachedStats.totalVisits || 0) || 0,
+      domVisits
+    );
     if (activeEl) activeEl.textContent = String(activeCount);
     if (totalEl) totalEl.textContent = String(totalCount);
     if (visitsEl) visitsEl.textContent = String(visitsCount);
@@ -2400,26 +2464,50 @@ export function computeLocalBatchLeaderboard(targetBatch, daysWindow) {
     const cutoffMs = Date.now() - (Math.max(1, Number(daysWindow) || 30) * 86400000);
     const historyPool = [];
     const seenIds = new Set();
+    const fallbackUid = String((portalState.currentUser && portalState.currentUser.userId) || '').trim();
 
-    const pushRow = (r) => {
-      if (!r || typeof r !== 'object') return;
-      const uid = String(r.UserID || r.userId || '').trim();
-      const dt = String(r.Date || r.date || r.TypingDate || r.Timestamp || '').trim();
-      const key = `${uid}|${dt}|${r.ExamName || r.examName || ''}|${r.NetWPM || r.netWpm || r.WPM || ''}`;
-      if (seenIds.has(key)) return;
-      seenIds.add(key);
-      historyPool.push(r);
+    const parseDateMs = (raw) => {
+      if (!raw) return 0;
+      if (typeof raw === 'number') return raw;
+      const s = String(raw).trim();
+      const direct = new Date(s).getTime();
+      if (!isNaN(direct)) return direct;
+      // Support DD/MM/YYYY or DD-MM-YYYY formats
+      const dm = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
+      if (dm) {
+        const yr = dm[3].length === 2 ? Number('20' + dm[3]) : Number(dm[3]);
+        const d = new Date(yr, Number(dm[2]) - 1, Number(dm[1])).getTime();
+        if (!isNaN(d)) return d;
+      }
+      return 0;
     };
 
-    if (typeof portalState.adminData !== 'undefined' && portalState.adminData) {
-      (portalState.adminData.history || []).forEach(pushRow);
-      (portalState.adminData.results || []).forEach(pushRow);
+    const pushRow = (r, isCurrentUserHistory = false) => {
+      if (!r || typeof r !== 'object') return;
+      const uid = String(r.UserID || r.userId || (isCurrentUserHistory ? fallbackUid : '')).trim();
+      if (!uid) return;
+      const dt = String(r.Date || r.date || r.TypingDate || r.Timestamp || r.timestamp || '').trim();
+      const wpmKey = r.NetWPM ?? r.netWpm ?? r.NetSpeed ?? r.netSpeed ?? r.WPM ?? r.wpm ?? '';
+      const key = `${uid}|${dt}|${r.ExamName || r.examName || ''}|${wpmKey}`;
+      if (seenIds.has(key)) return;
+      seenIds.add(key);
+      historyPool.push({ ...r, _resolvedUid: uid });
+    };
+
+    if (portalState.adminData) {
+      (portalState.adminData.history || []).forEach(r => pushRow(r, false));
+      (portalState.adminData.results || []).forEach(r => pushRow(r, false));
     }
-    if (typeof portalState.allTestHistoryList !== 'undefined' && Array.isArray(portalState.allTestHistoryList)) {
-      portalState.allTestHistoryList.forEach(pushRow);
+    if (portalState.globalData) {
+      (portalState.globalData.history || []).forEach(r => pushRow(r, false));
+      (portalState.globalData.userHistory || []).forEach(r => pushRow(r, true));
+      (portalState.globalData.results || []).forEach(r => pushRow(r, false));
     }
-    if (typeof portalState.cachedTestHistory !== 'undefined' && Array.isArray(portalState.cachedTestHistory)) {
-      portalState.cachedTestHistory.forEach(pushRow);
+    if (Array.isArray(portalState.allTestHistoryList)) {
+      portalState.allTestHistoryList.forEach(r => pushRow(r, true));
+    }
+    if (Array.isArray(portalState.cachedTestHistory)) {
+      portalState.cachedTestHistory.forEach(r => pushRow(r, true));
     }
 
     const normBatch = (val) => {
@@ -2430,17 +2518,29 @@ export function computeLocalBatchLeaderboard(targetBatch, daysWindow) {
 
     const userBatchMap = {};
     const userNameMap = {};
-    if (typeof portalState.adminData !== 'undefined' && portalState.adminData && Array.isArray(portalState.adminData.users)) {
-      portalState.adminData.users.forEach((u) => {
-        const uid = String(u.UserID || u.userId || '').trim();
-        if (!uid) return;
-        userNameMap[uid] = String(u.Name || u.name || uid).trim();
-        userBatchMap[uid] = normBatch(u.Batch || u.batch);
-      });
+    const registerUser = (u) => {
+      if (!u || typeof u !== 'object') return;
+      const uid = String(u.UserID || u.userId || '').trim();
+      if (!uid) return;
+      if (!userNameMap[uid]) userNameMap[uid] = String(u.Name || u.name || uid).trim();
+      const rawBatch = String(u.Batch || u.batch || '').trim();
+      const assigned = typeof getUserAssignedBatchesList === 'function'
+        ? (getUserAssignedBatchesList(uid, rawBatch) || [])
+        : [];
+      const merged = assigned.length > 0 ? assigned.join(', ') : rawBatch;
+      if (merged) userBatchMap[uid] = normBatch(merged);
+    };
+    if (portalState.adminData && Array.isArray(portalState.adminData.users)) {
+      portalState.adminData.users.forEach(registerUser);
     }
-    if (typeof portalState.currentUser !== 'undefined' && portalState.currentUser && portalState.currentUser.userId) {
-      userNameMap[portalState.currentUser.userId] = portalState.currentUser.name || portalState.currentUser.userId;
-      userBatchMap[portalState.currentUser.userId] = normBatch(portalState.currentUser.batch || portalState.currentUser.Batch);
+    if (portalState.globalData && Array.isArray(portalState.globalData.users)) {
+      portalState.globalData.users.forEach(registerUser);
+    }
+    if (portalState.globalData && Array.isArray(portalState.globalData.batchStudentRoster)) {
+      portalState.globalData.batchStudentRoster.forEach(registerUser);
+    }
+    if (portalState.currentUser && portalState.currentUser.userId) {
+      registerUser(portalState.currentUser);
     }
 
     const agg = {};
@@ -2450,14 +2550,14 @@ export function computeLocalBatchLeaderboard(targetBatch, daysWindow) {
     }
 
     historyPool.forEach((r) => {
-      const uid = String(r.UserID || r.userId || '').trim();
+      const uid = String(r._resolvedUid || r.UserID || r.userId || '').trim();
       if (!uid) return;
       const examName = String(r.ExamName || r.examName || '').toLowerCase();
       if (examName.includes('cbt')) return; // WPM/Accuracy shorthand & typing leaderboard
 
-      const rawDate = r.Date || r.date || r.TypingDate || r.Timestamp || '';
-      const ts = rawDate ? new Date(rawDate).getTime() : 0;
-      if (ts && !isNaN(ts) && ts < cutoffMs) return;
+      const rawDate = r.Date || r.date || r.TypingDate || r.Timestamp || r.timestamp || '';
+      const ts = parseDateMs(rawDate);
+      if (ts > 0 && ts < cutoffMs) return;
 
       const userBatchStr = normBatch(r.Batch || r.batch || userBatchMap[uid]);
       const userBatches = userBatchStr.split(',').map((b) => normBatch(b)).filter(Boolean);
@@ -2468,15 +2568,19 @@ export function computeLocalBatchLeaderboard(targetBatch, daysWindow) {
         if (!match) return;
       }
 
-      const netWpm = parseFloat(r.NetWPM ?? r.netWpm ?? r.NetSpeed ?? r.WPM ?? r.wpm ?? 0) || 0;
-      const acc = parseFloat(r.AccuracyPercentage ?? r.accuracyPercentage ?? r.Accuracy ?? r.accuracy ?? 0) || 0;
+      const netWpm = parseFloat(
+        r.NetWPM ?? r.netWpm ?? r.NetSpeed ?? r.netSpeed ?? r.GrossWPM ?? r.grossWpm ?? r.grossSpeed ?? r.WPM ?? r.wpm ?? r.speed ?? 0
+      ) || 0;
+      const acc = parseFloat(
+        r.AccuracyPercentage ?? r.accuracyPercentage ?? r.Accuracy ?? r.accuracy ?? 0
+      ) || 0;
       if (netWpm <= 0 && acc <= 0) return;
 
       if (!agg[uid]) {
         agg[uid] = {
           userId: uid,
-          name: String(r.UserName || r.userName || r.Name || userNameMap[uid] || uid),
-          batch: userBatches[0] || 'RP-Trail',
+          name: String(r.UserName || r.userName || r.Name || r.name || userNameMap[uid] || uid),
+          batch: (targetBatch && targetBatch !== 'ALL') ? targetBatch : (userBatches[0] || 'RP-Trail'),
           testsCount: 0,
           wpmSum: 0,
           accSum: 0,
@@ -2543,37 +2647,67 @@ window.renderBatchLeaderboardTab = async function (forceServerFetch = false) {
     }
 
     const fetchKey = `${effectiveBatch}|${daysWindow}|${isAdminOrSuper ? 'adm' : 'usr'}`;
+    const normalizeServerRow = (r, idx) => {
+      const avgWpm = Number(parseFloat(r.avgWpm ?? r.AvgWPM ?? r.avgNetWpm ?? r.netWpm ?? r.NetWPM ?? r.wpm ?? r.WPM ?? 0).toFixed(1)) || 0;
+      const avgAcc = Number(parseFloat(r.avgAcc ?? r.AvgAcc ?? r.avgAccuracy ?? r.accuracy ?? r.Accuracy ?? 0).toFixed(1)) || 0;
+      const bestWpm = Number(parseFloat(r.bestWpm ?? r.BestWPM ?? r.peakWpm ?? avgWpm).toFixed(1)) || 0;
+      const testsCount = Number(r.testsCount ?? r.TestsCount ?? r.tests ?? r.count ?? 1) || 1;
+      const compositeScore = Number(parseFloat(r.compositeScore ?? r.CompositeScore ?? r.score ?? r.Score ?? ((avgWpm * 0.65) + (avgAcc * 0.35))).toFixed(2)) || 0;
+      return {
+        rank: Number(r.rank ?? r.Rank ?? (idx + 1)) || (idx + 1),
+        userId: String(r.userId ?? r.UserID ?? r.id ?? '').trim(),
+        name: String(r.name ?? r.Name ?? r.userName ?? r.UserName ?? r.userId ?? r.UserID ?? 'Student').trim(),
+        batch: String(r.batch ?? r.Batch ?? (effectiveBatch !== 'ALL' ? effectiveBatch : 'RP-Trail')).trim() || 'RP-Trail',
+        testsCount,
+        avgWpm,
+        avgAcc,
+        bestWpm,
+        compositeScore,
+        lastTestDate: String(r.lastTestDate ?? r.LastTestDate ?? '').trim()
+      };
+    };
 
-    if (forceServerFetch || lastLeaderboardFetchKey !== fetchKey) {
+    const shouldFetch = forceServerFetch || lastLeaderboardFetchKey !== fetchKey || !Array.isArray(cachedLeaderboardRows) || cachedLeaderboardRows.length === 0;
+    if (shouldFetch) {
       tableMount.innerHTML = `<div style="padding: 28px; text-align: center; color: var(--text-muted); font-size: 13px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading ${daysWindow}-day batch leaderboard...</div>`;
-      let fetchedFromServer = false;
+      let fetchedRows = [];
+      let fetchedBatches = [];
       if (typeof apiCall === 'function') {
         try {
           const res = await apiCall('getBatchLeaderboard', {
             batch: effectiveBatch,
             daysWindow: daysWindow
           }, true);
-          if (res && res.success && Array.isArray(res.leaderboard)) {
-            cachedLeaderboardRows = res.leaderboard;
-            cachedLeaderboardBatches = Array.isArray(res.batches) ? res.batches : [];
-            fetchedFromServer = true;
+          const rawArr = res && res.success
+            ? (Array.isArray(res.leaderboard) ? res.leaderboard : (Array.isArray(res.rows) ? res.rows : (Array.isArray(res.data) ? res.data : null)))
+            : null;
+          if (Array.isArray(rawArr)) {
+            fetchedRows = rawArr.map(normalizeServerRow).filter(r => r.userId || r.name);
+            fetchedBatches = Array.isArray(res.batches) ? res.batches : [];
           }
         } catch (e) {}
       }
-      if (!fetchedFromServer) {
-        const local = computeLocalBatchLeaderboard(effectiveBatch, daysWindow);
+
+      // Compute local fallback and use it whenever server returned empty or failed
+      const local = computeLocalBatchLeaderboard(effectiveBatch, daysWindow);
+      if (fetchedRows.length > 0) {
+        cachedLeaderboardRows = fetchedRows;
+        cachedLeaderboardBatches = Array.from(new Set([...fetchedBatches, ...local.batches]));
+      } else {
         cachedLeaderboardRows = local.rows;
-        cachedLeaderboardBatches = local.batches;
+        cachedLeaderboardBatches = Array.from(new Set([...fetchedBatches, ...local.batches]));
       }
+
       if (!isAdminOrSuper) {
         const targetLower = effectiveBatch.toLowerCase();
         cachedLeaderboardRows = (cachedLeaderboardRows || []).filter((r) => {
-          const rb = String(r.batch || 'RP-Trail').split(',').map((s) => s.trim().toLowerCase());
+          const rb = String(r.batch || effectiveBatch).split(',').map((s) => s.trim().toLowerCase());
           return rb.includes(targetLower);
         });
+        cachedLeaderboardRows.sort((a, b) => (b.compositeScore - a.compositeScore) || (b.avgWpm - a.avgWpm) || (b.avgAcc - a.avgAcc));
         cachedLeaderboardRows.forEach((r, idx) => { r.rank = idx + 1; });
       }
-      lastLeaderboardFetchKey = fetchKey;
+      lastLeaderboardFetchKey = cachedLeaderboardRows.length > 0 ? fetchKey : '';
     }
 
     // Sync batch dropdown choices — students ONLY see their enrolled batch(es)

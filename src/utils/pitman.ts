@@ -8,21 +8,35 @@ const STOP_WORDS = new Set([
   'before', 'being', 'between', 'under', 'where', 'while', 'shall', 'other',
 ]);
 
-export function extractHardWordsFromPassage(passage: string, limit: number = 15): string[] {
-  const tokens = String(passage || '')
+export function extractHardWordsFromPassage(passage: string, limit: number = 50): string[] {
+  const safeLimit = Math.max(1, limit);
+  const allTokens = String(passage || '')
     .split(/[^A-Za-z'-]+/)
-    .map((w) => w.trim())
-    .filter((w) => w.length >= 6 && !STOP_WORDS.has(w.toLowerCase()));
+    .map((w) => w.replace(/^['-]+|['-]+$/g, '').trim())
+    .filter((w) => w.length >= 5 && !STOP_WORDS.has(w.toLowerCase()));
 
-  const unique = new Map<string, string>();
-  for (const w of tokens) {
+  const uniqueLong = new Map<string, string>();
+  const uniqueMed = new Map<string, string>();
+  for (const w of allTokens) {
     const key = w.toLowerCase();
-    if (!unique.has(key)) unique.set(key, w);
+    if (w.length >= 6) {
+      if (!uniqueLong.has(key)) uniqueLong.set(key, w);
+    } else if (!uniqueLong.has(key) && !uniqueMed.has(key)) {
+      uniqueMed.set(key, w);
+    }
   }
 
-  return Array.from(unique.values())
-    .sort((a, b) => b.length - a.length || a.localeCompare(b))
-    .slice(0, Math.max(1, limit));
+  const longSorted = Array.from(uniqueLong.values()).sort(
+    (a, b) => b.length - a.length || a.localeCompare(b),
+  );
+  if (longSorted.length >= safeLimit) {
+    return longSorted.slice(0, safeLimit);
+  }
+
+  const medSorted = Array.from(uniqueMed.values()).sort(
+    (a, b) => b.length - a.length || a.localeCompare(b),
+  );
+  return [...longSorted, ...medSorted].slice(0, safeLimit);
 }
 
 /**

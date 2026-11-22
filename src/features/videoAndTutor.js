@@ -655,6 +655,15 @@ export function launchLearningEphemeralExercise() {
       `;
 
       configureActiveTestModalChrome('learning_exercise');
+      portalState.currentTestFontSize = fontSize;
+      document.documentElement.style.setProperty('--test-active-font-size', fontSize + 'px');
+      document.documentElement.style.setProperty('--mobile-test-font-size', fontSize + 'px');
+      const learningBadge = document.getElementById('test-header-font-size-badge');
+      if (learningBadge) learningBadge.textContent = fontSize + 'px';
+      const learningInput = document.getElementById('test-user-input');
+      if (learningInput) learningInput.style.setProperty('font-size', fontSize + 'px', 'important');
+      const learningPassage = document.getElementById('test-material-passage-text');
+      if (learningPassage) learningPassage.style.setProperty('font-size', fontSize + 'px', 'important');
       const rBanner = document.getElementById('mandatory-reading-phase-banner');
       if (rBanner) { rBanner.classList.add('hidden'); rBanner.style.display = 'none'; }
       document.getElementById('active-test-modal').style.display = 'flex'; if (typeof enterImmersiveFullscreenLock === 'function') enterImmersiveFullscreenLock('active-test-modal');

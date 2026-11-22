@@ -6,9 +6,9 @@
 
 import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
-import { onDomReady } from '../core/domReady.ts';
-import { _activeStreamTokens, carouselAutoTimers, getOrCreateStreamFooterEl, getUserCustomPreferences, isUserEmailAlreadyVerified, navigateTo, pruneExpiredNotifications24h, pushPortalNotification, renderAuthView, saveMaintenanceConfigToStorage, switchAuthTab, updateNavTabsMaintenanceBadges } from './authAndNavigation.js';
-import { ensureFreeBatchIncluded, getBatchMonitorsMap, getUserBatchAssignmentsMap, loadAdminData, parseBatchListValue, populateUploadCbtEvalRulesDropdown, renderAdminLogs, renderAdminMaterialsTable, renderAdminPerformanceDashboard, safeNotify, saveBatchMonitorsMap, saveInstituteBatchesList, saveUserBatchAssignmentsMap } from './adminPanel.js';
+import { onDomReady, yieldToMainFrame } from '../core/domReady.ts';
+import { _activeStreamTokens, carouselAutoTimers, getOrCreateStreamFooterEl, getUserCustomPreferences, isUserEmailAlreadyVerified, navigateTo, pruneExpiredNotifications24h, pushPortalNotification, pushPortalNotificationsBatch, renderAuthView, saveMaintenanceConfigToStorage, switchAuthTab, updateNavTabsMaintenanceBadges } from './authAndNavigation.js';
+import { ensureFreeBatchIncluded, getBatchMonitorsMap, getUserBatchAssignmentsMap, loadAdminData, mergeBatchMonitorsMaps, parseBatchListValue, populateUploadCbtEvalRulesDropdown, renderAdminLogs, renderAdminMaterialsTable, renderAdminPerformanceDashboard, safeNotify, saveBatchMonitorsMap, saveInstituteBatchesList, saveUserBatchAssignmentsMap } from './adminPanel.js';
 import { initLearningTypingTutor, renderVideoCourseView, toggleKeystrokeLatencyHeatmap } from './videoAndTutor.js';
 import { renderCbtTestCatalog, updateCbtRevisionCountsUI } from './cbtArena.js';
 import { getDateSpecificBannersMap, getWatermarkText, refreshVisibleDataLoadFooters, renderDashboardFreeTierNotice, renderDashboardUI, renderHelpAdminContacts, renderPitmanSubtabs, renderPromoBanner, renderSubtabs, saveDashboardCustomBannerConfig, saveDateSpecificBannersMap, setupAuthenticatedUI, syncProfileTabUI } from './dashboardAndProfile.js';
@@ -442,6 +442,7 @@ export function runOneTimeZeroSeedPurge() {
 export function clearTransientDataCachesOnRefresh(forceWipeFastCache = false) {
       runOneTimeZeroSeedPurge();
       if (forceWipeFastCache) {
+        cancelPendingFastPortalCacheSave();
         try {
           localStorage.removeItem(FAST_CACHE_KEY);
           if ('caches' in window && window.caches && typeof window.caches.keys === 'function') {
@@ -494,9 +495,18 @@ export function hydrateFastPortalCache() {
             if (parsed.globalData && typeof parsed.globalData === 'object') {
               portalState.globalData = { ...portalState.globalData, ...parsed.globalData };
             }
-            if (Array.isArray(parsed.materialsData)) portalState.materialsData = parsed.materialsData;
-            if (Array.isArray(parsed.subtabsData)) portalState.subtabsData = parsed.subtabsData;
-            if (Array.isArray(parsed.allTestHistoryList)) portalState.allTestHistoryList = parsed.allTestHistoryList;
+            if (Array.isArray(parsed.materialsData)) {
+              portalState.materialsData = parsed.materialsData;
+              if (portalState.globalData) portalState.globalData.materials = portalState.materialsData;
+            }
+            if (Array.isArray(parsed.subtabsData)) {
+              portalState.subtabsData = parsed.subtabsData;
+              if (portalState.globalData) portalState.globalData.subtabs = portalState.subtabsData;
+            }
+            if (Array.isArray(parsed.allTestHistoryList)) {
+              portalState.allTestHistoryList = parsed.allTestHistoryList;
+              if (portalState.globalData) portalState.globalData.history = portalState.allTestHistoryList;
+            }
             if (Array.isArray(parsed.adminUsers) && parsed.adminUsers.length > 0) {
               portalState.adminData = portalState.adminData || {};
               portalState.adminData.users = parsed.adminUsers;
@@ -507,18 +517,83 @@ export function hydrateFastPortalCache() {
       normalizeAllPortalCollections();
     }
 
-export function saveFastPortalCache() {
+let _fastCacheSaveTimer = null;
+let _fastCacheIdleId = null;
+let _fastCacheDirty = false;
+
+function cancelPendingFastPortalCacheSave() {
+      _fastCacheDirty = false;
+      if (_fastCacheSaveTimer) {
+        clearTimeout(_fastCacheSaveTimer);
+        _fastCacheSaveTimer = null;
+      }
+      if (_fastCacheIdleId !== null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+        try { window.cancelIdleCallback(_fastCacheIdleId); } catch (e) {}
+        _fastCacheIdleId = null;
+      }
+    }
+
+function flushFastPortalCacheNow() {
+      _fastCacheDirty = false;
+      _fastCacheSaveTimer = null;
+      _fastCacheIdleId = null;
       try {
-        normalizeAllPortalCollections();
-        localStorage.setItem(FAST_CACHE_KEY, JSON.stringify({
-          globalData: portalState.globalData,
-          materialsData: portalState.materialsData,
-          subtabsData: portalState.subtabsData,
+        // Avoid duplicating heavy arrays (materials, subtabs, history) inside globalData
+        const slimGlobal = portalState.globalData ? { ...portalState.globalData } : {};
+        delete slimGlobal.materials;
+        delete slimGlobal.subtabs;
+        delete slimGlobal.history;
+        delete slimGlobal.userHistory;
+
+        const payload = {
+          globalData: slimGlobal,
+          materialsData: portalState.materialsData || [],
+          subtabsData: portalState.subtabsData || [],
           allTestHistoryList: (portalState.allTestHistoryList || []).slice(0, 120),
           adminUsers: (portalState.adminData && Array.isArray(portalState.adminData.users)) ? portalState.adminData.users : [],
           savedAt: Date.now()
-        }));
+        };
+
+        // Strip oversized inline base64 data URIs (>16KB) from cached copy so localStorage stays tiny and fast on mobile
+        const serialized = JSON.stringify(payload, (_k, v) => {
+          if (typeof v === 'string' && v.length > 16384 && v.startsWith('data:')) {
+            return '';
+          }
+          return v;
+        });
+        localStorage.setItem(FAST_CACHE_KEY, serialized);
       } catch (e) {}
+    }
+
+if (typeof window !== 'undefined') {
+      window.addEventListener('pagehide', () => {
+        if (_fastCacheDirty) flushFastPortalCacheNow();
+      });
+    }
+
+export function saveFastPortalCache(immediate = false) {
+      if (immediate) {
+        cancelPendingFastPortalCacheSave();
+        flushFastPortalCacheNow();
+        return;
+      }
+      _fastCacheDirty = true;
+      if (_fastCacheSaveTimer) clearTimeout(_fastCacheSaveTimer);
+      if (_fastCacheIdleId !== null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+        try { window.cancelIdleCallback(_fastCacheIdleId); } catch (e) {}
+        _fastCacheIdleId = null;
+      }
+      _fastCacheSaveTimer = setTimeout(() => {
+        _fastCacheSaveTimer = null;
+        if (!_fastCacheDirty) return;
+        if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+          _fastCacheIdleId = window.requestIdleCallback(() => {
+            if (_fastCacheDirty) flushFastPortalCacheNow();
+          }, { timeout: 1500 });
+        } else {
+          flushFastPortalCacheNow();
+        }
+      }, 900);
     }
 
 window.buildRpEmptyStateHtml = function(title, description, actionLabel, actionOnClick) {
@@ -713,6 +788,7 @@ export function scanAndNotifyRecentUploads24h(dashRes) {
       };
 
       let addedNew = false;
+      const pendingAlerts = [];
 
       // 1. Check uploaded Materials (within last 7 days)
       if (Array.isArray(dashRes.materials)) {
@@ -724,7 +800,7 @@ export function scanAndNotifyRecentUploads24h(dashRes) {
             notifiedMap[id] = tMs;
             addedNew = true;
             const matType = String(m.Type || m.type || 'Material').toUpperCase();
-            pushPortalNotification({
+            pendingAlerts.push({
               id: 'UP-' + id,
               type: 'UPLOAD_ALERT',
               icon: '📤',
@@ -747,7 +823,7 @@ export function scanAndNotifyRecentUploads24h(dashRes) {
           if (tMs > 0 && (nowMs - tMs) <= NOTIFICATION_TTL_7D_MS) {
             notifiedMap[id] = tMs;
             addedNew = true;
-            pushPortalNotification({
+            pendingAlerts.push({
               id: 'HW-' + id,
               type: 'HOMEWORK_UPLOAD',
               icon: '📚',
@@ -770,7 +846,7 @@ export function scanAndNotifyRecentUploads24h(dashRes) {
           if (tMs > 0 && (nowMs - tMs) <= NOTIFICATION_TTL_7D_MS) {
             notifiedMap[id] = tMs;
             addedNew = true;
-            pushPortalNotification({
+            pendingAlerts.push({
               id: 'ANN-' + id,
               type: 'ANNOUNCEMENT_UPLOAD',
               icon: '📢',
@@ -782,6 +858,14 @@ export function scanAndNotifyRecentUploads24h(dashRes) {
             });
           }
         });
+      }
+
+      if (pendingAlerts.length > 0) {
+        if (typeof pushPortalNotificationsBatch === 'function') {
+          pushPortalNotificationsBatch(pendingAlerts);
+        } else {
+          pendingAlerts.forEach(alert => pushPortalNotification(alert));
+        }
       }
 
       if (addedNew) {
@@ -813,7 +897,7 @@ export function isMaterialTypeMatch(mType, targetType) {
       return false;
     }
 
-export function mergeMaterialsByType(type, incomingMaterials, incomingSubtabs) {
+export function mergeMaterialsByType(type, incomingMaterials, incomingSubtabs, options = {}) {
       const normType = String(type || '').toLowerCase().trim();
       if (Array.isArray(incomingMaterials) && incomingMaterials.length > 0) {
         const normalizedIncoming = incomingMaterials.map(normalizeMaterialRecord);
@@ -835,7 +919,9 @@ export function mergeMaterialsByType(type, incomingMaterials, incomingSubtabs) {
         }
         if (portalState.globalData) portalState.globalData.subtabs = portalState.subtabsData;
       }
-      saveFastPortalCache();
+      if (!options || !options.skipCache) {
+        saveFastPortalCache();
+      }
     }
 
 onDomReady(() => {
@@ -1054,7 +1140,7 @@ export async function syncPortalDataInBackground(force = false) {
               saveInstituteBatchesList(cleanServerBatches, false);
             }
             if (dashRes.batchMonitorsMap && typeof dashRes.batchMonitorsMap === 'object') {
-              saveBatchMonitorsMap({ ...getBatchMonitorsMap(), ...dashRes.batchMonitorsMap });
+              saveBatchMonitorsMap(mergeBatchMonitorsMaps(getBatchMonitorsMap(), dashRes.batchMonitorsMap));
             }
             if (Array.isArray(dashRes.batchGroupMessages)) {
               portalState.globalData.batchGroupMessages = dashRes.batchGroupMessages;
@@ -1125,6 +1211,12 @@ export async function syncPortalDataInBackground(force = false) {
               if (typeof initTypingTestWizard === 'function') initTypingTestWizard();
             } else if (portalState.activeTab === 'cbttest') {
               if (typeof renderCbtTestCatalog === 'function') renderCbtTestCatalog();
+            } else if (portalState.activeTab === 'batch-leaderboard') {
+              if (typeof window.renderBatchLeaderboardTab === 'function') window.renderBatchLeaderboardTab(false);
+            } else if (portalState.activeTab === 'batchhub') {
+              if (typeof window.renderDashboardBatchMonitoringHub === 'function') window.renderDashboardBatchMonitoringHub();
+              if (typeof window.renderBatchPollsWidget === 'function') window.renderBatchPollsWidget();
+              if (typeof window.renderBatchShorthandDoubtWall === 'function') window.renderBatchShorthandDoubtWall();
             } else if (portalState.activeTab === 'feedback' && typeof renderHelpAdminContacts === 'function') {
               renderHelpAdminContacts();
             } else if (portalState.activeTab === 'admin') {
@@ -1184,24 +1276,67 @@ export async function initApp() {
     }
 
 export async function fetchPublicFooterStats() {
+      const activeElement = document.getElementById('footer-active-users');
+      const userElement = document.getElementById('footer-total-users');
+      const visitElement = document.getElementById('footer-total-visits');
+
+      // Hydrate immediately from cached public stats so logged-out visitors never see 0 while fetching
+      try {
+        const cachedRaw = localStorage.getItem('rp_public_footer_stats_cache_v1');
+        if (cachedRaw) {
+          const cachedStats = JSON.parse(cachedRaw);
+          if (cachedStats && typeof cachedStats === 'object') {
+            if (!portalState.globalData) portalState.globalData = {};
+            portalState.globalData.stats = { ...(portalState.globalData.stats || {}), ...cachedStats };
+            portalState.globalData.activeUsers = Math.max(Number(portalState.globalData.activeUsers || 0), Number(cachedStats.activeUsers || 0), 1);
+            portalState.globalData.totalUsers = Math.max(Number(portalState.globalData.totalUsers || 0), Number(cachedStats.totalUsers || 0));
+            portalState.globalData.totalVisits = Math.max(Number(portalState.globalData.totalVisits || 0), Number(cachedStats.totalVisits || 0));
+            if (activeElement) activeElement.textContent = String(portalState.globalData.activeUsers);
+            if (userElement) userElement.textContent = String(portalState.globalData.totalUsers);
+            if (visitElement) visitElement.textContent = String(portalState.globalData.totalVisits);
+          }
+        }
+      } catch (e) {}
+
       const res = await apiCall('getPublicStats', {}, true);
       if (res && res.success) {
-        if (res.stats) {
-          const activeElement = document.getElementById('footer-active-users');
-          const userElement = document.getElementById('footer-total-users');
-          const visitElement = document.getElementById('footer-total-visits');
-          if (activeElement && res.stats.activeUsers !== undefined) activeElement.textContent = res.stats.activeUsers || 0;
-          if (userElement) userElement.textContent = res.stats.totalUsers || 0;
-          if (visitElement) visitElement.textContent = res.stats.totalVisits || 0;
-        }
+        const rawStats = (res.stats && typeof res.stats === 'object') ? res.stats : res;
+        const activeUsersVal = Math.max(Number(rawStats.activeUsers ?? rawStats.active_users ?? 0) || 0, 1);
+        const totalUsersVal = Number(rawStats.totalUsers ?? rawStats.total_users ?? 0) || 0;
+        const totalVisitsVal = Number(rawStats.totalVisits ?? rawStats.total_visits ?? 0) || 0;
+        if (!portalState.globalData) portalState.globalData = {};
+        portalState.globalData.stats = {
+          ...(portalState.globalData.stats || {}),
+          ...(res.stats && typeof res.stats === 'object' ? res.stats : {}),
+          activeUsers: activeUsersVal,
+          totalUsers: totalUsersVal,
+          totalVisits: totalVisitsVal
+        };
+        portalState.globalData.activeUsers = Math.max(Number(portalState.globalData.activeUsers || 0), activeUsersVal);
+        portalState.globalData.totalUsers = Math.max(Number(portalState.globalData.totalUsers || 0), totalUsersVal);
+        portalState.globalData.totalVisits = Math.max(Number(portalState.globalData.totalVisits || 0), totalVisitsVal);
+        try {
+          localStorage.setItem('rp_public_footer_stats_cache_v1', JSON.stringify({
+            activeUsers: portalState.globalData.activeUsers,
+            totalUsers: portalState.globalData.totalUsers,
+            totalVisits: portalState.globalData.totalVisits
+          }));
+        } catch (e) {}
+        if (activeElement) activeElement.textContent = String(portalState.globalData.activeUsers);
+        if (userElement) userElement.textContent = String(portalState.globalData.totalUsers);
+        if (visitElement) visitElement.textContent = String(portalState.globalData.totalVisits);
+
         const contacts = res.adminContacts || (res.stats && res.stats.adminContacts);
         if (Array.isArray(contacts) && contacts.length > 0) {
           portalState.globalData.adminContacts = contacts;
         }
         const topBanner = res.banner || (res.stats && res.stats.banner);
         if (topBanner && typeof topBanner === 'object') {
-          portalState.globalData.banner = topBanner;
-          try { localStorage.setItem('steno_public_top_banner', JSON.stringify(topBanner)); } catch (e) {}
+          let cachedTop = {};
+          try { cachedTop = JSON.parse(localStorage.getItem('steno_public_top_banner') || '{}') || {}; } catch (e) {}
+          const mergedBanner = { ...cachedTop, ...topBanner };
+          portalState.globalData.banner = mergedBanner;
+          try { localStorage.setItem('steno_public_top_banner', JSON.stringify(mergedBanner)); } catch (e) {}
         }
         const dashBanner = res.dashboardCustomBanner || (res.stats && res.stats.dashboardCustomBanner);
         if (dashBanner && typeof dashBanner === 'object') {
@@ -2278,6 +2413,15 @@ export let _toastHideTimer = null;
 export function showToast(msg) {
   const toast = document.getElementById("center-toast");
   if (!toast) return;
+  // Never display top/bottom toast popups while any timed exam (Typing/Pitman/Audio/CBT) or fullscreen viewer is active
+  if (
+    document.body.classList.contains('immersive-fullscreen-lock') ||
+    document.body.classList.contains('cbt-exam-fullscreen-lock') ||
+    document.body.classList.contains('rp-media-viewer-open')
+  ) {
+    toast.style.display = "none";
+    return;
+  }
   toast.innerText = msg;
   toast.style.display = "block";
   if (_toastHideTimer) clearTimeout(_toastHideTimer);
@@ -3599,6 +3743,7 @@ window.streamCollectionOneByOne = async function (opts) {
       fallbackParams = {},
       extractFallbackItems = null,
       onMeta = null,
+      onBatch = null,
       onRecord = null,
       onDone = null
     } = opts || {};
@@ -3659,6 +3804,23 @@ window.streamCollectionOneByOne = async function (opts) {
     let loadedCount = 0;
     let totalHint = 0;
     const maxSafetySteps = 600;
+    const chunkSize = 40;
+
+    async function deliverChunk(batchItems, startIdx) {
+      if (!batchItems || batchItems.length === 0) return;
+      if (_activeStreamTokens[key] !== token) return;
+      loadedCount += batchItems.length;
+      if (typeof onBatch === 'function') {
+        onBatch(batchItems, loadedCount, totalHint);
+      } else if (typeof onRecord === 'function') {
+        for (let b = 0; b < batchItems.length; b++) {
+          if (_activeStreamTokens[key] !== token) return;
+          onRecord(batchItems[b], startIdx + b, totalHint);
+        }
+      }
+      setFooterLoading(Math.min(totalHint || loadedCount, loadedCount), loadedCount, totalHint);
+      await yieldToMainFrame();
+    }
 
     async function runFallbackDrip() {
       if (!fallbackAction || typeof apiCall !== 'function') {
@@ -3676,12 +3838,10 @@ window.streamCollectionOneByOne = async function (opts) {
       if (typeof onMeta === 'function') onMeta(fbRes);
       const items = typeof extractFallbackItems === 'function' ? (extractFallbackItems(fbRes) || []) : [];
       totalHint = items.length;
-      for (let i = 0; i < items.length; i++) {
+      for (let i = 0; i < items.length; i += chunkSize) {
         if (_activeStreamTokens[key] !== token) return;
-        setFooterLoading(i + 1, loadedCount, totalHint);
-        loadedCount++;
-        if (typeof onRecord === 'function') onRecord(items[i], i, totalHint);
-        await new Promise((r) => setTimeout(r, 18));
+        const slice = items.slice(i, i + chunkSize);
+        await deliverChunk(slice, i);
       }
       if (_activeStreamTokens[key] !== token) return;
       setFooterDone(loadedCount);
@@ -3691,7 +3851,6 @@ window.streamCollectionOneByOne = async function (opts) {
     async function runLoop(startOffset) {
       let offset = startOffset;
       let steps = 0;
-      const chunkSize = 15;
       while (steps < maxSafetySteps) {
         if (_activeStreamTokens[key] !== token) return;
         setFooterLoading(offset + 1, loadedCount, totalHint);
@@ -3722,15 +3881,9 @@ window.streamCollectionOneByOne = async function (opts) {
           ? res.items
           : (res.record ? [res.record] : (res.item ? [res.item] : []));
 
-        for (let b = 0; b < batchItems.length; b++) {
+        if (batchItems.length > 0) {
+          await deliverChunk(batchItems, offset);
           if (_activeStreamTokens[key] !== token) return;
-          const curIdx = offset + b;
-          setFooterLoading(curIdx + 1, loadedCount, totalHint);
-          loadedCount++;
-          if (typeof onRecord === 'function') onRecord(batchItems[b], curIdx, totalHint);
-          if (b + 1 < batchItems.length) {
-            await new Promise((r) => setTimeout(r, 14));
-          }
         }
 
         if (!res.hasMore || batchItems.length === 0) {

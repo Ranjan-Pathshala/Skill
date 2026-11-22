@@ -1,52 +1,68 @@
-<!-- Custom Built-In Image Viewer Modal with Full Screen, Zoom In/Out/Reset, Rotate, Pan & Watermarks -->
+<!-- Custom Built-In Image Viewer Modal with Slim Collapsible Toolbar & Maximum Viewing Area -->
 <div class="modal-backdrop" id="embedded-image-modal" style="background: rgba(0,0,0,0.92); z-index: 7000; display: none; align-items: center; justify-content: center; padding: 0;">
-  <div class="modal-content watermark-text-container" style="background: #ffffff; width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: none; position: relative;">
-    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border); z-index: 20; background: #ffffff; flex-wrap: wrap; gap: 10px;">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-image" style="color: var(--primary);"></i>
-        <span id="embedded-image-title" style="font-weight: 800; font-size: 15px; color: var(--secondary);">Built-In Custom Image Viewer</span>
-        <span id="embedded-image-zoom-badge" style="font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(37,99,235,0.1); color: var(--primary);">100%</span>
+  <div class="modal-content watermark-text-container" style="background: #ffffff; width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: none; position: relative;">
+    <div id="embedded-image-top-bar" class="modal-header rp-compact-viewer-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; min-height: 40px; border-bottom: 1px solid var(--border); z-index: 25; background: #ffffff; gap: 6px; flex-wrap: nowrap; flex-shrink: 0;">
+      <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
+        <i class="fa-solid fa-image" style="color: var(--primary); font-size: 13px; flex-shrink: 0;"></i>
+        <span id="embedded-image-title" style="font-weight: 800; font-size: 12.5px; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Outline Viewer</span>
       </div>
-      <button type="button" class="btn btn-danger btn-sm" onclick="closeEmbeddedImageModal()"><i class="fa-solid fa-xmark"></i> Close Viewer</button>
+      <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+        <button type="button" class="rp-viewer-ico-btn" onclick="adjustCustomImageZoom(-0.25)" title="Zoom Out (-)" aria-label="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+        <span id="embedded-image-zoom-badge" class="mono-num" style="font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 6px; background: rgba(37,99,235,0.1); color: var(--primary); min-width: 40px; text-align: center;">100%</span>
+        <button type="button" class="rp-viewer-ico-btn" onclick="adjustCustomImageZoom(0.25)" title="Zoom In (+)" aria-label="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+        <button type="button" class="rp-viewer-ico-btn" onclick="rotateCustomImage(-90)" title="Rotate Left" aria-label="Rotate Left"><i class="fa-solid fa-rotate-left"></i></button>
+        <button type="button" class="rp-viewer-ico-btn" onclick="rotateCustomImage(90)" title="Rotate Right" aria-label="Rotate Right"><i class="fa-solid fa-rotate-right"></i></button>
+        <button type="button" class="rp-viewer-ico-btn" onclick="resetCustomImageZoom()" title="Reset 100%" aria-label="Reset Zoom"><i class="fa-solid fa-compress"></i></button>
+        <button type="button" class="rp-viewer-ico-btn" onclick="window.toggleCompactViewerChrome('embedded-image', true)" title="Hide Toolbar for Full Screen View" aria-label="Hide Toolbar"><i class="fa-solid fa-eye-slash"></i></button>
+        <button type="button" class="rp-viewer-ico-btn rp-viewer-close-btn" onclick="closeEmbeddedImageModal()" title="Close Viewer" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
     </div>
-    <div class="modal-body" id="embedded-image-scroll-stage" style="flex: 1; display: block; text-align: center; background: #f8fafc; position: relative; overflow: auto; padding: 16px; cursor: grab;">
+    <div id="embedded-image-restore-pill" class="rp-viewer-restore-pill" style="display: none;">
+      <button type="button" class="rp-viewer-ico-btn" onclick="window.toggleCompactViewerChrome('embedded-image', false)" title="Show Controls"><i class="fa-solid fa-sliders"></i></button>
+      <button type="button" class="rp-viewer-ico-btn rp-viewer-close-btn" onclick="closeEmbeddedImageModal()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" id="embedded-image-scroll-stage" style="flex: 1; min-height: 0; display: block; text-align: center; background: #f8fafc; position: relative; overflow: auto; padding: 6px; cursor: grab;">
       <div id="zoomable-image-wrapper" style="display: inline-block; width: 100%; min-width: 100%; position: relative; z-index: 5; text-align: center;">
-        <img id="embedded-modal-img" src="" draggable="false" style="width: auto; max-width: 92%; max-height: 82vh; object-fit: contain; display: inline-block; margin: 0 auto; box-shadow: 0 8px 30px rgba(0,0,0,0.12); background: #fff; border-radius: 6px; transition: width 0.15s ease;" onerror="this.src='https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_'">
+        <img id="embedded-modal-img" src="" draggable="false" style="width: auto; max-width: 98%; max-height: calc(100dvh - 54px); object-fit: contain; display: inline-block; margin: 0 auto; box-shadow: 0 4px 18px rgba(0,0,0,0.1); background: #fff; border-radius: 4px; transition: width 0.15s ease;" onerror="this.src='https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_'">
       </div>
-      <!-- Multiple Watermark Layer positioned ON TOP of the image with pointer-events: none -->
-      <div class="global-watermark-layer" style="position: fixed; top: 54px; left: 0; width: 100%; height: calc(100% - 110px); opacity: 0.16; z-index: 10; pointer-events: none; color: #0f172a;"></div>
-    </div>
-    <div style="background: #ffffff; border-top: 1px solid var(--border); padding: 12px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; z-index: 20;">
-      <button type="button" class="btn btn-secondary btn-sm" onclick="adjustCustomImageZoom(0.25)"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In (+)</button>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="adjustCustomImageZoom(-0.25)"><i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out (-)</button>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="rotateCustomImage(-90)"><i class="fa-solid fa-rotate-left"></i> Rotate Left</button>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="rotateCustomImage(90)"><i class="fa-solid fa-rotate-right"></i> Rotate Right</button>
-      <button type="button" class="btn btn-primary btn-sm" onclick="resetCustomImageZoom()"><i class="fa-solid fa-rotate"></i> Reset (100%)</button>
+      <!-- Watermark Layer positioned ON TOP of the image with pointer-events: none -->
+      <div class="global-watermark-layer" style="position: fixed; inset: 0; width: 100%; height: 100%; opacity: 0.14; z-index: 10; pointer-events: none; color: #0f172a;"></div>
     </div>
   </div>
 </div>
 
-<!-- Reader Modal (Updated for Full Screen Active View, Complete Watermark & Non-Saving Universal PDF Support) -->
-  <div class="modal-backdrop" id="reader-modal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--background); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 0;">
-    <div class="modal-content watermark-text-container" id="modal-watermark-container" style="width: 100vw !important; height: 100vh !important; max-width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; margin: 0 !important; display: flex; flex-direction: column; background: var(--background); position: relative; overflow: hidden;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 20; flex-shrink: 0;">
-        <span id="modal-title" style="font-weight: 800; font-size: 16px; color: var(--secondary);">Viewer</span>
-        <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 20px; color: var(--secondary);" onclick="closeModal()"></i>
+<!-- Reader Modal (Slim Single-Row Collapsible Toolbar for Maximum PDF Viewport) -->
+  <div class="modal-backdrop" id="reader-modal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh; background: var(--background); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 0;">
+    <div class="modal-content watermark-text-container" id="modal-watermark-container" style="width: 100vw !important; height: 100dvh !important; max-width: 100vw !important; max-height: 100dvh !important; border-radius: 0 !important; margin: 0 !important; display: flex; flex-direction: column; background: var(--background); position: relative; overflow: hidden;">
+      <div id="reader-modal-top-bar" class="modal-header rp-compact-viewer-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; min-height: 40px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 25; flex-shrink: 0; gap: 6px; flex-wrap: nowrap;">
+        <span id="modal-title" style="font-weight: 800; font-size: 12.5px; color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1;">Viewer</span>
+        <div id="reader-modal-inline-controls" style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;"></div>
+        <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+          <button type="button" class="rp-viewer-ico-btn" onclick="window.toggleCompactViewerChrome('reader', true)" title="Hide Toolbar for Full Screen View" aria-label="Hide Toolbar"><i class="fa-solid fa-eye-slash"></i></button>
+          <button type="button" class="rp-viewer-ico-btn rp-viewer-close-btn" onclick="closeModal()" title="Close Viewer" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div id="reader-restore-pill" class="rp-viewer-restore-pill" style="display: none;">
+        <button type="button" class="rp-viewer-ico-btn" onclick="window.toggleCompactViewerChrome('reader', false)" title="Show PDF Controls"><i class="fa-solid fa-sliders"></i></button>
+        <button type="button" class="rp-viewer-ico-btn rp-viewer-close-btn" onclick="closeModal()" title="Close"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <!-- Complete Dynamic Watermark Layer -->
       <div class="global-watermark-layer" style="opacity: 0.14; z-index: 10; pointer-events: none;"></div>
-      <div class="modal-body" id="modal-viewport" style="flex: 1; min-height: 0; display: block; padding: 0; position: relative; background: var(--background); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;"></div>
+      <div class="modal-body" id="modal-viewport" style="flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0; position: relative; background: var(--background); overflow: hidden; -webkit-overflow-scrolling: touch;"></div>
     </div>
   </div>
 
-<!-- Dedicated Reference Video Player Modal -->
-  <div class="modal-backdrop" id="reference-video-modal" style="background: rgba(0,0,0,0.9); z-index: 6500; display: none; align-items: center; justify-content: center; padding: 16px;">
-    <div class="modal-content" style="background: var(--surface); width: 100%; max-width: 900px; height: 85vh; border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px var(--shadow);">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border);">
-        <span id="ref-video-modal-title" style="font-weight: 700; font-size: 15px; color: var(--secondary);">Reference Video Player</span>
-        <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 18px;" onclick="closeReferenceVideoModal()"></i>
+<!-- Dedicated Reference Video Player Modal (Ultra-Slim Header + On-Demand Jump Controls for Maximum Video Screen) -->
+  <div class="modal-backdrop" id="reference-video-modal" style="background: rgba(0,0,0,0.95); z-index: 6500; display: none; align-items: center; justify-content: center; padding: 0;">
+    <div class="modal-content" style="background: #000; width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: none; position: relative;">
+      <div id="ref-video-top-bar" class="modal-header rp-compact-viewer-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 5px 10px; min-height: 38px; border-bottom: 1px solid #1e293b; background: #0f172a; color: #f8fafc; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
+        <span id="ref-video-modal-title" style="font-weight: 700; font-size: 12.5px; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1;">Reference Video Player</span>
+        <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+          <button type="button" id="ref-video-toggle-jump-btn" class="rp-viewer-ico-btn rp-viewer-dark-btn" style="width: auto; padding: 0 8px; gap: 4px; font-size: 11px; font-weight: 700;" onclick="window.toggleRefVideoJumpToolbar()" title="Show / Hide Jump to Time Controls"><i class="fa-solid fa-clock"></i> <span>Jump</span></button>
+          <button type="button" class="rp-viewer-ico-btn rp-viewer-close-btn" onclick="closeReferenceVideoModal()" title="Close Video" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
       </div>
-      <div class="modal-body" id="ref-video-modal-viewport" style="flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; padding: 0;"></div>
+      <div class="modal-body" id="ref-video-modal-viewport" style="flex: 1; min-height: 0; display: flex; align-items: stretch; justify-content: center; background: #000; position: relative; padding: 0; overflow: hidden;"></div>
     </div>
   </div>
 
@@ -121,58 +137,70 @@
   <div class="modal-backdrop" id="active-test-modal" style="background: rgba(0,0,0,0.95); z-index: 5000;">
     <div class="modal-content" style="max-width: 100vw; width: 100vw; height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; background: var(--background); overflow: hidden;">
       
-<div class="modal-header" style="background: var(--surface); color: var(--secondary); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; flex-shrink: 0;">
-        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 140px;">
-          <span style="font-size: 14.5px; font-weight: 800; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+<div class="modal-header" id="active-test-modal-header" style="background: var(--surface); color: var(--secondary); border-bottom: 1px solid var(--border); padding: 4px 10px; min-height: 38px; display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; gap: 6px; flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;">
+          <span style="font-size: 12.5px; font-weight: 800; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0;">
             <i class="fa-solid fa-feather"></i> <span id="test-modal-title">Stenoshala Shorthand Academy</span>
           </span>
         </div>
-        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-          <button type="button" id="mobile-exam-focus-toggle-btn" class="btn btn-sm btn-secondary" style="display: none; border-radius: 20px; font-weight: 700; font-size: 11.5px; padding: 4px 10px;" onclick="toggleMobileExamFocusMode()" title="Compact Mobile View">
-            <i class="fa-solid fa-sliders"></i> <span id="mobile-exam-focus-label">Compact</span>
-          </button>
-          <div id="test-header-font-zoom-wrap" style="display: inline-flex; align-items: center; gap: 3px; background: var(--background); border: 1px solid var(--border); border-radius: 20px; padding: 2px 6px;">
-            <button type="button" id="test-header-font-minus-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 800; font-size: 11px; padding: 2px 8px; min-height: 24px; border: none;" onclick="adjustTestFontSize(-2)" title="Decrease Text Size">A-</button>
-            <span id="test-header-font-size-badge" class="mono-num" style="font-size: 11px; font-weight: 700; color: var(--secondary); min-width: 34px; text-align: center;">16px</span>
-            <button type="button" id="test-header-font-plus-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 800; font-size: 11px; padding: 2px 8px; min-height: 24px; border: none;" onclick="adjustTestFontSize(2)" title="Increase Text Size">A+</button>
-            <button type="button" id="test-header-font-reset-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 700; font-size: 10.5px; padding: 2px 7px; min-height: 24px; border: none; color: var(--primary);" onclick="adjustTestFontSize(0)" title="Reset Text Size">Reset</button>
+        <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+          <span id="test-header-inline-words" class="mono-num" style="display: none; font-size: 11px; font-weight: 800; color: var(--secondary); background: var(--background); border: 1px solid var(--border); padding: 2px 7px; border-radius: 12px; white-space: nowrap;">0w</span>
+          <div id="test-timer-pill-wrap" style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 14px; font-weight: 800; font-size: 11.5px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fa-regular fa-clock" id="test-timer-icon" style="color: var(--primary); font-size: 11px;"></i>
+            <span id="test-timer" class="mono-num" style="color: var(--primary); font-weight: 900; font-size: 12px;">--:--</span>
           </div>
-          <button type="button" id="test-header-quick-submit-btn" class="btn btn-sm btn-primary" style="border-radius: 20px; font-weight: 800; font-size: 11.5px; padding: 4px 11px;" onclick="submitStenoTest(event)" title="Submit Test Now"><i class="fa-solid fa-check"></i> <span class="rp-mobile-hide-label">Submit</span></button>
-          <button type="button" id="test-header-exit-btn" class="btn btn-sm btn-danger" style="border-radius: 20px; font-weight: 700; font-size: 11.5px; padding: 4px 10px;" onclick="cancelStenoTest()" title="Exit Test"><i class="fa-solid fa-xmark"></i> <span class="rp-mobile-hide-label">Exit</span></button>
-          <div id="test-timer-pill-wrap" style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 12px; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(37,99,235,0.12);">
-            <i class="fa-regular fa-clock" id="test-timer-icon" style="color: var(--primary);"></i>
-            <span class="rp-mobile-hide-label" style="color: #1e3a8a;">TIME:</span> <span id="test-timer" class="mono-num" style="color: var(--primary); font-weight: 900; font-size: 13px;">--:--</span>
-          </div>
-          <button type="button" id="test-fullscreen-toggle-btn" class="btn btn-sm btn-secondary" style="border-radius: 20px; font-weight: 700; font-size: 11.5px; padding: 4px 10px;" onclick="toggleFullscreen()" title="Toggle Full Screen"><i class="fa-solid fa-expand"></i> <span class="rp-mobile-hide-label">Full Screen</span></button>
+          <button type="button" id="test-tools-drawer-toggle-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 700; font-size: 11px; padding: 3px 8px; min-height: 26px; display: none; align-items: center; gap: 4px; white-space: nowrap;" onclick="window.toggleActiveTestToolsBar()" title="Show / Hide Zoom, Hall Noise &amp; Stats"><i class="fa-solid fa-sliders"></i> <span>Tools</span></button>
+          <button type="button" id="test-header-quick-submit-btn" class="btn btn-sm btn-primary" style="border-radius: 14px; font-weight: 800; font-size: 11px; padding: 3px 9px; min-height: 26px; display: none;" onclick="submitStenoTest(event)" title="Submit Test Now"><i class="fa-solid fa-check"></i> <span class="rp-mobile-hide-label">Submit</span></button>
+          <button type="button" id="test-header-exit-btn" class="btn btn-sm btn-danger" style="border-radius: 14px; font-weight: 700; font-size: 11px; padding: 3px 8px; min-height: 26px;" onclick="cancelStenoTest()" title="Exit Test"><i class="fa-solid fa-xmark"></i> <span class="rp-mobile-hide-label">Exit</span></button>
         </div>
       </div>
 
       <!-- Visual Countdown Progress Bar for Stenography Dictation & Typing Exams -->
-      <div id="test-timer-visual-progress-wrap" style="width: 100%; height: 5px; background: #e2e8f0; overflow: hidden; flex-shrink: 0;">
+      <div id="test-timer-visual-progress-wrap" style="width: 100%; height: 3px; background: #e2e8f0; overflow: hidden; flex-shrink: 0;">
         <div id="test-timer-visual-progress-fill" style="width: 100%; height: 100%; background: linear-gradient(90deg, #10b981, #2563eb); transition: width 0.95s linear, background 0.3s ease;"></div>
       </div>
 
-      <!-- LIVE TYPING STATUS BAR WHILE TYPING -->
-      <div id="live-typing-status-bar" style="background: var(--status-bar-bg); border-bottom: 1px solid var(--status-bar-border); padding: 7px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 12.5px; font-weight: 700; color: var(--status-bar-text); flex-shrink: 0;">
-        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <span id="live-typing-indicator" style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 20px; background: #dbeafe; color: #1d4ed8;">
-            <i class="fa-solid fa-circle" style="font-size: 8px;"></i> Ready to Type
+      <!-- COLLAPSIBLE COMPACT TEST TOOLS & LIVE STATUS BAR (Zoom, Hall Noise, Live Stats, Full Screen) -->
+      <div id="live-typing-status-bar" style="background: var(--status-bar-bg); border-bottom: 1px solid var(--status-bar-border); padding: 5px 10px; display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--status-bar-text); flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <span id="live-typing-indicator" style="display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 14px; background: #dbeafe; color: #1d4ed8; font-size: 11px;">
+            <i class="fa-solid fa-circle" style="font-size: 7px;"></i> Ready
           </span>
-          <span id="live-exam-rule-badge" style="color: var(--text-muted); font-weight: 700;">Rule: Standard</span>
+          <span id="live-exam-rule-badge" style="color: var(--text-muted); font-weight: 700; font-size: 11px;">Standard</span>
+          <div id="test-header-font-zoom-wrap" style="display: inline-flex; align-items: center; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1px 4px;">
+            <button type="button" id="test-header-font-minus-btn" class="btn btn-sm btn-secondary" style="border-radius: 12px; font-weight: 800; font-size: 10.5px; padding: 1px 6px; min-height: 22px; border: none;" onclick="adjustTestFontSize(-2)" title="Decrease Text Size">A-</button>
+            <span id="test-header-font-size-badge" class="mono-num" style="font-size: 10.5px; font-weight: 700; color: var(--secondary); min-width: 30px; text-align: center;">16px</span>
+            <button type="button" id="test-header-font-plus-btn" class="btn btn-sm btn-secondary" style="border-radius: 12px; font-weight: 800; font-size: 10.5px; padding: 1px 6px; min-height: 22px; border: none;" onclick="adjustTestFontSize(2)" title="Increase Text Size">A+</button>
+            <button type="button" id="test-header-font-reset-btn" class="btn btn-sm btn-secondary" style="border-radius: 12px; font-weight: 700; font-size: 10px; padding: 1px 5px; min-height: 22px; border: none; color: var(--primary);" onclick="adjustTestFontSize(0)" title="Reset Text Size">Reset</button>
+          </div>
+          <button type="button" id="test-fullscreen-toggle-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 700; font-size: 10.5px; padding: 2px 7px; min-height: 22px;" onclick="toggleFullscreen()" title="Toggle Full Screen"><i class="fa-solid fa-expand"></i> <span>Full Screen</span></button>
         </div>
-        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
           <span>Words: <strong id="live-stat-words" style="color: var(--primary);">0 (1-Space)</strong></span>
           <span>Strokes: <strong id="live-stat-strokes" style="color: var(--secondary);">0</strong></span>
-          <span id="live-stat-wpm-wrap" style="display: none;">Live Speed: <strong id="live-stat-wpm" style="color: #10b981;">0 WPM</strong></span>
-          <span>Backspaces: <strong id="live-stat-backspaces" style="color: #ef4444;">0 / Unlimited</strong></span>
-          <label id="live-status-hall-sound-wrap" style="display: none; align-items: center; gap: 6px; background: rgba(37,99,235,0.1); padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(37,99,235,0.28); font-size: 11.5px; font-weight: 800; cursor: pointer; margin: 0; color: var(--primary);">
-            <i class="fa-solid fa-volume-high"></i> Hall Sound
-            <input type="checkbox" id="status-bar-hall-sound-chk" class="exam-hall-sound-chk" style="cursor: pointer; width: 14px; height: 14px; margin: 0;" onchange="toggleExamHallSoundFromStatusBar(this.checked)">
-          </label>
+          <span id="live-stat-wpm-wrap" style="display: none;">Speed: <strong id="live-stat-wpm" style="color: #10b981;">0 WPM</strong></span>
+          <span>BS: <strong id="live-stat-backspaces" style="color: #ef4444;">0 / Unlimited</strong></span>
+          <div id="live-status-hall-sound-wrap" style="display: none; align-items: center; gap: 5px; background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(37,99,235,0.28); font-size: 11px; font-weight: 800; margin: 0; color: var(--primary); flex-wrap: wrap;">
+            <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; margin: 0; color: var(--primary);">
+              <i class="fa-solid fa-volume-high"></i> Hall Noise
+              <input type="checkbox" id="status-bar-hall-sound-chk" class="exam-hall-sound-chk" style="cursor: pointer; width: 13px; height: 13px; margin: 0;" onchange="toggleExamHallSoundFromStatusBar(this.checked)">
+            </label>
+            <select id="status-bar-hall-profile-select" class="exam-hall-profile-select" onchange="changeExamHallNoiseProfile(this.value)" title="Exam Hall Noise Profile" style="margin: 0; padding: 1px 5px; font-size: 10.5px; font-weight: 700; border-radius: 999px; border: 1px solid rgba(37,99,235,0.3); background: var(--surface); color: var(--secondary); cursor: pointer;">
+              <option value="full_mix">Full Hall</option>
+              <option value="keys_only">Keyboards</option>
+              <option value="fan_hum">Fan &amp; AC</option>
+              <option value="cough_rustle">Footsteps</option>
+            </select>
+            <select id="status-bar-hall-vol-select" class="exam-hall-vol-select" onchange="changeExamHallNoiseVolume(this.value)" title="Hall Noise Volume" style="margin: 0; padding: 1px 4px; font-size: 10.5px; font-weight: 700; border-radius: 999px; border: 1px solid rgba(37,99,235,0.3); background: var(--surface); color: var(--secondary); cursor: pointer;">
+              <option value="30">Low</option>
+              <option value="60" selected>Med</option>
+              <option value="95">High</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <div id="modal-hindi-keymap-overlay" style="display: none; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;"></div>
+      <div id="modal-hindi-keymap-overlay" style="display: none; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;"></div>
 
       <!-- Full-Screen Exclusive Animated Shorthand Reading Time Overlay (Nothing else shown while active) -->
       <div id="mandatory-reading-phase-banner" class="hidden" style="display: none;">
@@ -216,26 +244,26 @@
       </div>
 
       <!-- Pre-Dictation Hard Words Preview Glossary Drawer -->
-      <div id="modal-hard-words-glossary-box" class="hidden" style="background: #064e3b; color: #ecfdf5; padding: 10px 16px; border-bottom: 1px solid #10b981; flex-shrink: 0;">
+      <div id="modal-hard-words-glossary-box" class="hidden" style="background: #064e3b; color: #ecfdf5; padding: 8px 12px; border-bottom: 1px solid #10b981; flex-shrink: 0;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11.5px; font-weight: 800;">
-          <span><i class="fa-solid fa-spell-check"></i> Pre-Dictation Top 15 Hard / Legal Words Glossary (Click any word for Pitman Outline)</span>
+          <span><i class="fa-solid fa-spell-check"></i> Pre-Dictation Top 50 Hard / Legal Words Glossary (Click any word for Pitman Outline)</span>
           <button type="button" class="btn btn-sm btn-secondary" style="padding: 1px 7px; font-size: 10px;" onclick="document.getElementById('modal-hard-words-glossary-box').classList.add('hidden')">Close</button>
         </div>
         <div id="modal-hard-words-chips" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
       </div>
 
-      <!-- Main Test Content Body (Scrollable & Flexible) -->
-      <div class="modal-body watermark-text-container" id="test-main-body-container" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; flex: 1; padding: 12px; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch;">
+      <!-- Main Test Content Body (Scrollable & Flexible, Maximized Viewport Area) -->
+      <div class="modal-body watermark-text-container" id="test-main-body-container" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; flex: 1; padding: 6px 8px; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch;">
       </div>
 
-<!-- Footer Controls for Test (Requirement #4 & #10: Cancel Test Bottom Button + Min Time Period Submit Lock) -->
-      <div id="active-test-footer-bar" style="background: var(--surface); border-top: 1px solid var(--border); padding: 12px 16px; display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; z-index: 100; flex-shrink: 0; width: 100%; position: sticky; bottom: 0; box-shadow: 0 -4px 15px rgba(0,0,0,0.1);">
-        <div id="test-min-time-lock-badge" style="display: none; flex: 1.2; min-width: 200px; padding: 11px 16px; border-radius: 20px; font-weight: 800; font-size: 13px; background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.4); text-align: center;">
-          <i class="fa-solid fa-hourglass-half"></i> Submit Unlocks After Min Time Period (<span id="test-min-time-countdown">0</span>s left)
+<!-- Compact Footer Controls for Test -->
+      <div id="active-test-footer-bar" style="background: var(--surface); border-top: 1px solid var(--border); padding: 6px 10px; display: flex; gap: 8px; justify-content: space-between; align-items: center; flex-wrap: nowrap; z-index: 100; flex-shrink: 0; width: 100%; position: sticky; bottom: 0;">
+        <div id="test-min-time-lock-badge" style="display: none; flex: 1.2; min-width: 140px; padding: 6px 10px; border-radius: 14px; font-weight: 800; font-size: 11.5px; background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.4); text-align: center;">
+          <i class="fa-solid fa-hourglass-half"></i> Unlocks in <span id="test-min-time-countdown">0</span>s
         </div>
-        <button type="button" id="test-submit-btn" class="btn btn-primary" style="padding: 12px 20px; border-radius: 20px; font-weight: 700; flex: 1.2; min-width: 150px; font-size: 14px; box-shadow: 0 4px 12px rgba(37,99,235,0.3);" onclick="submitStenoTest(event)"><i class="fa-solid fa-check"></i> Submit Test</button>
-        <button type="button" id="test-pause-btn" class="btn btn-secondary" style="padding: 12px 20px; border-radius: 20px; font-weight: 700; background: var(--surface); flex: 1; min-width: 130px; font-size: 14px; border: 1px solid var(--border);" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
-        <button type="button" id="test-cancel-bottom-btn" class="btn btn-danger" style="padding: 12px 20px; border-radius: 20px; font-weight: 700; flex: 0.9; min-width: 110px; font-size: 14px;" onclick="cancelStenoTest()"><i class="fa-solid fa-right-from-bracket"></i> Exit Test</button>
+        <button type="button" id="test-submit-btn" class="btn btn-primary" style="padding: 6px 14px; border-radius: 14px; font-weight: 800; flex: 1.2; min-height: 34px; font-size: 12.5px;" onclick="submitStenoTest(event)"><i class="fa-solid fa-check"></i> Submit Test</button>
+        <button type="button" id="test-pause-btn" class="btn btn-secondary" style="padding: 6px 12px; border-radius: 14px; font-weight: 700; background: var(--surface); flex: 1; min-height: 34px; font-size: 12.5px; border: 1px solid var(--border);" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause</button>
+        <button type="button" id="test-cancel-bottom-btn" class="btn btn-danger" style="padding: 6px 12px; border-radius: 14px; font-weight: 700; flex: 0.8; min-height: 34px; font-size: 12.5px;" onclick="cancelStenoTest()"><i class="fa-solid fa-right-from-bracket"></i> Exit</button>
       </div>
 
     </div>

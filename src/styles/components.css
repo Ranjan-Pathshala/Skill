@@ -165,7 +165,95 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
       border: 1px dashed var(--border);
       background: var(--surface);
       color: var(--text-muted);
-      min-height: 54px;
+      min-height: 46px;
+    }
+
+@keyframes rpStreamCardIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+.rp-stream-card-in {
+      animation: rpStreamCardIn 0.18s ease-out both;
+    }
+
+.rp-viewer-ico-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      min-height: 28px !important;
+      padding: 0;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--background);
+      color: var(--secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background-color 0.14s ease, color 0.14s ease;
+    }
+
+.rp-viewer-ico-btn:hover:not(:disabled) {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+.rp-viewer-ico-btn:disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+    }
+
+.rp-viewer-ico-btn.rp-viewer-close-btn {
+      background: #ef4444;
+      color: #ffffff;
+      border-color: #ef4444;
+    }
+
+.rp-viewer-ico-btn.rp-viewer-close-btn:hover {
+      background: #dc2626;
+      border-color: #dc2626;
+    }
+
+.rp-viewer-ico-btn.rp-viewer-dark-btn {
+      background: #1e293b;
+      color: #f8fafc;
+      border-color: #334155;
+    }
+
+.rp-viewer-ico-btn.rp-viewer-dark-btn:hover {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #ffffff;
+    }
+
+.rp-viewer-restore-pill {
+      position: fixed;
+      top: 8px;
+      right: 10px;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+@media (max-width: 640px) {
+      .rp-compact-viewer-bar {
+        padding: 4px 6px !important;
+        gap: 4px !important;
+      }
+      .rp-viewer-ico-btn {
+        width: 26px;
+        height: 26px;
+        min-height: 26px !important;
+        font-size: 11px;
+      }
     }
 
 .nav-tab-btn:hover {
@@ -494,7 +582,7 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
         min-height: 26vh !important;
         max-height: var(--mobile-test-ref-max-h, 35vh) !important;
         padding: 12px 14px !important;
-        font-size: var(--mobile-test-font-size, 17px) !important;
+        font-size: var(--test-active-font-size, var(--mobile-test-font-size, 16px));
         line-height: 1.68 !important;
         flex-shrink: 0 !important;
         border-radius: 10px !important;
@@ -511,7 +599,7 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
         max-height: 75vh !important;
         height: 100% !important;
         padding: 12px 14px !important;
-        font-size: var(--mobile-test-font-size, 17px) !important;
+        font-size: var(--test-active-font-size, var(--mobile-test-font-size, 16px));
         line-height: 1.65 !important;
         border-width: 2px !important;
         border-radius: 10px !important;
