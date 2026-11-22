@@ -2688,7 +2688,7 @@ window.handleBrandLogoClick = function() {
     if (!isUserAuthenticated()) {
       syncAuthHeaderAndMenuVisibility();
       if (typeof switchAuthTab === 'function') switchAuthTab('login');
-      if (typeof showToast === 'function') showToast('🔒 Please log in first to access the Dashboard and Portal tabs.');
+      if (typeof showToast === 'function') showToast('');
       return;
     }
     if (typeof navigateTo === 'function') {
@@ -2704,7 +2704,7 @@ document.addEventListener('click', function(e) {
       syncAuthHeaderAndMenuVisibility();
       if (typeof switchAuthTab === 'function') switchAuthTab('login');
       if (typeof showToast === 'function') {
-        showToast('🔒 Please log in first to access the Dashboard and Portal tabs.');
+        showToast('');
       }
     }
   }, true);
