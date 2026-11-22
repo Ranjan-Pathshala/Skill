@@ -1,0 +1,709 @@
+<!-- Custom Built-In Image Viewer Modal with Full Screen, Zoom In/Out/Reset, Rotate, Pan & Watermarks -->
+<div class="modal-backdrop" id="embedded-image-modal" style="background: rgba(0,0,0,0.92); z-index: 7000; display: none; align-items: center; justify-content: center; padding: 0;">
+  <div class="modal-content watermark-text-container" style="background: #ffffff; width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: none; position: relative;">
+    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border); z-index: 20; background: #ffffff; flex-wrap: wrap; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-image" style="color: var(--primary);"></i>
+        <span id="embedded-image-title" style="font-weight: 800; font-size: 15px; color: var(--secondary);">Built-In Custom Image Viewer</span>
+        <span id="embedded-image-zoom-badge" style="font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(37,99,235,0.1); color: var(--primary);">100%</span>
+      </div>
+      <button type="button" class="btn btn-danger btn-sm" onclick="closeEmbeddedImageModal()"><i class="fa-solid fa-xmark"></i> Close Viewer</button>
+    </div>
+    <div class="modal-body" id="embedded-image-scroll-stage" style="flex: 1; display: block; text-align: center; background: #f8fafc; position: relative; overflow: auto; padding: 16px; cursor: grab;">
+      <div id="zoomable-image-wrapper" style="display: inline-block; width: 100%; min-width: 100%; position: relative; z-index: 5; text-align: center;">
+        <img id="embedded-modal-img" src="" draggable="false" style="width: auto; max-width: 92%; max-height: 82vh; object-fit: contain; display: inline-block; margin: 0 auto; box-shadow: 0 8px 30px rgba(0,0,0,0.12); background: #fff; border-radius: 6px; transition: width 0.15s ease;" onerror="this.src='https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_'">
+      </div>
+      <!-- Multiple Watermark Layer positioned ON TOP of the image with pointer-events: none -->
+      <div class="global-watermark-layer" style="position: fixed; top: 54px; left: 0; width: 100%; height: calc(100% - 110px); opacity: 0.16; z-index: 10; pointer-events: none; color: #0f172a;"></div>
+    </div>
+    <div style="background: #ffffff; border-top: 1px solid var(--border); padding: 12px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; z-index: 20;">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="adjustCustomImageZoom(0.25)"><i class="fa-solid fa-magnifying-glass-plus"></i> Zoom In (+)</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="adjustCustomImageZoom(-0.25)"><i class="fa-solid fa-magnifying-glass-minus"></i> Zoom Out (-)</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="rotateCustomImage(-90)"><i class="fa-solid fa-rotate-left"></i> Rotate Left</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="rotateCustomImage(90)"><i class="fa-solid fa-rotate-right"></i> Rotate Right</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="resetCustomImageZoom()"><i class="fa-solid fa-rotate"></i> Reset (100%)</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reader Modal (Updated for Full Screen Active View, Complete Watermark & Non-Saving Universal PDF Support) -->
+  <div class="modal-backdrop" id="reader-modal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--background); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 0;">
+    <div class="modal-content watermark-text-container" id="modal-watermark-container" style="width: 100vw !important; height: 100vh !important; max-width: 100vw !important; max-height: 100vh !important; border-radius: 0 !important; margin: 0 !important; display: flex; flex-direction: column; background: var(--background); position: relative; overflow: hidden;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 20; flex-shrink: 0;">
+        <span id="modal-title" style="font-weight: 800; font-size: 16px; color: var(--secondary);">Viewer</span>
+        <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 20px; color: var(--secondary);" onclick="closeModal()"></i>
+      </div>
+      <!-- Complete Dynamic Watermark Layer -->
+      <div class="global-watermark-layer" style="opacity: 0.14; z-index: 10; pointer-events: none;"></div>
+      <div class="modal-body" id="modal-viewport" style="flex: 1; min-height: 0; display: block; padding: 0; position: relative; background: var(--background); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;"></div>
+    </div>
+  </div>
+
+<!-- Dedicated Reference Video Player Modal -->
+  <div class="modal-backdrop" id="reference-video-modal" style="background: rgba(0,0,0,0.9); z-index: 6500; display: none; align-items: center; justify-content: center; padding: 16px;">
+    <div class="modal-content" style="background: var(--surface); width: 100%; max-width: 900px; height: 85vh; border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px var(--shadow);">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border);">
+        <span id="ref-video-modal-title" style="font-weight: 700; font-size: 15px; color: var(--secondary);">Reference Video Player</span>
+        <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 18px;" onclick="closeReferenceVideoModal()"></i>
+      </div>
+      <div class="modal-body" id="ref-video-modal-viewport" style="flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; padding: 0;"></div>
+    </div>
+  </div>
+
+  <!-- Universal Media Player Modal (Handles YouTube, Drive, GitHub, and Direct Links) -->
+  <div class="modal-backdrop" id="universal-media-modal" style="background: rgba(0,0,0,0.85); z-index: 6000; display: none; align-items: center; justify-content: center; padding: 20px;">
+    <div class="modal-content" style="background: var(--surface); width: 100%; max-width: 900px; height: 80vh; border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px var(--shadow);">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border);">
+        <span id="universal-modal-title" style="font-weight: 700; font-size: 15px; color: var(--secondary);">Media Player</span>
+        <i class="fa-solid fa-xmark" style="cursor: pointer; font-size: 18px;" onclick="closeUniversalMediaModal()"></i>
+      </div>
+      <div class="modal-body" id="universal-modal-viewport" style="flex: 1; display: flex; align-items: center; justify-content: center; background: #000; position: relative; padding: 0;"></div>
+    </div>
+  </div>
+
+  <!-- Exam Selection Modal when clicking "Transcribe Now" (Card Format + Full Rule Details Below) -->
+  <div class="modal-backdrop" id="transcribe-exam-select-modal" style="background: rgba(15, 23, 42, 0.88); z-index: 6200; display: none; align-items: center; justify-content: center; padding: 16px;">
+    <div class="modal-content" style="background: var(--surface); width: 100%; max-width: 820px; max-height: 90vh; overflow-y: auto; border-radius: 18px; padding: 22px 24px; box-shadow: 0 24px 60px rgba(0,0,0,0.45); border: 1px solid var(--border);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 700; color: var(--primary); margin-bottom: 2px;">Commission Evaluation Engine</div>
+          <h4 style="margin: 0; color: var(--secondary); font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Select Evaluation Rule for Transcription
+          </h4>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeTranscribeExamSelector()">✕ Close</button>
+      </div>
+
+      <!-- Search, Quick Filter Chips & Sort Bar for Large Rule Libraries -->
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 10px 12px; background: var(--background); border: 1px solid var(--border); border-radius: 12px;">
+        <div style="position: relative; flex: 1; min-width: 220px;">
+          <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 12px; pointer-events: none;"></i>
+          <input type="text" id="transcribe-rule-search-input" class="form-control" placeholder="Search exam rule by name, commission, minutes, or accuracy..." style="padding: 7px 32px 7px 32px; font-size: 12.5px; min-height: 36px; margin: 0;" autocomplete="off">
+          <button type="button" id="transcribe-rule-search-clear-btn" style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px;" title="Clear search">✕</button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <select id="transcribe-rule-filter-select" class="form-control" style="width: auto; min-width: 140px; padding: 6px 10px; font-size: 12px; min-height: 36px; margin: 0;">
+            <option value="all">Filter: All Rules</option>
+            <option value="short">Duration ≤ 10 Mins</option>
+            <option value="long">Duration &gt; 10 Mins</option>
+            <option value="bs_locked">Backspace Restricted</option>
+            <option value="5stroke">5-Stroke Formula</option>
+            <option value="1space">1-Space Formula</option>
+          </select>
+          <select id="transcribe-rule-sort-select" class="form-control" style="width: auto; min-width: 135px; padding: 6px 10px; font-size: 12px; min-height: 36px; margin: 0;">
+            <option value="name_asc">Sort: Name (A–Z)</option>
+            <option value="time_asc">Sort: Shortest First</option>
+            <option value="time_desc">Sort: Longest First</option>
+            <option value="acc_desc">Sort: Strictest Pass %</option>
+          </select>
+          <span id="transcribe-rule-match-count" style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); white-space: nowrap;">0 rules</span>
+        </div>
+      </div>
+
+      <!-- Hidden select preserved for backward compatibility -->
+      <select id="transcribe-exam-dropdown" class="form-control" style="display: none;" onchange="previewSelectedTranscribeExamRule()"></select>
+      <!-- Scrollable Interactive Rule Cards Grid (Handles 50+ Rules Cleanly) -->
+      <div id="transcribe-exam-cards-grid" class="rp-interactive-card-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 12px; max-height: 34vh; overflow-y: auto; padding: 4px 2px;"></div>
+      <!-- Complete Rule Details Panel Shown Directly Below Clicked Card -->
+      <div id="transcribe-exam-rule-preview" style="background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 14px; font-size: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px 14px; margin-bottom: 14px;"></div>
+      <div style="display: flex; gap: 10px; justify-content: flex-end; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 12px;">
+        <button type="button" class="btn btn-secondary" onclick="closeTranscribeExamSelector()">
+          <i class="fa-solid fa-arrow-left"></i> Back
+        </button>
+        <button type="button" class="btn btn-primary" style="padding: 10px 22px; font-weight: 800; box-shadow: 0 6px 16px rgba(37,99,235,0.28);" onclick="confirmExamAndStartTranscription()">
+          <i class="fa-solid fa-keyboard"></i> Confirm Rule &amp; Launch Transcription
+        </button>
+      </div>
+    </div>
+  </div>
+
+<!-- Active Test / Audio / Pitman / Typing Exam Modal -->
+  <div class="modal-backdrop" id="active-test-modal" style="background: rgba(0,0,0,0.95); z-index: 5000;">
+    <div class="modal-content" style="max-width: 100vw; width: 100vw; height: 100vh; height: 100dvh; max-height: 100vh; max-height: 100dvh; border-radius: 0; display: flex; flex-direction: column; background: var(--background); overflow: hidden;">
+      
+<div class="modal-header" style="background: var(--surface); color: var(--secondary); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 140px;">
+          <span style="font-size: 14.5px; font-weight: 800; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <i class="fa-solid fa-feather"></i> <span id="test-modal-title">Stenoshala Shorthand Academy</span>
+          </span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <button type="button" id="mobile-exam-focus-toggle-btn" class="btn btn-sm btn-secondary" style="display: none; border-radius: 20px; font-weight: 700; font-size: 11.5px; padding: 4px 10px;" onclick="toggleMobileExamFocusMode()" title="Compact Mobile View">
+            <i class="fa-solid fa-sliders"></i> <span id="mobile-exam-focus-label">Compact</span>
+          </button>
+          <div id="test-header-font-zoom-wrap" style="display: inline-flex; align-items: center; gap: 3px; background: var(--background); border: 1px solid var(--border); border-radius: 20px; padding: 2px 6px;">
+            <button type="button" id="test-header-font-minus-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 800; font-size: 11px; padding: 2px 8px; min-height: 24px; border: none;" onclick="adjustTestFontSize(-2)" title="Decrease Text Size">A-</button>
+            <span id="test-header-font-size-badge" class="mono-num" style="font-size: 11px; font-weight: 700; color: var(--secondary); min-width: 34px; text-align: center;">16px</span>
+            <button type="button" id="test-header-font-plus-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 800; font-size: 11px; padding: 2px 8px; min-height: 24px; border: none;" onclick="adjustTestFontSize(2)" title="Increase Text Size">A+</button>
+            <button type="button" id="test-header-font-reset-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 700; font-size: 10.5px; padding: 2px 7px; min-height: 24px; border: none; color: var(--primary);" onclick="adjustTestFontSize(0)" title="Reset Text Size">Reset</button>
+          </div>
+          <button type="button" id="test-header-quick-submit-btn" class="btn btn-sm btn-primary" style="border-radius: 20px; font-weight: 800; font-size: 11.5px; padding: 4px 11px;" onclick="submitStenoTest(event)" title="Submit Test Now"><i class="fa-solid fa-check"></i> <span class="rp-mobile-hide-label">Submit</span></button>
+          <button type="button" id="test-header-exit-btn" class="btn btn-sm btn-danger" style="border-radius: 20px; font-weight: 700; font-size: 11.5px; padding: 4px 10px;" onclick="cancelStenoTest()" title="Exit Test"><i class="fa-solid fa-xmark"></i> <span class="rp-mobile-hide-label">Exit</span></button>
+          <div id="test-timer-pill-wrap" style="background: linear-gradient(135deg, #eff6ff, #dbeafe); border: 1px solid #93c5fd; padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 12px; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 6px rgba(37,99,235,0.12);">
+            <i class="fa-regular fa-clock" id="test-timer-icon" style="color: var(--primary);"></i>
+            <span class="rp-mobile-hide-label" style="color: #1e3a8a;">TIME:</span> <span id="test-timer" class="mono-num" style="color: var(--primary); font-weight: 900; font-size: 13px;">--:--</span>
+          </div>
+          <button type="button" id="test-fullscreen-toggle-btn" class="btn btn-sm btn-secondary" style="border-radius: 20px; font-weight: 700; font-size: 11.5px; padding: 4px 10px;" onclick="toggleFullscreen()" title="Toggle Full Screen"><i class="fa-solid fa-expand"></i> <span class="rp-mobile-hide-label">Full Screen</span></button>
+        </div>
+      </div>
+
+      <!-- Visual Countdown Progress Bar for Stenography Dictation & Typing Exams -->
+      <div id="test-timer-visual-progress-wrap" style="width: 100%; height: 5px; background: #e2e8f0; overflow: hidden; flex-shrink: 0;">
+        <div id="test-timer-visual-progress-fill" style="width: 100%; height: 100%; background: linear-gradient(90deg, #10b981, #2563eb); transition: width 0.95s linear, background 0.3s ease;"></div>
+      </div>
+
+      <!-- LIVE TYPING STATUS BAR WHILE TYPING -->
+      <div id="live-typing-status-bar" style="background: var(--status-bar-bg); border-bottom: 1px solid var(--status-bar-border); padding: 7px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 12.5px; font-weight: 700; color: var(--status-bar-text); flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span id="live-typing-indicator" style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 20px; background: #dbeafe; color: #1d4ed8;">
+            <i class="fa-solid fa-circle" style="font-size: 8px;"></i> Ready to Type
+          </span>
+          <span id="live-exam-rule-badge" style="color: var(--text-muted); font-weight: 700;">Rule: Standard</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+          <span>Words: <strong id="live-stat-words" style="color: var(--primary);">0 (1-Space)</strong></span>
+          <span>Strokes: <strong id="live-stat-strokes" style="color: var(--secondary);">0</strong></span>
+          <span id="live-stat-wpm-wrap" style="display: none;">Live Speed: <strong id="live-stat-wpm" style="color: #10b981;">0 WPM</strong></span>
+          <span>Backspaces: <strong id="live-stat-backspaces" style="color: #ef4444;">0 / Unlimited</strong></span>
+          <label id="live-status-hall-sound-wrap" style="display: none; align-items: center; gap: 6px; background: rgba(37,99,235,0.1); padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(37,99,235,0.28); font-size: 11.5px; font-weight: 800; cursor: pointer; margin: 0; color: var(--primary);">
+            <i class="fa-solid fa-volume-high"></i> Hall Sound
+            <input type="checkbox" id="status-bar-hall-sound-chk" class="exam-hall-sound-chk" style="cursor: pointer; width: 14px; height: 14px; margin: 0;" onchange="toggleExamHallSoundFromStatusBar(this.checked)">
+          </label>
+        </div>
+      </div>
+
+      <div id="modal-hindi-keymap-overlay" style="display: none; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;"></div>
+
+      <!-- Full-Screen Exclusive Animated Shorthand Reading Time Overlay (Nothing else shown while active) -->
+      <div id="mandatory-reading-phase-banner" class="hidden" style="display: none;">
+        <div style="max-width: 660px; width: 100%; text-align: center; background: rgba(15, 23, 42, 0.85); border: 2px solid rgba(245, 158, 11, 0.55); border-radius: 28px; padding: 36px 28px; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.65); backdrop-filter: blur(16px); animation: rpSlideFadeIn 0.35s ease;">
+          <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 999px; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.5); color: #fbbf24; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 20px;">
+            <i class="fa-solid fa-book-open-reader"></i> Official Commission Reading Time Phase
+          </div>
+
+          <h2 id="mandatory-reading-exam-heading" style="margin: 0 0 10px 0; font-size: clamp(20px, 3.2vw, 28px); font-weight: 900; color: #ffffff; letter-spacing: -0.4px;">
+            Read Back Your Shorthand Outlines Carefully
+          </h2>
+          <p id="mandatory-reading-rule-label" style="margin: 0 auto 24px auto; max-width: 540px; font-size: 13.5px; line-height: 1.6; color: #cbd5e1; font-weight: 500;">
+            Auto-fetched from selected Evaluation Rule. Review your shorthand notebook outlines before the transcription timer begins.
+          </p>
+
+          <!-- Animated Circular Progress Ring + Glowing Countdown Clock -->
+          <div style="position: relative; width: 210px; height: 210px; margin: 0 auto 24px auto; display: flex; align-items: center; justify-content: center; border-radius: 50%; animation: rpReadingPulseRing 2.4s infinite ease-in-out;">
+            <svg width="210" height="210" viewBox="0 0 210 210" style="position: absolute; inset: 0; transform: rotate(-90deg);">
+              <circle cx="105" cy="105" r="92" fill="none" stroke="rgba(255, 255, 255, 0.1)" stroke-width="10"></circle>
+              <circle id="mandatory-reading-progress-circle" cx="105" cy="105" r="92" fill="none" stroke="#f59e0b" stroke-width="10" stroke-linecap="round" stroke-dasharray="578" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.9s linear;"></circle>
+            </svg>
+            <div style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center;">
+              <span style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: #94a3b8; margin-bottom: 4px;">Reading Time Left</span>
+              <span id="mandatory-reading-timer-display" style="font-family: 'JetBrains Mono', monospace; font-size: 44px; font-weight: 900; color: #fbbf24; line-height: 1; text-shadow: 0 0 24px rgba(245, 158, 11, 0.45);">02:00</span>
+              <div style="display: flex; align-items: flex-end; gap: 4px; height: 18px; margin-top: 10px;">
+                <span style="width: 4px; height: 16px; background: #10b981; border-radius: 99px; animation: rpReadingWaveBar 0.9s infinite ease-in-out 0.1s;"></span>
+                <span style="width: 4px; height: 18px; background: #38bdf8; border-radius: 99px; animation: rpReadingWaveBar 0.9s infinite ease-in-out 0.25s;"></span>
+                <span style="width: 4px; height: 14px; background: #f59e0b; border-radius: 99px; animation: rpReadingWaveBar 0.9s infinite ease-in-out 0.4s;"></span>
+                <span style="width: 4px; height: 18px; background: #a855f7; border-radius: 99px; animation: rpReadingWaveBar 0.9s infinite ease-in-out 0.55s;"></span>
+                <span style="width: 4px; height: 15px; background: #10b981; border-radius: 99px; animation: rpReadingWaveBar 0.9s infinite ease-in-out 0.7s;"></span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; padding: 14px 28px; font-size: 15px; font-weight: 900; border-radius: 14px; box-shadow: 0 12px 28px rgba(16, 185, 129, 0.35); cursor: pointer;" onclick="skipMandatoryReadingPhaseAndUnlock()">
+              <i class="fa-solid fa-forward-fast"></i> Skip Reading Time &amp; Start Test Now
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pre-Dictation Hard Words Preview Glossary Drawer -->
+      <div id="modal-hard-words-glossary-box" class="hidden" style="background: #064e3b; color: #ecfdf5; padding: 10px 16px; border-bottom: 1px solid #10b981; flex-shrink: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11.5px; font-weight: 800;">
+          <span><i class="fa-solid fa-spell-check"></i> Pre-Dictation Top 15 Hard / Legal Words Glossary (Click any word for Pitman Outline)</span>
+          <button type="button" class="btn btn-sm btn-secondary" style="padding: 1px 7px; font-size: 10px;" onclick="document.getElementById('modal-hard-words-glossary-box').classList.add('hidden')">Close</button>
+        </div>
+        <div id="modal-hard-words-chips" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+      </div>
+
+      <!-- Main Test Content Body (Scrollable & Flexible) -->
+      <div class="modal-body watermark-text-container" id="test-main-body-container" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 12px; flex: 1; padding: 12px; overflow-y: auto; min-height: 0; -webkit-overflow-scrolling: touch;">
+      </div>
+
+<!-- Footer Controls for Test (Requirement #4 & #10: Cancel Test Bottom Button + Min Time Period Submit Lock) -->
+      <div id="active-test-footer-bar" style="background: var(--surface); border-top: 1px solid var(--border); padding: 12px 16px; display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; z-index: 100; flex-shrink: 0; width: 100%; position: sticky; bottom: 0; box-shadow: 0 -4px 15px rgba(0,0,0,0.1);">
+        <div id="test-min-time-lock-badge" style="display: none; flex: 1.2; min-width: 200px; padding: 11px 16px; border-radius: 20px; font-weight: 800; font-size: 13px; background: rgba(245, 158, 11, 0.14); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.4); text-align: center;">
+          <i class="fa-solid fa-hourglass-half"></i> Submit Unlocks After Min Time Period (<span id="test-min-time-countdown">0</span>s left)
+        </div>
+        <button type="button" id="test-submit-btn" class="btn btn-primary" style="padding: 12px 20px; border-radius: 20px; font-weight: 700; flex: 1.2; min-width: 150px; font-size: 14px; box-shadow: 0 4px 12px rgba(37,99,235,0.3);" onclick="submitStenoTest(event)"><i class="fa-solid fa-check"></i> Submit Test</button>
+        <button type="button" id="test-pause-btn" class="btn btn-secondary" style="padding: 12px 20px; border-radius: 20px; font-weight: 700; background: var(--surface); flex: 1; min-width: 130px; font-size: 14px; border: 1px solid var(--border);" onclick="togglePauseStenoTest()"><i class="fa-solid fa-pause"></i> Pause Test</button>
+        <button type="button" id="test-cancel-bottom-btn" class="btn btn-danger" style="padding: 12px 20px; border-radius: 20px; font-weight: 700; flex: 0.9; min-width: 110px; font-size: 14px;" onclick="cancelStenoTest()"><i class="fa-solid fa-right-from-bracket"></i> Exit Test</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Live Camera Capture Modal for Shorthand Notebook Pad -->
+  <div class="modal-backdrop" id="shorthand-pad-camera-modal" style="display: none; z-index: 99999; background: rgba(15,23,42,0.88); align-items: center; justify-content: center; padding: 16px;">
+    <div class="modal-content" style="max-width: 640px; width: 100%; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 24px 60px rgba(0,0,0,0.45);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <div>
+          <h4 style="margin: 0; font-size: 15.5px; font-weight: 800; color: var(--secondary);"><i class="fa-solid fa-camera" style="color: var(--primary);"></i> Capture Shorthand Notebook Photo</h4>
+          <p style="margin: 2px 0 0 0; font-size: 11.5px; color: var(--text-muted);">Hold your shorthand pad clearly in frame and click Snap Photo.</p>
+        </div>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="closeShorthandPadCameraModal()">✕ Close</button>
+      </div>
+      <div id="shorthand-pad-camera-stage" style="position: relative; width: 100%; aspect-ratio: 4 / 3; background: #0f172a; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+        <video id="shorthand-pad-camera-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+        <div id="shorthand-pad-camera-error" style="display: none; padding: 20px; text-align: center; color: #f8fafc; font-size: 12.5px; line-height: 1.5;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="switchShorthandPadCameraFacing()">
+          <i class="fa-solid fa-camera-rotate"></i> Switch Camera
+        </button>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeShorthandPadCameraModal(); document.getElementById('steno-pad-camera-input')?.click();">
+            <i class="fa-solid fa-image"></i> Upload Image File Instead
+          </button>
+          <button type="button" id="shorthand-pad-snap-btn" class="btn btn-primary btn-sm" style="padding: 8px 18px; font-weight: 800;" onclick="captureShorthandPadPhotoFromCamera()">
+            <i class="fa-solid fa-circle-dot"></i> Snap Photo
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-Resolution Lightbox Viewer for Shorthand Pad Photos (Student / Monitor / Admin / Superadmin) -->
+  <div class="modal-backdrop" id="shorthand-pad-lightbox-modal" style="display: none; z-index: 99999; background: rgba(15,23,42,0.92); align-items: center; justify-content: center; padding: 16px;" onclick="if(event.target===this) closeShorthandPadLightbox()">
+    <div class="modal-content" style="max-width: 960px; width: 100%; max-height: 92vh; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <div id="shorthand-pad-lightbox-title" style="font-size: 14px; font-weight: 800; color: var(--secondary);">Shorthand Notebook Page Preview</div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button type="button" class="btn btn-sm btn-secondary" onclick="adjustShorthandPadLightboxZoom(-0.25)">-</button>
+          <span id="shorthand-pad-lightbox-zoom-label" class="mono-num" style="font-size: 11.5px; font-weight: 700;">100%</span>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="adjustShorthandPadLightboxZoom(0.25)">+</button>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="adjustShorthandPadLightboxZoom(0)">Reset</button>
+          <button type="button" class="btn btn-sm btn-danger" onclick="closeShorthandPadLightbox()">✕ Close</button>
+        </div>
+      </div>
+      <div style="flex: 1; overflow: auto; background: #0f172a; border-radius: 10px; padding: 12px; text-align: center; min-height: 300px; max-height: 74vh;">
+        <img id="shorthand-pad-lightbox-img" src="" alt="Shorthand Notebook Page" style="max-width: 100%; height: auto; border-radius: 6px; transition: width 0.15s ease; display: inline-block;">
+      </div>
+    </div>
+  </div>
+
+  <!-- 👉 NEW: NON-BLOCKING TOP SYNC PROGRESS BAR & PILL FOR INSTANT TAB SWITCHING UX -->
+  <div id="top-sync-progress-bar" style="position: fixed; top: 0; left: 0; width: 0%; height: 3px; background: linear-gradient(90deg, #4f46e5, #06b6d4, #10b981); z-index: 99999; transition: width 0.35s ease, opacity 0.3s ease; opacity: 0; pointer-events: none;"></div>
+  <div id="bg-sync-status-pill" style="position: fixed; bottom: 16px; right: 16px; background: rgba(15, 23, 42, 0.92); color: #f8fafc; padding: 7px 14px; border-radius: 999px; font-size: 11px; font-weight: 700; display: none; align-items: center; gap: 8px; z-index: 9999; box-shadow: 0 6px 20px rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.12); pointer-events: none;">
+    <i class="fa-solid fa-rotate fa-spin" style="color: #38bdf8;"></i>
+    <span id="bg-sync-status-text">Syncing latest data in background...</span>
+  </div>
+
+  <!-- 👉 UPGRADED: COMPLETE TOPPERS LEADERBOARD MODAL (Today, Weekly & All-Time + Category Filters) -->
+  <div class="modal-backdrop" id="today-full-leaderboard-modal" style="z-index: 6200; display: none;">
+    <div class="modal-content" style="max-width: 920px; width: 95%; max-height: 88vh; border-radius: 16px; padding: 22px; background: var(--surface); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h3 style="margin: 0; color: var(--primary); font-size: 18px;"><i class="fa-solid fa-ranking-star"></i> Complete Toppers Leaderboard (Weekly, All-Time &amp; Today)</h3>
+          <p style="margin: 3px 0 0 0; font-size: 12px; color: var(--text-muted);">Rankings across Typing Test, Stenography (Audio &amp; Pitman), Learning Typing, and CBT Exams</p>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <div style="display: inline-flex; background: var(--background); padding: 3px; border-radius: 8px; border: 1px solid var(--border); gap: 4px;" id="modal-lb-timeframe-group">
+            <button type="button" class="btn btn-sm btn-primary" data-modaltf="weekly" onclick="switchModalLeaderboardTimeframe('weekly', this)" style="font-size: 11px; padding: 4px 10px;">📆 Weekly</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-modaltf="alltime" onclick="switchModalLeaderboardTimeframe('alltime', this)" style="font-size: 11px; padding: 4px 10px;">🏆 All-Time</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-modaltf="today" onclick="switchModalLeaderboardTimeframe('today', this)" style="font-size: 11px; padding: 4px 10px;">⚡ Today</button>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="document.getElementById('today-full-leaderboard-modal').style.display='none'"><i class="fa-solid fa-xmark"></i> Close</button>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-sm btn-primary today-lb-tab-btn" data-lbtab="ALL" onclick="renderTodayFullLeaderboardModalTable('ALL', this)">🏆 All Categories</button>
+        <button class="btn btn-sm btn-secondary today-lb-tab-btn" data-lbtab="typing" onclick="renderTodayFullLeaderboardModalTable('typing', this)">⌨️ Typing Rankers</button>
+        <button class="btn btn-sm btn-secondary today-lb-tab-btn" data-lbtab="pitman" onclick="renderTodayFullLeaderboardModalTable('pitman', this)">📖 Pitman Rankers</button>
+        <button class="btn btn-sm btn-secondary today-lb-tab-btn" data-lbtab="audio" onclick="renderTodayFullLeaderboardModalTable('audio', this)">🎧 Audio Dictation Rankers</button>
+        <button class="btn btn-sm btn-secondary today-lb-tab-btn" data-lbtab="learning" onclick="renderTodayFullLeaderboardModalTable('learning', this)">🎓 Learning Typing Rankers</button>
+        <button class="btn btn-sm btn-secondary today-lb-tab-btn" data-lbtab="cbt" onclick="renderTodayFullLeaderboardModalTable('cbt', this)">🖥️ CBT Exam Rankers</button>
+      </div>
+      <div id="today-full-leaderboard-my-summary" style="background: rgba(79,70,229,0.08); border: 1px solid rgba(79,70,229,0.25); padding: 10px 14px; border-radius: 10px; font-size: 12px; font-weight: 700; color: var(--secondary);"></div>
+      <div id="today-full-leaderboard-table-wrap" style="overflow-y: auto; flex: 1; border: 1px solid var(--border); border-radius: 10px;"></div>
+    </div>
+  </div>
+
+  <!-- 👉 REQUIREMENT #6: OFFICIAL VERIFIABLE ACHIEVEMENT CERTIFICATE GENERATOR MODAL -->
+  <div class="modal-backdrop" id="official-certificate-modal" style="z-index: 6400; display: none;">
+    <div class="modal-content" style="max-width: 860px; width: 95%; max-height: 92vh; border-radius: 16px; padding: 22px; background: var(--surface); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h3 style="margin: 0; color: var(--primary); font-size: 18px;"><i class="fa-solid fa-certificate" style="color: #f59e0b;"></i> Official Proficiency &amp; Streak Certificate Generator</h3>
+          <p style="margin: 3px 0 0 0; font-size: 12px; color: var(--text-muted);">Customize or auto-fill from your verified test records &amp; print or save as PDF</p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="printOrDownloadOfficialCertificate()">
+            <i class="fa-solid fa-print"></i> Print / Save Certificate PDF
+          </button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('official-certificate-modal').style.display='none'">
+            <i class="fa-solid fa-xmark"></i> Close
+          </button>
+        </div>
+      </div>
+
+      <!-- Certificate Customization Toolbar -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; background: var(--background); padding: 12px; border-radius: 10px; border: 1px solid var(--border);">
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted);">Candidate Full Name</label>
+          <input type="text" id="cert-candidate-name-input" class="form-control" style="padding: 6px 10px; font-size: 12px; font-weight: 800;" oninput="renderOfficialCertificatePreview()">
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted);">Certificate Stream</label>
+          <select id="cert-stream-select" class="form-control" style="padding: 6px 10px; font-size: 12px; font-weight: 700;" onchange="renderOfficialCertificatePreview()">
+            <option value="Stenography & Transcription Proficiency">🎧 Stenography &amp; Transcription Proficiency</option>
+            <option value="Touch Typing Speed & Accuracy Excellence">⌨️ Touch Typing Speed &amp; Accuracy Excellence</option>
+            <option value="Pitman Shorthand Mastery">📖 Pitman Shorthand Mastery</option>
+            <option value="All-India CBT & Skill Test Merit">🏆 All-India CBT &amp; Skill Test Merit</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted);">Verified Speed / Score</label>
+          <input type="text" id="cert-speed-score-input" class="form-control" style="padding: 6px 10px; font-size: 12px; font-weight: 800;" oninput="renderOfficialCertificatePreview()">
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: 700; color: var(--text-muted);">Accuracy &amp; Streak</label>
+          <input type="text" id="cert-acc-streak-input" class="form-control" style="padding: 6px 10px; font-size: 12px; font-weight: 800;" oninput="renderOfficialCertificatePreview()">
+        </div>
+      </div>
+
+      <!-- Printable Certificate Canvas Stage -->
+      <div id="official-certificate-printable-stage" style="background: #ffffff; color: #0f172a; border: 8px double #1e3a8a; border-radius: 12px; padding: 32px 28px; position: relative; box-shadow: 0 12px 30px rgba(0,0,0,0.12); text-align: center;"></div>
+    </div>
+  </div>
+
+  <!-- 👉 UPGRADED: SUPERADMIN & ADMIN COMPLETE TAB ACCESS MODAL (ALL 11 STUDENT PORTAL TABS + ALL 11 ADMIN SUBTABS) -->
+  <div class="modal-backdrop" id="superadmin-permissions-modal" style="z-index: 6300; display: none;">
+    <div class="modal-content" style="max-width: 720px; width: 95%; max-height: 90vh; overflow-y: auto; border-radius: 16px; padding: 22px; background: var(--surface); border: 1px solid var(--border);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+        <div>
+          <h3 style="margin: 0; color: var(--primary); font-size: 17px;"><i class="fa-solid fa-user-shield"></i> Portal Navigation &amp; Admin Subtab Access Control</h3>
+          <p style="margin: 2px 0 0 0; font-size: 11.5px; color: var(--text-muted);">Configure granular access across all 14 Portal Navigation Tabs and all 14 Admin Panel Subtabs.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('superadmin-permissions-modal').style.display='none'">&times;</button>
+      </div>
+      <p id="superadmin-perm-user-label" style="font-size: 13px; color: var(--secondary); font-weight: 800; margin-bottom: 12px;"></p>
+      <input type="hidden" id="superadmin-perm-target-userid" value="">
+      <input type="hidden" id="superadmin-perm-target-role" value="admin">
+      <input type="hidden" id="superadmin-perm-target-status" value="active">
+
+      <!-- SECTION 1: All 14 Student / Portal Main Navigation Tabs -->
+      <div style="margin-bottom: 14px; background: var(--background); padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+          <strong style="font-size: 12.5px; color: var(--secondary);"><i class="fa-solid fa-compass" style="color: var(--primary);"></i> 1. Portal Navigation Tab Access (All 14 Website Tabs)</strong>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="document.querySelectorAll('#superadmin-permissions-modal .student-portal-tab-chk').forEach(c => c.checked = true)">Select All 14 Portal Tabs</button>
+            <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="document.querySelectorAll('#superadmin-permissions-modal .student-portal-tab-chk').forEach(c => { if(c.value!=='dashboard') c.checked = false; })">Dashboard Only</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 8px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="dashboard" checked> Command Deck (Dashboard)</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="batch-leaderboard" checked> Batch Leaderboard (30-Day)</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="attendance-matrix" checked> Monthly Attendance &amp; Streak</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="livetests" checked> Live Scheduled Tests</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="videocourse" checked> Video Courses &amp; Lectures</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="words" checked> Steno Words &amp; Outlines</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="pdf" checked> Editorial &amp; PDF Library</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="audio" checked> Dictation &amp; Transcribe Room</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="pitman" checked> Pitman Shorthand Book</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="learningtyping" checked> Touch-Typing Studio</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="typingtest" checked> Skill Typing Test</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="cbttest" checked> CBT Mock Exam Portal</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="test" checked> Performance &amp; Test History</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="student-portal-tab-chk" value="feedback" checked> Help Desk &amp; Contacts</label>
+        </div>
+      </div>
+
+      <!-- SECTION 2: All 14 Admin Panel Subtabs -->
+      <div id="superadmin-admin-subtabs-perm-box" style="margin-bottom: 14px; background: var(--background); padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+          <strong style="font-size: 12.5px; color: var(--secondary);"><i class="fa-solid fa-shield-halved" style="color: var(--primary);"></i> 2. Admin Panel Subtab Access (All 14 Admin Subtabs)</strong>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="document.querySelectorAll('#superadmin-permissions-modal .admin-perm-chk').forEach(c => c.checked = true)">Select All 14 Admin Subtabs</button>
+            <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="document.querySelectorAll('#superadmin-permissions-modal .admin-perm-chk').forEach(c => c.checked = false)">Clear All Admin Subtabs</button>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 8px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="content" checked> Content Uploaded</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="analytics" checked> Performance Analytics</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="batch-discussion" checked> Batch Discussion Board</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="livetests" checked> Live Scheduled Tests</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="users"> User &amp; Tab Permissions</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="attendance-matrix" checked> Attendance &amp; Streak Matrix</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="outline-replies" checked> Asked Outline Replies Desk</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="logs"> Security &amp; Audit Logs</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="subtabs" checked> Subtab Manager</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="evaluation" checked> Evaluation Rules</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="banner" checked> Banner &amp; Dashboard Promo</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="leaderboard" checked> Leaderboard</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="feedback-admin" checked> Feedbacks</label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; cursor:pointer;"><input type="checkbox" class="admin-perm-chk" value="enterprise-ops" checked> Enterprise &amp; Branch Ops</label>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-secondary" onclick="document.getElementById('superadmin-permissions-modal').style.display='none'">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSuperadminPermissionsModal()"><i class="fa-solid fa-floppy-disk"></i> Save All Tab Permissions</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 👉 REQUIREMENT #6: COMPLETE CUSTOM EVALUATION RULE MODAL FOR LEARNING TYPING EXERCISES -->
+  <div class="modal-backdrop" id="learning-ephemeral-rule-modal" style="z-index: 6250; display: none;">
+    <div class="modal-content" style="max-width: 820px; width: 95%; max-height: 90vh; overflow-y: auto; border-radius: 16px; padding: 22px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.28);">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+        <div>
+          <span style="font-size: 10.5px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.6px;">Complete Evaluation Rule Customizer • Learning Typing</span>
+          <h3 style="margin: 2px 0 0 0; color: var(--secondary); font-size: 17px; font-weight: 800;"><i class="fa-solid fa-sliders" style="color: var(--primary);"></i> Customize Complete Evaluation Rule (This Practice Attempt)</h3>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('learning-ephemeral-rule-modal').style.display='none'">&times;</button>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: linear-gradient(135deg, rgba(37,99,235,0.06), rgba(16,185,129,0.06)); border: 1px solid rgba(37,99,235,0.22); padding: 10px 14px; border-radius: 10px; margin-bottom: 14px;">
+        <div>
+          <div id="learning-ephemeral-exercise-title" style="font-size: 13.5px; font-weight: 800; color: var(--secondary);"></div>
+          <div style="font-size: 11.5px; color: var(--text-muted);">Customize every evaluation parameter below or load a saved Admin Rule template for this attempt.</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <select id="ephemeral-preset-rule-loader" class="form-control" style="width: auto; min-width: 210px; padding: 5px 10px; font-size: 12px; font-weight: 700; min-height: 32px;" onchange="applySavedRuleToEphemeralModal(this.value)">
+            <option value="">⚡ Load Saved Admin Rule Template...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Group 1: Timer, Word Count Rule, Backspace, Highlight & Auto-Scroll -->
+      <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
+        <div style="font-size: 12px; font-weight: 800; color: var(--primary); margin-bottom: 8px;"><i class="fa-solid fa-gauge-high"></i> 1. Timer, Word Calculation, Backspace &amp; Visual Assist Rules</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11.5px;">Practice Timer Mode</label>
+            <select id="ephemeral-timer-mode" class="form-control" onchange="document.getElementById('ephemeral-custom-mins-wrap').style.display = this.value === 'countdown' ? 'block' : 'none';">
+              <option value="countup" selected>⏱️ Self-Paced User Time (No Limit)</option>
+              <option value="countdown">⏳ Fixed Exam Countdown Timer</option>
+            </select>
+          </div>
+          <div class="form-group" id="ephemeral-custom-mins-wrap" style="margin:0; display:none;">
+            <label style="font-size: 11.5px;">Countdown Time Limit (Mins)</label>
+            <input type="number" id="ephemeral-time-limit" class="form-control" value="" placeholder="Enter mins" min="1" max="180">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11.5px;">Word Count Calculation Rule</label>
+            <select id="ephemeral-word-count-rule" class="form-control">
+              <option value="5stroke" selected>5 Strokes = 1 Word (SSC / Standard)</option>
+              <option value="actual">1 Space = 1 Word (Actual Words)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11.5px;">Backspace Rule (This Attempt)</label>
+            <select id="ephemeral-bs-mode" class="form-control" onchange="document.getElementById('ephemeral-bs-limit-wrap').style.display = this.value === 'limited' ? 'block' : 'none';">
+              <option value="on" selected>Allowed (Unlimited)</option>
+              <option value="until_space">Current Word Only (Until Spacebar)</option>
+              <option value="limited">Limited Backspace Count</option>
+              <option value="off">Strict Disabled (No Backspace)</option>
+            </select>
+          </div>
+          <div class="form-group" id="ephemeral-bs-limit-wrap" style="margin:0; display:none;">
+            <label style="font-size: 11.5px;">Max Allowed Backspaces</label>
+            <input type="number" id="ephemeral-bs-limit" class="form-control" value="" placeholder="e.g., 15" min="1" max="500">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11.5px;">Word Highlight Guide</label>
+            <select id="ephemeral-highlight-mode" class="form-control">
+              <option value="on" selected>Highlight ON</option>
+              <option value="off">Highlight OFF</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11.5px;">Auto-Scroll Passage Text</label>
+            <select id="ephemeral-autoscroll-mode" class="form-control">
+              <option value="on" selected>Auto-Scroll ON</option>
+              <option value="off">Auto-Scroll OFF</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11.5px;">Punctuation Evaluation Mode</label>
+            <select id="ephemeral-punct-mode" class="form-control">
+              <option value="all" selected>All Punctuation Marks Checked</option>
+              <option value="fullstop_only">Full Stop (.) Only Checked</option>
+              <option value="ignore">Ignore Punctuation (0 Deduction)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 2: Marks, Passing Accuracy, Error % Ignored & Granular Deductions -->
+      <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
+        <div style="font-size: 12px; font-weight: 800; color: #059669; margin-bottom: 8px;"><i class="fa-solid fa-scale-balanced"></i> 2. Marks, Accuracy Cutoff, Ignored Error % &amp; Mistake Deductions</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px;">
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Total Marks</label>
+            <input type="number" id="ephemeral-total-marks" class="form-control" value="" placeholder="Enter total" min="1" max="1000">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Passing Accuracy (%)</label>
+            <input type="number" id="ephemeral-passing-accuracy" class="form-control" value="" placeholder="Enter %" min="0" max="100" step="0.5">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Error % Ignored (Free)</label>
+            <input type="number" id="ephemeral-ignored-error-pct" class="form-control" value="" placeholder="0" min="0" max="50" step="0.5">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Wrong Word Deduct (-)</label>
+            <input type="number" id="ephemeral-deduct-wrong" class="form-control" value="" placeholder="0" min="0" max="20" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Omission Deduct (-)</label>
+            <input type="number" id="ephemeral-deduct-omission" class="form-control" value="" placeholder="0" min="0" max="20" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Extra Word Deduct (-)</label>
+            <input type="number" id="ephemeral-deduct-extra" class="form-control" value="" placeholder="0" min="0" max="20" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Punctuation Deduct (-)</label>
+            <input type="number" id="ephemeral-deduct-punct" class="form-control" value="" placeholder="0" min="0" max="20" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Capital/Half Deduct (-)</label>
+            <input type="number" id="ephemeral-deduct-capital" class="form-control" value="" placeholder="0" min="0" max="20" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Verb/Tense Deduct (-)</label>
+            <input type="number" id="ephemeral-deduct-verb" class="form-control" value="" placeholder="0" min="0" max="20" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Singular/Plural Deduct (-)</label>
+            <input type="number" id="ephemeral-deduct-singular-plural" class="form-control" value="" placeholder="0" min="0" max="20" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Para Change Deduct (-)</label>
+            <input type="number" id="ephemeral-deduct-para" class="form-control" value="" placeholder="0" min="0" max="20" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Penalty Multiplier (x)</label>
+            <input type="number" id="ephemeral-penalty-multiplier" class="form-control" value="" placeholder="1" min="0" max="10" step="0.25">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label style="font-size: 11px;">Text Font Size (px)</label>
+            <input type="number" id="ephemeral-font-size" class="form-control" value="" placeholder="16" min="12" max="28">
+          </div>
+        </div>
+      </div>
+
+      <!-- Group 3: Security & Initial Passage Visibility -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 10px; margin-bottom: 16px; background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;">
+        <div class="form-group" style="margin:0;">
+          <label style="font-size: 11px;">Min Gross Stroke % to Pass</label>
+          <input type="number" id="ephemeral-min-gross-pct" class="form-control" value="" placeholder="0" min="0" max="100">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size: 11px;">Min Initial Words/Strokes Shown (0=All)</label>
+          <input type="number" id="ephemeral-min-initial-shown" class="form-control" value="" placeholder="0 = All" min="0" max="5000">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size: 11px;">Copy / Paste Lock</label>
+          <select id="ephemeral-copypaste-lock" class="form-control">
+            <option value="true" selected>Restricted (Blocked)</option>
+            <option value="false">Allowed</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label style="font-size: 11px;">Function Keys (F1–F12) Lock</label>
+          <select id="ephemeral-fnkeys-lock" class="form-control">
+            <option value="true" selected>Restricted (Blocked)</option>
+            <option value="false">Allowed</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="resetEphemeralRuleModalDefaults()">
+          <i class="fa-solid fa-rotate-left"></i> Reset to Default Practice Values
+        </button>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-secondary" onclick="document.getElementById('learning-ephemeral-rule-modal').style.display='none'">Cancel</button>
+          <button class="btn btn-primary" onclick="launchLearningEphemeralExercise()"><i class="fa-solid fa-play"></i> Start Practice With Complete Custom Rule</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ==========================================================================
+       GLOBAL SECURITY ALERT MODAL (IMMEDIATE BLOCK / DIFFERENT-DEVICE SIGN-IN)
+       ========================================================================== -->
+  <div id="session-termination-alert-modal" class="hidden" style="position:fixed; inset:0; z-index:999999; background:rgba(15, 23, 42, 0.82); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:16px;">
+    <div class="card" style="max-width:460px; width:100%; border-radius:16px; border:2px solid #ef4444; padding:24px; text-align:center; box-shadow:0 25px 50px -12px rgba(239, 68, 68, 0.45); animation:rpSlideFadeIn 0.25s ease;">
+      <div id="session-termination-modal-icon" style="font-size:48px; line-height:1; margin-bottom:12px;">🚫</div>
+      <h3 id="session-termination-modal-title" style="margin:0 0 8px 0; font-size:20px; font-weight:900; color:#dc2626; border:none;">Account Session Terminated</h3>
+      <p id="session-termination-modal-desc" style="font-size:13.5px; line-height:1.55; color:var(--text-main); margin:0 0 18px 0; font-weight:600;">
+        Your session was immediately logged out.
+      </p>
+      <div id="session-termination-modal-meta" style="font-size:11.5px; padding:10px 12px; border-radius:10px; background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.35); color:#b91c1c; margin-bottom:18px; font-weight:700;">
+        Real-Time Security Enforcement Active
+      </div>
+      <button type="button" class="btn btn-primary" style="width:100%; background:#dc2626; border:none; padding:12px; font-size:14px; font-weight:900; border-radius:10px;" onclick="acknowledgeSessionTerminationModal()">I Understand — Return to Login</button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       EXISTING & NEW USER DUAL EMAIL + FREE WHATSAPP MOBILE VERIFICATION MODAL
+       ========================================================================== -->
+  <div id="existing-user-verify-modal" class="hidden" style="position:fixed; inset:0; z-index:99990; background:rgba(15, 23, 42, 0.78); backdrop-filter:blur(5px); display:flex; align-items:center; justify-content:center; padding:16px;">
+    <div class="card" style="max-width:540px; width:100%; max-height:92vh; overflow-y:auto; border-radius:16px; border:1px solid var(--border); padding:20px 22px; box-shadow:0 24px 48px rgba(15, 23, 42, 0.4);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:12px;">
+        <div>
+          <h3 style="margin:0; font-size:17px; font-weight:800; color:var(--secondary); border:none;">Verify Your Email ID &amp; Mobile Number</h3>
+          <p style="margin:4px 0 0 0; font-size:12px; color:var(--text-muted);">Bulk-added and registered students can update any missing Email or 10-digit Mobile Number below and verify both via 6-digit OTP.</p>
+        </div>
+        <button type="button" onclick="closeExistingUserVerificationModal()" style="background:transparent; border:none; font-size:18px; font-weight:800; cursor:pointer; color:var(--text-muted);">✕</button>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; padding:8px 10px; border-radius:10px; background:var(--background); border:1px solid var(--border);">
+        <span id="modal-verify-email-badge" class="verified-pill-badge is-unverified">Email: Unverified</span>
+        <span id="modal-verify-mobile-badge" class="verified-pill-badge is-unverified">Mobile: Unverified</span>
+      </div>
+
+      <!-- Editable Contact Box for Bulk-Onboarded Students -->
+      <div style="padding:10px 12px; border-radius:10px; background:var(--background); border:1px solid var(--border); margin-bottom:12px;">
+        <div style="font-size:11.5px; font-weight:800; color:var(--secondary); margin-bottom:6px;">Confirm or Update Contact Details Before Verification</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr auto; gap:6px; align-items:center;">
+          <input type="email" id="modal-edit-contact-email" class="form-control" placeholder="Email ID" style="font-size:12px; min-height:34px; padding:5px 8px;">
+          <input type="text" id="modal-edit-contact-mobile" class="form-control" maxlength="10" inputmode="numeric" placeholder="10-digit Mobile No." oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)" style="font-size:12px; min-height:34px; padding:5px 8px;">
+          <button type="button" class="btn btn-secondary btn-sm" style="white-space:nowrap; min-height:34px;" onclick="if(typeof saveOwnContactBeforeVerify==='function') saveOwnContactBeforeVerify()">Save</button>
+        </div>
+      </div>
+
+      <!-- 1. Email OTP Section -->
+      <div id="modal-email-verify-section" style="padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--background); margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+          <strong style="font-size:12.5px; color:var(--primary);">1. Email Verification (<span id="modal-verify-email-addr">user@email.com</span>)</strong>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 10px; font-size:11px;" onclick="sendExistingUserEmailAndWaOtp()">Send Email OTP</button>
+        </div>
+        <div id="modal-email-otp-hint-box" class="hidden" style="margin-bottom:8px; padding:8px; border-radius:8px; background:rgba(245,158,11,0.12); border:1px dashed #f59e0b; font-size:11.5px; color:var(--secondary);"></div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="modal-email-otp-input" class="form-control" maxlength="6" inputmode="numeric" placeholder="6-digit Email OTP" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)" style="flex:1; text-align:center; font-size:15px; font-weight:800; letter-spacing:4px;">
+          <button type="button" class="btn btn-primary btn-sm" style="padding:8px 14px; font-size:12px;" onclick="verifyExistingUserDualOtp('email')">Verify Email</button>
+        </div>
+      </div>
+
+      <!-- 2. Mobile OTP Section -->
+      <div id="modal-mobile-verify-section" style="padding:12px; border-radius:12px; border:1px solid var(--border); background:var(--background); margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+          <strong style="font-size:12.5px; color:#059669;">2. Mobile Verification (+91-<span id="modal-verify-mobile-num">Not Set</span>)</strong>
+          <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 10px; font-size:11px; border-color:#10b981; color:#059669;" onclick="sendExistingUserWhatsAppOtpOnly()">Send Mobile OTP</button>
+        </div>
+        <div id="modal-wa-otp-free-card" class="wa-free-otp-card hidden" style="margin-bottom:8px;"></div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="modal-mobile-otp-input" class="form-control" maxlength="6" inputmode="numeric" placeholder="6-digit Mobile OTP" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)" style="flex:1; text-align:center; font-size:15px; font-weight:800; letter-spacing:4px;">
+          <button type="button" class="btn btn-primary btn-sm" style="padding:8px 14px; font-size:12px; background:#059669; border-color:#059669;" onclick="verifyExistingUserDualOtp('mobile')">Verify Mobile</button>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; justify-content:space-between; flex-wrap:wrap;">
+        <button type="button" class="btn btn-primary" style="flex:1; padding:9px 14px; font-size:12.5px; font-weight:800;" onclick="verifyExistingUserDualOtp('both')">Verify Both Together</button>
+        <button type="button" class="btn btn-secondary" style="padding:9px 14px; font-size:12px;" onclick="closeExistingUserVerificationModal()">Close</button>
+      </div>
+    </div>
+  </div>

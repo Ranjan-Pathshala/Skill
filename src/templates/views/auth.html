@@ -1,0 +1,415 @@
+<section id="view-auth" class="app-view">
+      <div class="auth-container rp-saas-auth-shell">
+        <div class="auth-features rp-saas-auth-hero">
+          <svg class="rp-hero-art-svg" viewBox="0 0 600 600" fill="none" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <pattern id="rpAuthGrid" width="32" height="32" patternUnits="userSpaceOnUse">
+                <path d="M 32 0 L 0 0 0 32" fill="none" stroke="rgba(148,163,184,0.16)" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <rect width="600" height="600" fill="url(#rpAuthGrid)"/>
+            <path d="M-20 430 C 120 340, 210 510, 340 400 C 440 310, 520 380, 620 290" stroke="rgba(56,189,248,0.45)" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M-20 465 C 140 385, 225 535, 360 435 C 460 360, 535 415, 620 335" stroke="rgba(129,140,248,0.35)" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="480" cy="110" r="95" stroke="rgba(56,189,248,0.22)" stroke-width="1.5" stroke-dasharray="6 8"/>
+            <circle cx="480" cy="110" r="56" stroke="rgba(147,197,253,0.25)" stroke-width="1"/>
+          </svg>
+          <div class="rp-auth-hero-scrim" aria-hidden="true"></div>
+          <div class="rp-auth-hero-content">
+            <div class="rp-auth-kicker">Stenography · Skill Typing · Bilingual CBT</div>
+            <h2 class="rp-auth-headline">RP Skill | Ranjan Pathshala</h2>
+            <p class="rp-auth-lead">Commission-grade shorthand dictations, touch-typing studio, Pitman shorthand exercises, A–Z outline library, and bilingual SSC CBT mock exams in one unified workspace.</p>
+            <ul class="rp-auth-highlights">
+              <li><i class="fa-solid fa-circle-check"></i><span>Variable-speed shorthand dictations &amp; exam-wise evaluation</span></li>
+              <li><i class="fa-solid fa-circle-check"></i><span>10-finger touch-typing studio, Hindi keymaps &amp; ghost pacer</span></li>
+              <li><i class="fa-solid fa-circle-check"></i><span>TCS-iON pattern bilingual CBT arena with SRS error logbook</span></li>
+              <li><i class="fa-solid fa-circle-check"></i><span>Cross-device cloud sync, crash recovery &amp; verified scorecards</span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="auth-form-box">
+          <!-- Immediate Block / Different-Device Logout Security Warning Banner -->
+          <div id="auth-security-termination-banner" class="hidden" style="margin-bottom: 14px; padding: 12px 14px; border-radius: 12px; background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); border: 2px solid #ef4444; color: #991b1b; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.15);">
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+              <span id="auth-security-termination-icon" style="font-size: 22px; line-height: 1;">⚠️</span>
+              <div style="flex: 1;">
+                <div id="auth-security-termination-title" style="font-size: 13.5px; font-weight: 900; color: #991b1b; margin-bottom: 3px;">Session Terminated</div>
+                <div id="auth-security-termination-msg" style="font-size: 12px; font-weight: 600; color: #7f1d1d; line-height: 1.45;">Your session was logged out for security reasons.</div>
+              </div>
+              <button type="button" onclick="document.getElementById('auth-security-termination-banner').classList.add('hidden')" style="background: transparent; border: none; color: #991b1b; font-weight: 900; cursor: pointer; font-size: 15px; padding: 0 4px;">✕</button>
+            </div>
+          </div>
+          <!-- Maintenance Mode Notice Banner on Login Page (Admins & Staff can still sign in below) -->
+          <div id="auth-maintenance-banner" style="display: none; margin-bottom: 14px; padding: 12px 14px; border-radius: 12px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(251, 191, 36, 0.1) 100%); border: 1.5px solid #f59e0b; color: #92400e;">
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+              <i class="fa-solid fa-screwdriver-wrench" style="font-size: 18px; color: #d97706; margin-top: 2px;"></i>
+              <div style="flex: 1;">
+                <div style="font-size: 12.5px; font-weight: 800; color: #b45309; margin-bottom: 3px;">Portal Maintenance Notice</div>
+                <div id="auth-maintenance-banner-msg" style="font-size: 12px; font-weight: 600; line-height: 1.45;"></div>
+                <div style="font-size: 11px; margin-top: 5px; opacity: 0.85; font-weight: 600;">
+                  <i class="fa-solid fa-shield-halved"></i> Admins &amp; Superadmins can log in below to manage Maintenance Mode.
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px;">
+            <div class="auth-tabs" style="flex: 1; margin-bottom: 0;">
+              <button class="auth-tab-btn active" id="btn-show-login" onclick="switchAuthTab('login')">Log In</button>
+              <button class="auth-tab-btn" id="btn-show-signup" onclick="switchAuthTab('signup')">Sign Up</button>
+            </div>
+            <button type="button" id="auth-theme-toggle-btn" class="rp-auth-theme-btn" onclick="toggleAppTheme()" title="Switch Light / Dark Mode" aria-label="Switch Light or Dark Mode">
+              <i id="auth-theme-toggle-icon" class="fa-solid fa-moon" aria-hidden="true"></i>
+              <span id="auth-theme-toggle-label">Dark</span>
+            </button>
+          </div>
+
+          <form id="form-login" novalidate onsubmit="event.preventDefault(); handleLoginSubmit();">
+            <div class="form-group">
+              <label for="login-identifier">Email ID / Mobile Number <span class="required-star">*</span></label>
+              <input type="text" id="login-identifier" class="form-control" autocomplete="username" placeholder="Enter Email ID or 10-digit Mobile" required oninput="this.value = this.value.toLowerCase(); var b=document.getElementById('login-rate-limit-msg'); if(b && !b.dataset.locked){ b.style.display='none'; }">
+            </div>
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label for="login-password">Password <span class="required-star">*</span></label>
+                <a href="#" style="font-size: 11px; color: var(--primary); font-weight: 600;" onclick="switchAuthTab('forget'); return false;">Forgot Password?</a>
+              </div>
+              <div class="password-wrapper">
+                <input type="password" id="login-password" class="form-control" autocomplete="current-password" placeholder="Enter Password" required oninput="var b=document.getElementById('login-rate-limit-msg'); if(b && !b.dataset.locked){ b.style.display='none'; }">
+                <i class="fa-solid fa-eye password-toggle" onclick="togglePasswordVisibility('login-password', this)"></i>
+              </div>
+            </div>
+            <div id="login-rate-limit-msg" style="display:none; color: var(--danger); font-size: 12px; font-weight: 700; margin-bottom: 10px; padding: 8px 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; line-height: 1.45;"></div>
+            <div id="login-unverified-email-notice" style="display:none; margin-bottom: 10px; padding: 10px 12px; border-radius: 8px; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.4); font-size: 11.5px; color: #b45309; font-weight: 700; line-height: 1.45;"></div>
+            <button type="submit" id="btn-login-submit" class="btn btn-primary" style="width: 100%; margin-top: 6px;"><i class="fa-solid fa-right-to-bracket"></i> Log In</button>
+          </form>
+
+          <form id="form-signup" novalidate style="display: none;" onsubmit="event.preventDefault(); handleSignupSubmit();">
+            <div class="form-group">
+              <label for="signup-name">Full Name <span class="required-star">*</span></label>
+              <input type="text" id="signup-name" class="form-control" autocomplete="name" placeholder="Enter Full Name" required oninput="var b=document.getElementById('signup-error-box'); if(b){ b.style.display='none'; }">
+            </div>
+            <div class="form-group">
+              <label for="signup-email">Email Address <span class="required-star">*</span></label>
+              <input type="email" id="signup-email" class="form-control" autocomplete="email" placeholder="Enter Email ID" required oninput="this.value = this.value.toLowerCase(); var b=document.getElementById('signup-error-box'); if(b){ b.style.display='none'; }">
+            </div>
+            <div class="form-group">
+              <label for="signup-mobile">Mobile Number <span class="required-star">*</span></label>
+              <input type="tel" id="signup-mobile" class="form-control" autocomplete="tel" placeholder="Enter 10-digit Mobile No." maxlength="14" required oninput="var d=this.value.replace(/[^0-9]/g,''); this.value = d.length > 10 ? d.slice(-10) : d; var b=document.getElementById('signup-error-box'); if(b){ b.style.display='none'; }">
+            </div>
+            <div class="form-group">
+              <label for="signup-password">Password <span class="required-star">*</span></label>
+              <div class="password-wrapper">
+                <input type="password" id="signup-password" class="form-control" autocomplete="new-password" placeholder="Create Password (min 4 characters)" minlength="4" required oninput="var b=document.getElementById('signup-error-box'); if(b){ b.style.display='none'; }">
+                <i class="fa-solid fa-eye password-toggle" onclick="togglePasswordVisibility('signup-password', this)"></i>
+              </div>
+            </div>
+            <div id="signup-error-box" style="display: none; color: #b91c1c; font-size: 12px; font-weight: 700; margin-bottom: 10px; padding: 8px 10px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.35); border-radius: 8px; line-height: 1.45;"></div>
+            <button type="submit" id="btn-signup-submit" class="btn btn-primary" style="width: 100%; margin-top: 6px;"><i class="fa-solid fa-user-plus"></i> Sign Up</button>
+          </form>
+
+          <form id="form-forget" novalidate style="display: none;" onsubmit="event.preventDefault(); handleForgetPasswordSubmit();">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <div style="font-weight: 800; color: var(--secondary); font-size: 14px;"><i class="fa-solid fa-key" style="color: var(--primary);"></i> Password Recovery &amp; Reset (Email 2FA)</div>
+              <span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(37,99,235,0.12); color: var(--primary);">2FA PROTECTED</span>
+            </div>
+            <div class="form-group">
+              <label>Registered Email ID <span class="required-star">*</span></label>
+              <input type="email" id="forget-email" class="form-control" placeholder="Enter Registered Email ID" required oninput="this.value = this.value.toLowerCase()">
+            </div>
+            <div class="form-group">
+              <label>Registered Mobile No <span class="required-star">*</span></label>
+              <input type="tel" id="forget-mobile" class="form-control" placeholder="Enter 10-digit Mobile No." maxlength="14" required oninput="var d=this.value.replace(/[^0-9]/g,''); this.value = d.length > 10 ? d.slice(-10) : d;">
+            </div>
+
+            <!-- Step 2: Dual Email OTP + Free WhatsApp Mobile OTP Verification & New Password Box -->
+            <div id="forget-otp-step-box" style="display: none; background: rgba(37,99,235,0.07); border: 1.5px dashed var(--primary); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
+              <div style="font-size: 12px; font-weight: 800; color: var(--primary); margin-bottom: 4px;">
+                <i class="fa-solid fa-shield-halved"></i> Step 2: Verify Email OTP &amp; Free WhatsApp Mobile OTP
+              </div>
+              <div id="forget-otp-status-note" style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+                Enter both the 6-digit Email OTP and 6-digit Free WhatsApp Mobile OTP along with your new password:
+              </div>
+              <div id="forget-otp-fallback-hint" style="display: none; margin-bottom: 8px; padding: 8px; border-radius: 8px; background: rgba(245,158,11,0.14); border: 1px dashed #f59e0b; font-size: 11.5px;"></div>
+              <div id="forget-wa-otp-free-box" class="wa-free-otp-card" style="display: none; margin-bottom: 10px;"></div>
+              <div class="form-group" style="margin-bottom: 8px;">
+                <label>📧 1. 6-Digit Email 2FA OTP <span class="required-star">*</span></label>
+                <input type="text" id="forget-otp-input" class="form-control" placeholder="Enter 6-Digit Email OTP" maxlength="6" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)" style="letter-spacing: 3px; font-weight: 800; text-align: center; font-size: 15px;">
+              </div>
+              <div class="form-group" style="margin-bottom: 10px;">
+                <label>📲 2. 6-Digit Free WhatsApp Mobile OTP <span class="required-star">*</span></label>
+                <input type="text" id="forget-wa-otp-input" class="form-control" placeholder="Enter 6-Digit WhatsApp OTP" maxlength="6" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)" style="letter-spacing: 3px; font-weight: 800; text-align: center; font-size: 15px; border-color: #10b981;">
+              </div>
+              <div class="form-group" style="margin-bottom: 6px;">
+                <label>Set New Password <span class="required-star">*</span> <small style="color: var(--text-muted); font-weight: 600;">(Updates after Dual OTP verification)</small></label>
+                <div class="password-wrapper">
+                  <input type="password" id="forget-new-password" class="form-control" placeholder="Enter New Password (min 4 chars)" minlength="4">
+                  <i class="fa-solid fa-eye password-toggle" onclick="togglePasswordVisibility('forget-new-password', this)"></i>
+                </div>
+              </div>
+              <div id="forget-recovered-pass-display" style="display: none; margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #ecfdf5; border: 1px solid #10b981; color: #065f46; font-size: 12.5px; font-weight: 800; text-align: center;"></div>
+            </div>
+
+            <button type="submit" id="btn-forget-submit" class="btn btn-primary" style="width: 100%; margin-bottom: 8px;"><i class="fa-solid fa-paper-plane"></i> Send Email + Free WhatsApp 2FA OTP</button>
+            <button type="button" class="btn btn-secondary" style="width: 100%;" onclick="resetForgetPasswordFlow(); switchAuthTab('login')">Back to Login</button>
+          </form>
+
+          <!-- Multi-Factor Authentication (2FA / MFA) Step: Dual Email OTP + 100% Free WhatsApp Mobile OTP Verification -->
+          <form id="form-mfa-verify" novalidate style="display: none;" onsubmit="event.preventDefault(); handleMfaVerifySubmit();">
+            <div style="background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.25); border-radius: 10px; padding: 12px; margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
+                <div style="font-weight: 800; font-size: 13.5px; color: var(--primary);">
+                  <i class="fa-solid fa-shield-halved"></i> <span id="mfa-header-title">Email &amp; Free WhatsApp 2FA Verification</span>
+                </div>
+                <span id="mfa-reason-pill" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(245,158,11,0.16); color: #b45309;">
+                  DUAL 2FA VERIFICATION
+                </span>
+              </div>
+              <p id="mfa-prompt-desc" style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0; line-height: 1.45;">
+                Verify your Email ID and Mobile Number (100% Free via WhatsApp OTP) to unlock your account and earn Verified badges on both.
+              </p>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
+                <span id="mfa-status-pill-email" class="verified-pill-badge is-unverified">📧 Email: Pending</span>
+                <span id="mfa-status-pill-mobile" class="verified-pill-badge is-unverified">📱 Mobile (WhatsApp): Pending</span>
+              </div>
+              <div id="mfa-fallback-code-hint" style="display: none; margin-top: 6px; padding: 7px 10px; border-radius: 8px; background: rgba(16,185,129,0.12); border: 1px dashed rgba(16,185,129,0.45); font-size: 11.5px; color: #065f46; font-weight: 700;"></div>
+              <div id="mfa-whatsapp-free-banner" class="wa-free-otp-card" style="display: none; margin-top: 8px;"></div>
+            </div>
+            <div class="form-group" id="mfa-email-otp-group" style="margin-bottom: 10px;">
+              <label style="display: flex; justify-content: space-between; align-items: center;">
+                <span>📧 1. 6-Digit Email Verification OTP <span class="required-star">*</span></span>
+              </label>
+              <input type="text" id="mfa-otp-input" class="form-control" placeholder="Enter 6-Digit Email OTP" maxlength="6" style="letter-spacing: 3px; font-weight: 800; text-align: center; font-size: 15px;" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)">
+            </div>
+            <div class="form-group" id="mfa-mobile-otp-group" style="margin-bottom: 10px;">
+              <label style="display: flex; justify-content: space-between; align-items: center;">
+                <span>📲 2. 6-Digit Free WhatsApp Mobile OTP <span class="required-star">*</span></span>
+                <span style="font-size: 10px; font-weight: 800; color: #059669;">100% FREE</span>
+              </label>
+              <input type="text" id="mfa-wa-otp-input" class="form-control" placeholder="Enter 6-Digit WhatsApp OTP" maxlength="6" style="letter-spacing: 3px; font-weight: 800; text-align: center; font-size: 15px; border-color: #10b981;" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)">
+            </div>
+            <div id="mfa-error" style="display: none; font-size: 11.5px; color: #dc2626; font-weight: 700; margin: 0 0 10px 0; padding: 6px 10px; border-radius: 6px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);"></div>
+            <button type="submit" id="btn-mfa-verify-submit" class="btn btn-primary" style="width: 100%; margin-bottom: 8px; background: linear-gradient(135deg, #2563eb 0%, #16a34a 100%);"><i class="fa-solid fa-check-double"></i> Verify Email &amp; Mobile (WhatsApp) &amp; Continue</button>
+            <button type="button" id="btn-mfa-continue-dashboard" class="btn btn-secondary btn-sm" style="display: none; width: 100%; margin-bottom: 8px; border-color: rgba(245,158,11,0.45); color: #b45309; font-weight: 800;" onclick="skipLoginEmailVerifyToDashboardLock()">
+              <i class="fa-solid fa-arrow-right"></i> Continue to Dashboard &amp; Verify From Dashboard Banner
+            </button>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" onclick="resendMfaOtpCode()"><i class="fa-solid fa-paper-plane"></i> Resend Email + WhatsApp OTP</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" onclick="switchAuthTab('login')">Back to Login</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Complete User Feature Directory Organized Into 4 Structured Learning Tracks -->
+      <div id="auth-user-features-showcase" class="auth-features-showcase-wrap" aria-label="Available Student & Aspirant Features">
+        <div class="auth-features-showcase-header">
+          <div class="rp-section-kicker">4 Structured Training Tracks · 18 Integrated Exam Modules</div>
+          <h3 style="margin: 4px 0 8px 0; font-size: clamp(1.25rem, 2.2vw, 1.65rem); font-weight: 800; color: var(--secondary); font-family: 'Bricolage Grotesque', 'Plus Jakarta Sans', sans-serif; text-wrap: balance;">
+            Structured Preparation Workspace for Every Examination Stage
+          </h3>
+          <p style="margin: 0 auto; max-width: 720px; font-size: 13.5px; color: var(--text-muted); line-height: 1.6;">
+            Sign in or register above to unlock all four preparation tracks — from shorthand dictation and touch-typing to bilingual CBT arenas, progress analytics, and live batch coordination.
+          </p>
+        </div>
+
+        <div class="rp-showcase-tracks-stack">
+          <!-- TRACK 01: STENOGRAPHY & SHORTHAND STUDIO -->
+          <div class="rp-showcase-track">
+            <div class="rp-showcase-track-head">
+              <div class="rp-showcase-track-label">
+                <span class="rp-showcase-track-num">01</span>
+                <h4 class="rp-showcase-track-title">Stenography &amp; Shorthand Mastery</h4>
+              </div>
+              <span class="rp-showcase-track-meta">Audio Dictation · Pitman Exercises · A–Z Outlines · Weak Vault</span>
+            </div>
+            <div class="rp-showcase-track-grid">
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(37,99,235,0.12); color: #2563eb;"><i class="fa-solid fa-headphones"></i></span>
+                  <span class="auth-user-feature-meta">01 · Audio Dictation</span>
+                </div>
+                <h4>Variable-Speed Shorthand Audio Dictations</h4>
+                <p>Practice 80, 100, and 120 WPM dictations with pitch-preserved playback (0.75x–1.5x), A–B segment loop repeater, 3-second foot-pedal rewind, and WPM Surge.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(220,38,38,0.12); color: #dc2626;"><i class="fa-solid fa-volume-high"></i></span>
+                  <span class="auth-user-feature-meta">02 · Exam Realism</span>
+                </div>
+                <h4>Exam Hall Acoustics &amp; Reading-Time Enforcer</h4>
+                <p>Simulate real SSC and High Court test centers with PA speaker acoustics, multi-speaker parliamentary debates, and mandatory reading-time locks.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(245,158,11,0.14); color: #d97706;"><i class="fa-solid fa-pen-nib"></i></span>
+                  <span class="auth-user-feature-meta">03 · Pitman Book</span>
+                </div>
+                <h4>Pitman Shorthand Exercises &amp; Outline Viewer</h4>
+                <p>Split-screen Pitman exercise transcription with zoomable shorthand plate images, hard word extraction, and notebook camera photo attachment.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(14,165,233,0.12); color: #0284c7;"><i class="fa-solid fa-spell-check"></i></span>
+                  <span class="auth-user-feature-meta">04 · A–Z Dictionary</span>
+                </div>
+                <h4>Words &amp; Outlines A–Z Shorthand Dictionary</h4>
+                <p>Browse category-wise legal, parliamentary, and editorial words with high-resolution shorthand outline inspection and duplicate-checked outline requests.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(225,29,72,0.12); color: #e11d48;"><i class="fa-solid fa-vault"></i></span>
+                  <span class="auth-user-feature-meta">05 · Weak Vault</span>
+                </div>
+                <h4>My Weak Outlines Vault &amp; 5x Mastery Drills</h4>
+                <p>Automatically collects your misspelled or omitted dictation words, renders interactive SVG Pitman stroke geometry, and builds custom 60-second audio drills.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TRACK 02: TYPING & BILINGUAL CBT ARENA -->
+          <div class="rp-showcase-track">
+            <div class="rp-showcase-track-head">
+              <div class="rp-showcase-track-label">
+                <span class="rp-showcase-track-num">02</span>
+                <h4 class="rp-showcase-track-title">Skill Typing &amp; Bilingual CBT Exam Suite</h4>
+              </div>
+              <span class="rp-showcase-track-meta">Touch Typing · Hindi Layouts · TCS-iON CBT · SRS Error Logbook</span>
+            </div>
+            <div class="rp-showcase-track-grid">
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(14,165,233,0.12); color: #0284c7;"><i class="fa-solid fa-graduation-cap"></i></span>
+                  <span class="auth-user-feature-meta">06 · Typing Studio</span>
+                </div>
+                <h4>Interactive Touch-Typing Studio &amp; Ghost Pacer</h4>
+                <p>Master Home Row, Top/Bottom Row, and Numeric Keypad with a live 10-finger visual keyboard, metronome, Target Ghost Pacer, and keystroke latency analysis.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(16,185,129,0.12); color: #059669;"><i class="fa-solid fa-file-lines"></i></span>
+                  <span class="auth-user-feature-meta">07 · Practice Library</span>
+                </div>
+                <h4>Uploaded Learning Material &amp; Self-Paced Drills</h4>
+                <p>Practice institute-uploaded English and Hindi typing passages with customizable evaluation rules, adjustable font sizes, and full-screen focus mode.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(5,150,105,0.12); color: #047857;"><i class="fa-solid fa-keyboard"></i></span>
+                  <span class="auth-user-feature-meta">08 · Skill Test Arena</span>
+                </div>
+                <h4>Commission-Grade Skill Typing Test Engine</h4>
+                <p>Evaluates 5-keystroke standard words, full and half mistakes, ignorable error relaxation, backspace locks, and Hindi layouts (KrutiDev 010, Remington Gail, InScript).</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(37,99,235,0.12); color: #1d4ed8;"><i class="fa-solid fa-desktop"></i></span>
+                  <span class="auth-user-feature-meta">09 · TCS-iON CBT</span>
+                </div>
+                <h4>Bilingual Computer-Based Test (CBT) Arena</h4>
+                <p>Full-screen TCS-iON interface with instant English/Hindi toggle, color-coded question palette, sectional timing locks, and confidence tags.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(217,119,6,0.12); color: #b45309;"><i class="fa-solid fa-book-bookmark"></i></span>
+                  <span class="auth-user-feature-meta">10 · SRS Logbook</span>
+                </div>
+                <h4>Saved MCQs &amp; Spaced-Repetition Error Logbook</h4>
+                <p>Review bookmarked questions, wrong CBT answers, and 50-50 guesses with 1d/3d/7d/14d Spaced Repetition scheduling and 1-click custom revision quizzes.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TRACK 03: PLANNING, CONSISTENCY & ANALYTICS -->
+          <div class="rp-showcase-track">
+            <div class="rp-showcase-track-head">
+              <div class="rp-showcase-track-label">
+                <span class="rp-showcase-track-num">03</span>
+                <h4 class="rp-showcase-track-title">Command Deck, Discipline &amp; Performance Analytics</h4>
+              </div>
+              <span class="rp-showcase-track-meta">Unified Attendance Calendar · 7-Day Planner · Scorecards &amp; Diff</span>
+            </div>
+            <div class="rp-showcase-track-grid">
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(37,99,235,0.12); color: #2563eb;"><i class="fa-solid fa-gauge-high"></i></span>
+                  <span class="auth-user-feature-meta">11 · Command Deck</span>
+                </div>
+                <h4>Student Command Center Dashboard</h4>
+                <p>Unified overview with live test alerts, countdown timers, pinned institute directives, daily homework assignments, and Toppers Hall of Fame standings.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(234,88,12,0.12); color: #ea580c;"><i class="fa-solid fa-calendar-check"></i></span>
+                  <span class="auth-user-feature-meta">12 · 7-Day Planner</span>
+                </div>
+                <h4>7-Day Study Planner &amp; Daily Word Target Ring</h4>
+                <p>Set daily word and stroke goals, follow exam-specific 7-day study checklists, and track completion velocity every morning.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(16,185,129,0.14); color: #059669;"><i class="fa-solid fa-fire"></i></span>
+                  <span class="auth-user-feature-meta">13 · Unified Calendar</span>
+                </div>
+                <h4>Unified Attendance, Streak &amp; Consistency Calendar</h4>
+                <p>Track monthly attendance, active practice streaks, and daily intensity shading inside one unified interactive calendar alongside WPM trend charts.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(71,85,105,0.14); color: #334155;"><i class="fa-solid fa-file-award"></i></span>
+                  <span class="auth-user-feature-meta">14 · Scorecards</span>
+                </div>
+                <h4>Official Scorecards, Word Diff &amp; Section Breakdown</h4>
+                <p>Inspect side-by-side master vs. transcribed passage comparisons, full/half mistake breakdowns, and verified skill progress certificates.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- TRACK 04: BATCH HUB, LIBRARY & SUPPORT -->
+          <div class="rp-showcase-track">
+            <div class="rp-showcase-track-head">
+              <div class="rp-showcase-track-label">
+                <span class="rp-showcase-track-num">04</span>
+                <h4 class="rp-showcase-track-title">Batch Collaboration, Digital Library &amp; Support</h4>
+              </div>
+              <span class="rp-showcase-track-meta">Batch Polls &amp; Wall · Video Lectures · PDF E-Books · Helpdesk</span>
+            </div>
+            <div class="rp-showcase-track-grid">
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(8,145,178,0.12); color: #0891b2;"><i class="fa-solid fa-comments"></i></span>
+                  <span class="auth-user-feature-meta">15 · Batch Hub</span>
+                </div>
+                <h4>Batch Monitor Hub, Live Polls &amp; Doubt Wall</h4>
+                <p>Collaborate with your assigned batch coordinator, reply to discussion threads, vote in live Google-Sheets-synced batch polls, and resolve shorthand doubts.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(219,39,119,0.12); color: #db2777;"><i class="fa-solid fa-circle-play"></i></span>
+                  <span class="auth-user-feature-meta">16 · Video &amp; Audio</span>
+                </div>
+                <h4>Video &amp; Audio Lectures with Timestamp Jump</h4>
+                <p>Stream structured video lectures or switch to low-data audio-only lecture mode with instant MM:SS timestamp jump controls.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(13,148,136,0.12); color: #0d9488;"><i class="fa-solid fa-file-pdf"></i></span>
+                  <span class="auth-user-feature-meta">17 · E-Books &amp; PDFs</span>
+                </div>
+                <h4>Digital PDF Study Library &amp; Reference Notes</h4>
+                <p>Read or download category-wise PDF study books, court vocabulary compilations, and parliamentary phrasebooks inside an integrated reader.</p>
+              </div>
+              <div class="auth-user-feature-card">
+                <div class="auth-user-feature-card-top">
+                  <span class="auth-user-feature-icon" style="background: rgba(71,85,105,0.14); color: #334155;"><i class="fa-solid fa-headset"></i></span>
+                  <span class="auth-user-feature-meta">18 · Support Desk</span>
+                </div>
+                <h4>Student Helpdesk &amp; Batch-Matched Official Contacts</h4>
+                <p>Submit feedback, request missing shorthand outlines, and view verified contact cards for Official Superadmins, Admins, and your Batch Monitor.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+<!-- DASHBOARD VIEW -->

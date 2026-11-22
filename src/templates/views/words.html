@@ -1,0 +1,79 @@
+<section id="view-words" class="app-view" style="display: none;">
+      <div class="card" style="margin-bottom: 16px; padding: 14px 18px; border-top: 3px solid var(--primary); display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h3 style="margin: 0; font-size: 16.5px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-pen-nib" style="color: var(--primary);"></i> Hard Words, Grammalogues &amp; Advanced Shorthand Outlines
+            </h3>
+            <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">Browse shorthand outlines or open the Outline Replies subtab to request tough words and inspect faculty answers.</p>
+          </div>
+          <div class="rp-segmented-bar" id="words-subtab-bar" style="margin: 0;">
+            <button type="button" class="rp-segmented-btn active" id="words-subtab-btn-dict" data-wsub="dictionary" onclick="if(typeof window.switchWordsSubtab==='function') window.switchWordsSubtab('dictionary')">
+              <i class="fa-solid fa-book-open"></i> 1. Outlines Dictionary
+            </button>
+            <button type="button" class="rp-segmented-btn" id="words-subtab-btn-replies" data-wsub="replies" onclick="if(typeof window.switchWordsSubtab==='function') window.switchWordsSubtab('replies')">
+              <i class="fa-solid fa-reply-all"></i> 2. Asked Outlines &amp; Replies <span id="words-outline-req-count-badge" style="font-weight: 800; margin-left: 4px; color: #0d9488;">(0)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SUBTAB 1: DICTIONARY CONTROLS -->
+        <div id="words-subpanel-dict-controls" style="display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <select id="words-category-filter" class="form-control" onchange="renderWords()" style="max-width: 185px; margin: 0;">
+              <option value="ALL">All Categories</option>
+            </select>
+            <input type="text" id="words-search" class="form-control" placeholder="Search word or outline..." onfocus="activateAllSubtabs('word')" oninput="activateAllSubtabs('word')" style="flex: 1; min-width: 200px; margin: 0;">
+          </div>
+          <div class="alphabet-bar" id="alphabet-bar" style="margin-bottom: 0;"></div>
+        </div>
+      </div>
+
+      <!-- SUBTAB 1 BODY: DICTIONARY GRID -->
+      <div id="words-subpanel-dictionary">
+        <div id="words-grid" class="grid-cards"></div>
+      </div>
+
+      <!-- SUBTAB 2 BODY: DEDICATED ASKED OUTLINES & REPLIES DESK -->
+      <div id="words-subpanel-replies" style="display: none;">
+        <div class="card" style="padding: 16px 18px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+            <div style="flex: 1; min-width: 240px;">
+              <h4 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 800; color: var(--secondary);">
+                <i class="fa-solid fa-file-pen" style="color: #0d9488;"></i> Ask for a Shorthand Outline &amp; View Faculty Replies
+              </h4>
+              <p style="margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+                Submit any difficult word or phrase here. Your request goes straight to the <strong>Outline Replies Desk</strong> where your Batch Monitor, Admin, or Superadmin posts the stroke reply and can publish it to the dictionary.
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+              <input type="text" id="words-tab-outline-request-input" class="form-control" placeholder="Type word or phrase to request..." style="min-width: 230px; width: auto; min-height: 36px; padding: 6px 10px; font-size: 12.5px; margin: 0;">
+              <button type="button" class="btn btn-primary btn-sm" style="background: #0d9488; border-color: #0d9488; font-weight: 700; min-height: 36px;" onclick="window.checkAndSubmitWordOutlineRequest(document.getElementById('words-tab-outline-request-input')?.value, 'words-tab')">
+                <i class="fa-solid fa-paper-plane"></i> Ask Outline
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" style="min-height: 36px;" onclick="window.loadAndRenderOutlineRequestsTracker(false)">
+                <i class="fa-solid fa-rotate"></i> Refresh Replies
+              </button>
+            </div>
+          </div>
+          <div id="words-tab-outline-request-status" style="display: none; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; margin-bottom: 10px;"></div>
+          <div id="words-outline-requests-tracker-box" style="display: block; border-top: 1px solid var(--border); padding-top: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+              <div style="font-size: 13px; font-weight: 800; color: var(--secondary);" id="words-outline-tracker-heading">
+                Asked Outlines &amp; Official Replies
+              </div>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <select id="words-outline-reply-filter" class="form-control" style="width: auto; min-height: 32px; font-size: 12px; margin: 0;" onchange="if(typeof window.renderOutlineRepliesFiltered==='function') window.renderOutlineRepliesFiltered()">
+                  <option value="all">All Requests</option>
+                  <option value="pending">Pending Reply</option>
+                  <option value="answered">Answered</option>
+                </select>
+              </div>
+            </div>
+            <div id="words-outline-requests-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PDF VIEW -->

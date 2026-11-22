@@ -1,0 +1,39 @@
+<section id="view-livetests" class="app-view" style="display: none;">
+      <div class="card" style="margin-bottom: 14px; padding: 16px 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+          <div>
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #dc2626;">All-India &amp; Batch-Wise Timed Arena</div>
+            <h3 style="margin: 2px 0 0 0; font-size: 18px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-tower-broadcast" style="color: #dc2626;"></i> Live Tests &amp; Scheduled Contests
+            </h3>
+            <p style="margin: 3px 0 0 0; font-size: 12.5px; color: var(--text-muted);">
+              Join ongoing Audio Dictation, Pitman Shorthand, Skill Typing, and CBT Live Tests with real-time countdowns and official merit lists.
+            </p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <input type="text" id="livetests-search-input" class="form-control" placeholder="Search live test title or batch..." oninput="if(typeof renderDedicatedLiveTestsTab==='function') renderDedicatedLiveTestsTab()" style="width: 220px; min-height: 34px; font-size: 12px; padding: 6px 10px;">
+            <select id="livetests-category-filter" class="form-control" onchange="if(typeof renderDedicatedLiveTestsTab==='function') renderDedicatedLiveTestsTab()" style="width: auto; min-width: 150px; min-height: 34px; font-size: 12px; padding: 6px 10px;">
+              <option value="ALL">All Categories</option>
+              <option value="audio">Audio Dictation</option>
+              <option value="pitman">Pitman Book</option>
+              <option value="typingtest">Typing Test</option>
+              <option value="cbttest">CBT Mock Exam</option>
+            </select>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="if(typeof renderLiveTestsEverywhere==='function') renderLiveTestsEverywhere(); showToast('Live Tests refreshed.');">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+        </div>
+
+        <div class="rp-segmented-bar" id="livetests-status-tabs" style="margin-bottom: 0; background: var(--background);">
+          <button type="button" class="rp-segmented-btn active" data-lt-status="ALL" onclick="if(typeof setDedicatedLiveTestsStatusFilter==='function') setDedicatedLiveTestsStatusFilter('ALL', this)">All Live Tests <span id="lt-count-all" class="mono-num">0</span></button>
+          <button type="button" class="rp-segmented-btn" data-lt-status="LIVE" onclick="if(typeof setDedicatedLiveTestsStatusFilter==='function') setDedicatedLiveTestsStatusFilter('LIVE', this)">Live Now <span id="lt-count-live" class="mono-num">0</span></button>
+          <button type="button" class="rp-segmented-btn" data-lt-status="UPCOMING" onclick="if(typeof setDedicatedLiveTestsStatusFilter==='function') setDedicatedLiveTestsStatusFilter('UPCOMING', this)">Upcoming <span id="lt-count-upcoming" class="mono-num">0</span></button>
+          <button type="button" class="rp-segmented-btn" data-lt-status="ENDED" onclick="if(typeof setDedicatedLiveTestsStatusFilter==='function') setDedicatedLiveTestsStatusFilter('ENDED', this)">Ended &amp; Ranks <span id="lt-count-ended" class="mono-num">0</span></button>
+        </div>
+      </div>
+
+      <div id="dedicated-livetests-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px;"></div>
+    </section>
+
+    <!-- VIDEO COURSE VIEW -->

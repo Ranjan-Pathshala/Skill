@@ -1,0 +1,17 @@
+{
+  "name": "RP Skill | Ranjan Pathshala",
+  "short_name": "RP Skill",
+  "description": "Stenography, Pitman Shorthand, Dictation, Typing & CBT Examination Portal",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

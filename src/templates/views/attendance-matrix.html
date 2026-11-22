@@ -1,0 +1,19 @@
+<section id="view-attendance-matrix" class="app-view" style="display: none;">
+      <div class="card" id="student-attendance-matrix-card" style="margin-bottom: 0; padding: 16px 20px; border-top: 3px solid #059669;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
+          <div>
+            <div style="font-size: 11.5px; font-weight: 700; color: #059669; margin-bottom: 2px;">Consistency &amp; Daily Discipline</div>
+            <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--secondary);">Monthly Attendance &amp; Streak Matrix</h3>
+            <p style="margin: 3px 0 0 0; font-size: 12.5px; color: var(--text-muted);">Calendar-month Present/Absent attendance sheet, active &amp; longest consecutive streaks, and monthly coverage % unified with your Practice Consistency Heatmap.</p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <input type="month" id="student-attendance-month-picker" class="form-control" style="width: auto; min-height: 36px; font-size: 12.5px; margin: 0;" onchange="if(typeof window.renderStudentAttendanceMatrixView==='function') window.renderStudentAttendanceMatrixView()">
+            <button type="button" class="btn btn-secondary btn-sm" style="min-height: 36px;" onclick="if(typeof window.renderStudentAttendanceMatrixView==='function') window.renderStudentAttendanceMatrixView()">
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+        </div>
+        <div id="student-attendance-kpi-strip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 16px;"></div>
+        <div id="student-attendance-calendar-grid" style="overflow-x: auto;"></div>
+      </div>
+    </section>

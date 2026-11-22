@@ -1,0 +1,362 @@
+<section id="view-learningtyping" class="app-view" style="display: none;">
+      <!-- Top Interactive Two-Section Switcher Header -->
+      <div class="card" style="margin-bottom: 16px; padding: 14px 18px; background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(16,185,129,0.07)); border: 1px solid rgba(37,99,235,0.22);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-graduation-cap" style="color: var(--primary);"></i> Touch-Typing Studio &amp; Custom Rule Practice Hub
+            </h3>
+            <p style="margin: 3px 0 0 0; font-size: 12px; color: var(--text-muted);">
+              Select <strong>Section 1</strong> for Interactive Finger Guide or <strong>Section 2</strong> for Uploaded Learning Passages. Click the selected tab again to unselect it.
+            </p>
+          </div>
+          <div class="subtab-bar" id="learning-view-section-tabs" style="margin-bottom: 0; border-bottom: none; padding: 0; width: auto;">
+            <button type="button" id="learning-tab-btn-studio" class="subtab-btn" data-learn-sec="studio" onclick="switchLearningTypingSection('studio', this)">
+              <i class="fa-solid fa-keyboard"></i> 1. Touch-Typing Studio &amp; Finger Guide
+            </button>
+            <button type="button" id="learning-tab-btn-passages" class="subtab-btn" data-learn-sec="passages" onclick="switchLearningTypingSection('passages', this)">
+              <i class="fa-solid fa-sliders"></i> 2. Uploaded Learning Passages
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Initial Unselected State Prompt for Learning Typing -->
+      <div id="learning-no-tab-selected-prompt" class="card" style="text-align: center; padding: 36px 24px; border: 2px dashed rgba(37,99,235,0.3); background: linear-gradient(135deg, rgba(37,99,235,0.04), rgba(16,185,129,0.04)); margin-bottom: 16px;">
+        <div style="width: 56px; height: 56px; border-radius: 16px; background: rgba(37,99,235,0.12); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 12px;">
+          <i class="fa-solid fa-keyboard"></i>
+        </div>
+        <h4 style="margin: 0 0 6px 0; font-size: 17px; font-weight: 800; color: var(--secondary);">Select a Practice Section Above to Begin</h4>
+        <p style="margin: 0 auto 18px auto; max-width: 580px; font-size: 13px; color: var(--text-muted); line-height: 1.55;">
+          No section is pre-selected initially. Choose <strong>Section 1 (Interactive Touch-Typing Studio &amp; Finger Guide)</strong> for ergonomic key drills, or <strong>Section 2 (Uploaded Learning Passages)</strong> for custom rule practice. Click an active tab again at any time to unselect it.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary" onclick="switchLearningTypingSection('studio', document.querySelector('#learning-view-section-tabs [data-learn-sec=\'studio\']'))">
+            <i class="fa-solid fa-keyboard"></i> Open 1. Touch-Typing Studio &amp; Finger Guide
+          </button>
+          <button type="button" class="btn btn-secondary" style="border-color: #10b981; color: #059669;" onclick="switchLearningTypingSection('passages', document.querySelector('#learning-view-section-tabs [data-learn-sec=\'passages\']'))">
+            <i class="fa-solid fa-sliders"></i> Open 2. Uploaded Learning Passages
+          </button>
+        </div>
+      </div>
+
+      <!-- SECTION 1: Interactive Touch-Typing Studio & Finger Guide (Two-Screen Architecture: Screen 1 Setup & Rules -> Screen 2 Active Practice & Finger Guide) -->
+      <div id="learning-section-studio-card" class="card" style="display: none; flex-direction: column; gap: 16px; margin-bottom: 18px; border-top: 4px solid var(--primary);">
+
+        <!-- =========================================================================
+             SCREEN 1: EVALUATION RULE, DRILL SELECTION & STUDIO CONFIGURATION SCREEN
+             ========================================================================= -->
+        <div id="learning-studio-screen-setup" style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+            <div>
+              <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(79,70,229,0.12); color: var(--primary); padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; margin-bottom: 6px;">
+                <i class="fa-solid fa-sliders"></i> STEP 1 OF 2 • EVALUATION RULE &amp; DRILL SETUP SCREEN
+              </div>
+              <h3 style="margin: 0; font-size: 18px; font-weight: 900; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-hands-clapping" style="color: var(--primary);"></i> Interactive Touch-Typing Studio — Configure Rules &amp; Choose Drill
+              </h3>
+              <p style="margin: 4px 0 0 0; font-size: 12.5px; color: var(--text-muted);">
+                Select your target drill passage and customize evaluation rules, backspace limits, word/stroke formula, and voice guide before entering the clean Beginner Exam &amp; Finger Guide screen.
+              </p>
+            </div>
+            <button type="button" class="btn btn-primary" style="padding: 10px 20px; font-size: 13.5px; font-weight: 900; border-radius: 12px; box-shadow: 0 8px 20px rgba(79,70,229,0.28);" onclick="openLearningStudioPracticeScreen()">
+              <i class="fa-solid fa-rocket"></i> Start Touch-Typing Practice Screen &rarr;
+            </button>
+          </div>
+
+          <!-- Target Drill Selector + Custom Passage Input Card -->
+          <div style="background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+            <div>
+              <label for="learning-drill-select" style="font-size: 12.5px; font-weight: 800; color: var(--secondary); display: block; margin-bottom: 6px;">
+                <i class="fa-solid fa-book-open-reader" style="color: var(--primary);"></i> 1. Choose Ergonomic Key Drill or Uploaded Lesson:
+              </label>
+              <select id="learning-drill-select" class="form-control" style="width: 100%; font-weight: 700; margin: 0; font-size: 13px;" onchange="loadLearningLesson(this.value)">
+              </select>
+            </div>
+            <div style="border-top: 1px dashed var(--border); padding-top: 10px;">
+              <label for="learning-custom-text-input" style="font-size: 12px; font-weight: 700; color: var(--secondary); display: block; margin-bottom: 5px;">
+                Or Paste Your Own Practice Text (Optional):
+              </label>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch;">
+                <textarea id="learning-custom-text-input" class="form-control" rows="2" style="flex: 1; min-width: 240px; font-size: 12.5px; margin: 0;" placeholder="Paste or type any custom passage here, then click Load Custom Text..."></textarea>
+                <button type="button" class="btn btn-secondary btn-sm" style="white-space: nowrap; font-weight: 700;" onclick="applyCustomTextToLearningStudio()">
+                  <i class="fa-solid fa-check"></i> Load Custom Text
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Evaluation Rule & Ergonomic Studio Controls Grid (Collapsed until user clicks Evaluation Rule button) -->
+          <div id="learning-studio-complete-rules-bar" style="background: var(--background); border: 1.5px solid var(--border); border-radius: 14px; padding: 14px 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <div style="font-size: 12.5px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-scale-balanced" style="color: var(--primary);"></i> 2. Evaluation Rules, Backspace Mode, Layout &amp; Voice Guide
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size: 11.5px; font-weight: 800; border-color: var(--primary); color: var(--primary);" onclick="const g=document.getElementById('learning-studio-eval-rules-collapse-grid'); if(g){ const show = g.style.display==='none'; g.style.display = show ? 'grid' : 'none'; this.innerHTML = show ? '🔼 Hide Complete Evaluation Rules' : '⚖️ View / Configure Evaluation Rules'; }">
+                ⚖️ View / Configure Evaluation Rules
+              </button>
+            </div>
+            <div id="learning-studio-eval-rules-collapse-grid" style="display: none; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border);">
+              <!-- Live Highlight -->
+              <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 4px;">
+                  <i class="fa-solid fa-highlighter" style="color: var(--primary);"></i> Live Word/Char Highlight
+                </label>
+                <select id="learning-studio-highlight-select" class="form-control" style="margin: 0; font-size: 12.5px; font-weight: 700;" onchange="updateLearningStudioCompleteRules()">
+                  <option value="on" selected>Highlight: ON (Live Guide)</option>
+                  <option value="off">Highlight: OFF (Exam Blind)</option>
+                </select>
+              </div>
+
+              <!-- Backspace Rule -->
+              <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 4px;">
+                  <i class="fa-solid fa-delete-left" style="color: #dc2626;"></i> Backspace Evaluation Rule
+                </label>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <select id="learning-backspace-select" class="form-control" style="margin: 0; font-size: 12.5px; font-weight: 700; flex: 1;" onchange="updateLearningStudioCompleteRules()">
+                    <option value="on" selected>Backspace: ON (Unlimited)</option>
+                    <option value="until_space">Current Word Only (Before Space)</option>
+                    <option value="off">Backspace: OFF (Strict Exam)</option>
+                    <option value="limited_10">Limited (Max 10 Backspaces)</option>
+                    <option value="limited_25">Limited (Max 25 Backspaces)</option>
+                    <option value="limited_custom">Limited (Custom Count)</option>
+                  </select>
+                  <input type="number" id="learning-studio-bs-limit-input" min="1" max="500" value="20" title="Custom Backspace Limit" style="display: none; width: 68px; margin: 0; padding: 6px; font-size: 12px; font-weight: 800; text-align: center;" onchange="updateLearningStudioCompleteRules()">
+                </div>
+              </div>
+
+              <!-- Auto-Scroll -->
+              <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 4px;">
+                  <i class="fa-solid fa-arrows-up-down" style="color: #059669;"></i> Passage Auto-Scroll
+                </label>
+                <select id="learning-studio-autoscroll-select" class="form-control" style="margin: 0; font-size: 12.5px; font-weight: 700;" onchange="updateLearningStudioCompleteRules()">
+                  <option value="on" selected>Auto-Scroll: ON</option>
+                  <option value="off">Auto-Scroll: OFF (Manual)</option>
+                </select>
+              </div>
+
+              <!-- Material Position -->
+              <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 4px;">
+                  <i class="fa-solid fa-table-columns" style="color: #4f46e5;"></i> Material Layout Position
+                </label>
+                <select id="learning-studio-layout-select" class="form-control" style="margin: 0; font-size: 12.5px; font-weight: 700;" onchange="updateLearningStudioCompleteRules()">
+                  <option value="top" selected>Material: Top / Above Input</option>
+                  <option value="left">Material: Side-by-Side (Left)</option>
+                </select>
+              </div>
+
+              <!-- Word / Stroke Formula -->
+              <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 4px;">
+                  <i class="fa-solid fa-calculator" style="color: #0284c7;"></i> Speed Calculation Formula
+                </label>
+                <select id="learning-studio-wordrule-select" class="form-control" style="margin: 0; font-size: 12.5px; font-weight: 700;" onchange="updateLearningStudioCompleteRules()">
+                  <option value="5stroke" selected>5 Strokes = 1 Word (SSC Standard)</option>
+                  <option value="1word">1 Space = 1 Word (Actual Words)</option>
+                </select>
+              </div>
+
+              <!-- Speech Synthesis Guide -->
+              <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 4px;">
+                  <i class="fa-solid fa-volume-high" style="color: #d97706;"></i> Voice Dictation Guide
+                </label>
+                <select id="learning-studio-speech-mode-select" class="form-control" style="margin: 0; font-size: 12.5px; font-weight: 700;" onchange="updateLearningStudioCompleteRules()">
+                  <option value="off" selected>Speech Guide: OFF</option>
+                  <option value="words">Speak Words Only</option>
+                  <option value="strokes">Speak Keystrokes Only</option>
+                  <option value="both">Speak Both Words &amp; Strokes</option>
+                </select>
+              </div>
+
+              <!-- Ghost Pacer -->
+              <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;">
+                <label style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 4px;">
+                  <i class="fa-solid fa-ghost" style="color: #7c3aed;"></i> Visual Ghost Pacer Cursor
+                </label>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; color: var(--secondary); cursor: pointer; margin: 0;">
+                    <input type="checkbox" id="learning-ghost-pacer-toggle" onchange="toggleLearningGhostPacer(this.checked)" style="width: 15px; height: 15px; margin: 0;"> Enable
+                  </label>
+                  <select id="learning-ghost-pacer-wpm" class="form-control" onchange="updateLearningGhostPacerWpm()" style="margin: 0; font-size: 12px; font-weight: 700; flex: 1;">
+                    <option value="25">25 WPM</option>
+                    <option value="35" selected>35 WPM (SSC)</option>
+                    <option value="40">40 WPM</option>
+                    <option value="50">50 WPM</option>
+                    <option value="60">60 WPM</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
+            <button type="button" class="btn btn-primary" style="padding: 11px 24px; font-size: 14px; font-weight: 900; border-radius: 12px;" onclick="openLearningStudioPracticeScreen()">
+              <i class="fa-solid fa-keyboard"></i> Enter Active Touch-Typing &amp; Finger Guide Screen &rarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- =========================================================================
+             SCREEN 2: ACTIVE BEGINNER TOUCH-TYPING PRACTICE & FINGER GUIDE SCREEN
+             ========================================================================= -->
+        <div id="learning-studio-screen-practice" style="display: none; flex-direction: column; gap: 14px;">
+          <!-- Practice Screen Top Bar -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: var(--background); padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="openLearningStudioSetupScreen()" style="font-weight: 800;">
+                <i class="fa-solid fa-arrow-left"></i> Back to Rule &amp; Drill Setup
+              </button>
+              <span style="font-size: 13px; font-weight: 900; color: var(--secondary);">
+                <i class="fa-solid fa-keyboard" style="color: var(--primary);"></i> Active Beginner Touch-Typing &amp; Finger Guide Screen
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <button type="button" id="btn-learning-practice-fs" class="btn btn-sm btn-secondary" onclick="toggleLearningPracticeFullscreen()" title="Toggle Full Screen">
+                <i class="fa-solid fa-expand"></i> Full Screen
+              </button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="speakLearningStudioCurrentWordAndStroke('word')" title="Speak Current Target Word">
+                <i class="fa-solid fa-volume-high"></i> Speak Word
+              </button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="speakLearningStudioCurrentWordAndStroke('stroke')" title="Speak Current Target Keystroke">
+                <i class="fa-solid fa-microphone-lines"></i> Speak Stroke
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="resetLearningLesson()">
+                <i class="fa-solid fa-rotate-right"></i> Restart Drill
+              </button>
+              <button type="button" class="btn btn-success btn-sm" style="font-weight: 800;" onclick="submitLearningStudioPracticeResult()">
+                <i class="fa-solid fa-floppy-disk"></i> Submit &amp; Save Result
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 1: Compact 6-Pill Live Telemetry Ribbon -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px;">
+            <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Speed</div>
+                <div id="learn-wpm" class="mono-num" style="font-size: 18px; font-weight: 900; color: var(--primary);">0</div>
+                <div id="learn-words-strokes-sub" style="font-size: 10px; font-weight: 700; color: var(--text-muted);">(0 WPM • 0 CPM)</div>
+              </div>
+              <span style="font-size: 10px; font-weight: 800; color: var(--primary); background: rgba(79,70,229,0.1); padding: 2px 6px; border-radius: 6px;">WPM</span>
+            </div>
+            <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Accuracy</div>
+                <div id="learn-accuracy" class="mono-num" style="font-size: 18px; font-weight: 900; color: #16a34a;">100%</div>
+              </div>
+              <i class="fa-solid fa-bullseye" style="color: #16a34a; font-size: 16px; opacity: 0.75;"></i>
+            </div>
+            <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Words &amp; Strokes</div>
+                <div id="learn-strokes" class="mono-num" style="font-size: 13.5px; font-weight: 900; color: var(--secondary);">0 / 0 W • 0 / 0 Str</div>
+              </div>
+              <i class="fa-solid fa-keyboard" style="color: var(--primary); font-size: 15px; opacity: 0.75;"></i>
+            </div>
+            <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Backspaces</div>
+                <div id="learn-backspaces" class="mono-num" style="font-size: 18px; font-weight: 900; color: #dc2626;">0</div>
+              </div>
+              <i class="fa-solid fa-delete-left" style="color: #dc2626; font-size: 15px; opacity: 0.75;"></i>
+            </div>
+            <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Elapsed Time</div>
+                <div id="learn-elapsed-time" class="mono-num" style="font-size: 18px; font-weight: 900; color: #0284c7;">00:00</div>
+              </div>
+              <i class="fa-regular fa-clock" style="color: #0284c7; font-size: 15px; opacity: 0.75;"></i>
+            </div>
+            <div style="background: linear-gradient(135deg, rgba(79,70,229,0.12), rgba(14,165,233,0.12)); border: 1px solid rgba(79,70,229,0.28); border-radius: 10px; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-size: 10px; font-weight: 800; color: var(--primary); text-transform: uppercase;">Next Key &amp; Finger</div>
+                <div style="font-size: 12.5px; font-weight: 900; color: var(--secondary);"><span id="learning-next-key-badge" class="mono-num" style="color: var(--primary);">A</span> • <span id="learning-finger-badge">Left Pinky</span></div>
+              </div>
+              <span id="learn-status-badge" style="font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 999px; background: var(--surface); color: var(--primary);">READY</span>
+            </div>
+          </div>
+
+          <!-- Row 2: Focused Target Drill Stream + Typing Input Box -->
+          <div id="learning-studio-workspace-split" style="display: flex; flex-direction: column; gap: 10px;">
+            <div id="learning-target-display" class="mono-num" style="flex: 1; min-width: 280px; background: var(--background); border: 2px solid var(--primary); border-radius: 12px; padding: 16px 18px; font-size: 20px; line-height: 1.75; letter-spacing: 0.6px; min-height: 86px; max-height: 175px; overflow-y: auto; user-select: none; word-break: break-word; box-shadow: inset 0 2px 6px rgba(15,23,42,0.04);">
+            </div>
+            <div style="width: 100%; height: 5px; background: var(--border); border-radius: 999px; overflow: hidden;">
+              <div id="learning-progress-bar-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary), #10b981); transition: width 0.15s ease;"></div>
+            </div>
+            <textarea id="learning-user-input"
+                      class="form-control mono-num"
+                      rows="3"
+                      spellcheck="false"
+                      autocorrect="off"
+                      autocapitalize="off"
+                      autocomplete="off"
+                      style="flex: 1; min-width: 280px; font-size: 18px; line-height: 1.6; padding: 12px 16px; border-radius: 10px; border: 1.5px solid var(--border); margin: 0; resize: vertical;"
+                      placeholder="Click here and type the highlighted characters above..."
+                      oninput="handleLearningTypingInput()"
+                      onkeydown="handleLearningKeyDown(event)"></textarea>
+          </div>
+
+          <!-- Row 3: Visual QWERTY Key Deck & Finger Guide (Necessary during beginner practice) -->
+          <div style="background: var(--background); padding: 14px; border-radius: 12px; border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+              <span style="font-size: 12px; font-weight: 800; color: var(--secondary);">
+                <i class="fa-solid fa-keyboard" style="color: var(--primary);"></i> Live Ergonomic Key &amp; Finger Placement Guide: <strong id="learn-finger-hint" style="color: var(--primary);">Home Row Ready (A S D F — J K L ;)</strong>
+              </span>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; font-weight: 700;">
+                <span style="color: #ec4899;">● Pinky</span>
+                <span style="color: #f59e0b;">● Ring</span>
+                <span style="color: #3b82f6;">● Middle</span>
+                <span style="color: #8b5cf6;">● Index</span>
+                <span style="color: #10b981;">● Thumb (Spacebar)</span>
+              </div>
+            </div>
+            <div id="learning-visual-keyboard" style="display: flex; flex-direction: column; gap: 6px; align-items: center; overflow-x: auto; padding-bottom: 4px;">
+            </div>
+            <!-- Keystroke Rhythm & Latency Heatmap -->
+            <div id="keystroke-rhythm-heatmap-card" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border);">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                <span style="font-size: 11.5px; font-weight: 800; color: var(--secondary);"><i class="fa-solid fa-fire-flame-curved" style="color: #f59e0b;"></i> Live Keystroke Rhythm &amp; Latency Heatmap (ms per key)</span>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 10.5px; font-weight: 700;">
+                  <span style="color: #10b981;">● Fast (&lt;140ms)</span>
+                  <span style="color: #f59e0b;">● Steady (140–260ms)</span>
+                  <span style="color: #ef4444;">● Hesitation (&gt;260ms)</span>
+                  <button type="button" onclick="resetKeystrokeRhythmHeatmap()" class="btn btn-sm btn-secondary" style="padding: 2px 8px; font-size: 10px;">Reset Heatmap</button>
+                </div>
+              </div>
+              <div id="keystroke-rhythm-heatmap-grid" style="display: flex; flex-wrap: wrap; gap: 5px; font-size: 11px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2: Uploaded Learning Typing Passages (One-Time Custom Rule Practice) -->
+      <div id="learning-section-passages-card" class="card" style="display: none; padding: 16px; border-top: 4px solid #10b981; box-shadow: 0 8px 24px var(--shadow);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; box-shadow: 0 4px 10px rgba(16,185,129,0.25);">
+              <i class="fa-solid fa-sliders"></i>
+            </div>
+            <div>
+              <span style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.6px;">Section 02 • Complete Custom Evaluation Rule Passages</span>
+              <h4 style="margin: 1px 0 0 0; color: var(--secondary); font-size: 15.5px; font-weight: 800;">
+                Uploaded Learning Typing Passages (Complete Custom Evaluation Rule Practice)
+              </h4>
+              <p style="margin: 2px 0 0 0; font-size: 11.5px; color: var(--text-muted);">
+                Practice any uploaded exercise with complete custom evaluation rules (Timer Mode, Word Calculation, Backspace, Highlight, Auto-Scroll, Punctuation &amp; Deductions).
+              </p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <span id="learning-passages-count-badge" style="font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: rgba(16,185,129,0.12); color: #059669;">0 Passages</span>
+            <input type="text" id="learning-passages-search-input" class="form-control" placeholder="🔍 Search passages..." oninput="renderLearningUploadedExercisesGrid()" style="max-width: 210px; min-height: 34px; padding: 5px 10px; font-size: 12px;">
+          </div>
+        </div>
+        <div id="learning-uploaded-exercises-grid" class="grid-cards"></div>
+      </div>
+    </section>
+
+<!-- 👉 REQUIREMENT #4: ENHANCED TYPING TEST EXAM CENTRE (Interactive 5-Step Exam Console) -->

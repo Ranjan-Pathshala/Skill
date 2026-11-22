@@ -1,0 +1,302 @@
+/* RP Skill Portal — Design Tokens, Themes & Keyframes */
+
+:root, [data-theme="light"] {
+      --primary: #1d4ed8;
+      --primary-dark: #1e40af;
+      --primary-soft: rgba(29, 78, 216, 0.08);
+      --secondary: #0f172a;
+      --accent: #0891b2;
+      --background: #f8fafc;
+      --surface: #ffffff;
+      --surface-subtle: #f1f5f9;
+      --text: #334155;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --danger: #dc2626;
+      --success: #059669;
+      --warning: #d97706;
+      --radius: 12px;
+      --shadow: rgba(15, 23, 42, 0.06);
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 8px 24px -8px rgba(15, 23, 42, 0.12);
+      --shadow-lg: 0 20px 44px -14px rgba(15, 23, 42, 0.16);
+      --ring-primary: 0 0 0 3px rgba(29, 78, 216, 0.22);
+      --status-bar-bg: #eff6ff;
+      --status-bar-border: #bfdbfe;
+      --status-bar-text: #1e3a8a;
+    }
+
+[data-theme="dark"], body.dark-mode {
+      --primary: #3b82f6;
+      --primary-dark: #60a5fa;
+      --primary-soft: rgba(59, 130, 246, 0.14);
+      --secondary: #f8fafc;
+      --accent: #22d3ee;
+      --background: #090e1a;
+      --surface: #111827;
+      --surface-subtle: #1e293b;
+      --text: #e2e8f0;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #1f2937;
+      --border-strong: #334155;
+      --danger: #f87171;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --shadow: rgba(0, 0, 0, 0.44);
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+      --shadow-md: 0 12px 28px -8px rgba(0, 0, 0, 0.55);
+      --shadow-lg: 0 24px 52px -14px rgba(0, 0, 0, 0.72);
+      --ring-primary: 0 0 0 3px rgba(96, 165, 250, 0.28);
+      --status-bar-bg: #0f172a;
+      --status-bar-border: #1e293b;
+      --status-bar-text: #93c5fd;
+      color-scheme: dark;
+    }
+
+[data-theme="dark"] .brand-title,
+    body.dark-mode .brand-title {
+      background: linear-gradient(135deg, #60a5fa, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+[data-theme="dark"] #live-typing-status-bar,
+    body.dark-mode #live-typing-status-bar {
+      background: var(--status-bar-bg) !important;
+      border-bottom-color: var(--status-bar-border) !important;
+      color: var(--status-bar-text) !important;
+    }
+
+[data-theme="dark"] table tr,
+    body.dark-mode table tr {
+      color: var(--text);
+    }
+
+[data-theme="dark"] select,
+    [data-theme="dark"] input,
+    [data-theme="dark"] textarea,
+    body.dark-mode select,
+    body.dark-mode input,
+    body.dark-mode textarea {
+      background-color: var(--surface);
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+
+@keyframes marqueeRightToLeft {
+      0% {
+        transform: translate(0, 0);
+      }
+      100% {
+        transform: translateX(-100%);
+      }
+    }
+
+@keyframes navMenuFadeIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+@keyframes pulseBellAlert {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+
+@keyframes viewSmoothTransition {
+      from { opacity: 0; transform: translateY(10px) scale(0.995); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+@keyframes cardSmoothReveal {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+@keyframes modalBackdropFade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+@keyframes modalContentPop {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+@keyframes modalPopIn {
+        from { opacity: 0; transform: translateY(10px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes visualPulse {
+  0% { background-color: rgba(239, 68, 68, 0.1); }
+  100% { background-color: rgba(239, 68, 68, 0.4); }
+}
+
+/* ==========================================================================
+       UNIVERSAL LIGHT & DARK THEME VISIBILITY + ATTRACTIVE ANIMATIONS & SUBTABS
+       ========================================================================== */
+    @keyframes rpFloatPulse {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-3px); }
+    }
+
+@keyframes rpGlowBorder {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.25); }
+      50% { box-shadow: 0 0 0 6px rgba(37, 99, 235, 0); }
+    }
+
+@keyframes rpSlideFadeIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+@keyframes rpReadingPulseRing {
+      0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+      50% { transform: scale(1.02); box-shadow: 0 0 0 22px rgba(245, 158, 11, 0); }
+      100% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+
+@keyframes rpReadingWaveBar {
+      0%, 100% { transform: scaleY(0.35); opacity: 0.6; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+
+/* Dark Mode Complete Visibility Guarantee */
+    body.dark-mode .section-subtab-bar,
+    [data-theme="dark"] .section-subtab-bar {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+      border-color: #334155 !important;
+    }
+
+body.dark-mode .section-subtab-bar .subtab-title-label,
+    [data-theme="dark"] .section-subtab-bar .subtab-title-label {
+      color: #93c5fd !important;
+    }
+
+body.dark-mode .verified-pill-badge.is-verified,
+    [data-theme="dark"] .verified-pill-badge.is-verified {
+      background: rgba(22, 163, 74, 0.25) !important;
+      color: #4ade80 !important;
+      border-color: rgba(74, 222, 128, 0.5) !important;
+    }
+
+body.dark-mode .verified-pill-badge.is-unverified,
+    [data-theme="dark"] .verified-pill-badge.is-unverified {
+      background: rgba(217, 119, 6, 0.25) !important;
+      color: #fbbf24 !important;
+      border-color: rgba(251, 191, 36, 0.5) !important;
+    }
+
+body.dark-mode #unverified-email-lock-banner,
+    [data-theme="dark"] #unverified-email-lock-banner {
+      background: linear-gradient(135deg, #1e1b4b 0%, #31102f 100%) !important;
+      border-color: #f59e0b !important;
+    }
+
+body.dark-mode #unverified-email-lock-banner div,
+    body.dark-mode #unverified-email-lock-banner span,
+    [data-theme="dark"] #unverified-email-lock-banner div,
+    [data-theme="dark"] #unverified-email-lock-banner span {
+      color: #fef3c7 !important;
+    }
+
+:root {
+    --rp-spring: cubic-bezier(0.22, 1, 0.36, 1);
+    --rp-glow-primary: 0 10px 30px -5px rgba(79, 70, 229, 0.28);
+    --master-passage-font-size: 17px;
+  }
+
+/* Audio Lecture Equalizer Animation */
+  @keyframes rpEqBounce {
+    0%, 100% { height: 6px; }
+    50% { height: 26px; }
+  }
+
+/* =========================================================================
+     MODERN SAAS VISUAL UPGRADE & RESPONSIVE DESIGN SYSTEM
+     ========================================================================= */
+  :root, [data-theme="light"] {
+    --rp-font-display: 'Bricolage Grotesque', 'Plus Jakarta Sans', sans-serif;
+    --rp-font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --rp-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --background: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --primary: #1d4ed8;
+    --primary-dark: #1e40af;
+    --secondary: #0f172a;
+    --text: #334155;
+    --text-muted: #64748b;
+  }
+
+[data-theme="dark"], body.dark-mode {
+    --background: #0b1120;
+    --surface: #111827;
+    --border: #1e293b;
+    --primary: #3b82f6;
+    --primary-dark: #2563eb;
+    --secondary: #f8fafc;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+  }
+
+/* Hardware-Accelerated View & Modal Entry */
+  @keyframes rpFadeSlideUp {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+/* Dark-Mode Surface & Border Contrast Parity */
+  [data-theme="dark"] table thead th,
+  body.dark-mode table thead th {
+    background: var(--surface-subtle, #1e293b);
+    color: var(--text-muted);
+  }
+
+@keyframes rpSearchExpand {
+  from { opacity: 0; transform: scaleX(0.88); transform-origin: left center; }
+  to { opacity: 1; transform: scaleX(1); transform-origin: left center; }
+}
+
+@keyframes rpNotifRing {
+  0%, 100% { transform: rotate(0deg); }
+  18% { transform: rotate(15deg); }
+  36% { transform: rotate(-13deg); }
+  54% { transform: rotate(9deg); }
+  72% { transform: rotate(-6deg); }
+  88% { transform: rotate(3deg); }
+}
+
+@keyframes rpNotifBadgePop {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 30, 86, 0.55), 0 2px 6px rgba(239, 68, 68, 0.4); }
+  60% { box-shadow: 0 0 0 5px rgba(255, 30, 86, 0), 0 2px 6px rgba(239, 68, 68, 0.4); }
+}
+
+/* ===== Attractive 4-Subtab Profile Hub Design & Motion ===== */
+@keyframes rpProfPaneIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-theme="dark"] .rp-prof-tabbar,
+body.dark-mode .rp-prof-tabbar {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(148, 163, 184, 0.2);
+}

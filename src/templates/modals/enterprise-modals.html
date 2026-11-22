@@ -1,0 +1,353 @@
+<div id="rp-upgrade-modals-root">
+    <!-- 1. Personal Mistake Bank ("My Weak Outlines" Vault) & Pitman Outline Lookup Modal -->
+    <div id="weak-outlines-vault-modal" class="rp-pro-modal-backdrop hidden">
+        <div class="rp-pro-modal-card" style="max-width: 960px;">
+            <div style="padding: 16px 22px; background: linear-gradient(135deg, #e11d48 0%, #ea580c 55%, #d97706 100%); color: #fff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.2); display: inline-flex; align-items: center; justify-content: center; font-size: 20px;"><i class="fas fa-vault"></i></span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 17.5px; font-weight: 900;">Personal Mistake Bank — "My Weak Outlines" Vault &amp; Pitman Stroke Lookup</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #ffe4e6;">Every word misspelled, swapped, or omitted across tests with interactive SVG Pitman Shorthand Stroke Geometry</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" onclick="launchWeakOutlinesCustomDrill()" class="btn btn-sm" style="background: #ffffff; color: #be123c; font-weight: 900; font-size: 12px; padding: 7px 14px; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                        <i class="fas fa-bolt"></i> Launch Weak-Word Drill Now
+                    </button>
+                    <button type="button" onclick="clearMasteredWeakOutlines()" class="btn btn-sm" style="background: rgba(255,255,255,0.18); color: #fff; font-weight: 800; font-size: 11.5px; padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.28); cursor: pointer;">
+                        Clear Mastered
+                    </button>
+                    <button type="button" onclick="closeWeakOutlinesVaultModal()" style="width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.2); border: none; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div style="padding: 18px 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; overflow-y: auto; flex: 1;">
+                <!-- Left Column: Search / Add Word + Weak Words List -->
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="text" id="weak-outlines-search-input" oninput="renderWeakOutlinesVaultModalList()" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomWordToWeakVault();}" placeholder="Search weak word or type any word to inspect Pitman stroke..." class="form-control" style="flex: 1; margin: 0; font-size: 12.5px; font-weight: 700;">
+                        <button type="button" onclick="addCustomWordToWeakVault()" class="btn btn-primary btn-sm" style="font-weight: 800; padding: 8px 14px;">
+                            <i class="fas fa-plus"></i> Add / Lookup
+                        </button>
+                    </div>
+                    <div id="weak-outlines-vault-modal-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 52vh; overflow-y: auto; padding-right: 4px;"></div>
+                </div>
+                <!-- Right Column: 1-Click Pitman Shorthand Outline SVG Inspector -->
+                <div style="background: var(--background); border-radius: 16px; padding: 16px; border: 1.5px solid var(--border); display: flex; flex-direction: column; justify-content: space-between; gap: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+                            <span style="font-size: 12px; font-weight: 900; text-transform: uppercase; color: var(--primary);"><i class="fas fa-pen-nib"></i> 1-Click Pitman Shorthand Outline Inspector</span>
+                            <span id="pitman-inspector-position-badge" style="font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background: rgba(79,70,229,0.14); color: var(--primary);">Select a Word</span>
+                        </div>
+                        <div id="pitman-outline-svg-stage" style="min-height: 185px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 14px; text-align: center;">
+                            <p style="font-size: 12.5px; color: var(--text-muted); margin: 0;">Click any word on the left (or enter any word above) to visualize its Pitman Shorthand stroke geometry, line position, vowel indicator &amp; hooks.</p>
+                        </div>
+                        <div id="pitman-outline-Coaching-notes" style="margin-top: 12px; font-size: 12.5px; color: var(--secondary); display: flex; flex-direction: column; gap: 6px;"></div>
+                    </div>
+                    <div style="padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px;">
+                        <label style="font-size: 11.5px; font-weight: 800; color: var(--text-muted); margin: 0;">Practice typing this word 5x (separated by space) to mark Mastered:</label>
+                        <input type="text" id="pitman-inspector-practice-input" oninput="checkPitmanInspectorPracticeInput(this)" placeholder="Type word 5 times separated by space..." class="form-control mono-num" style="margin: 0; font-size: 13px; font-weight: 700;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Voice-to-Text Dictation Self-Check Mode Modal -->
+    <div id="voice-readback-selfcheck-modal" class="rp-pro-modal-backdrop hidden">
+        <div class="rp-pro-modal-card" style="max-width: 860px;">
+            <div style="padding: 16px 22px; background: linear-gradient(135deg, #0284c7 0%, #4f46e5 55%, #7c3aed 100%); color: #fff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.2); display: inline-flex; align-items: center; justify-content: center; font-size: 20px;"><i class="fas fa-microphone-alt"></i></span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 17.5px; font-weight: 900;">Voice-to-Text Shorthand Read-Back Self-Check Studio</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #e0f2fe;">Read your handwritten shorthand pad aloud into your microphone &amp; auto-compare word-by-word against the master passage</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeVoiceReadbackSelfCheckModal()" style="width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.2); border: none; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div style="padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1;">
+                <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; background: var(--background); padding: 12px 16px; border-radius: 14px; border: 1.5px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" id="voice-readback-mic-btn" onclick="toggleVoiceReadbackRecognition()" class="btn btn-sm" style="background: #e11d48; color: #fff; font-weight: 900; padding: 8px 16px; border-radius: 10px; border: none; cursor: pointer;">
+                            <i class="fas fa-microphone"></i> <span id="voice-readback-mic-label">Start Speaking Read-Back</span>
+                        </button>
+                        <button type="button" onclick="evaluateVoiceReadbackAgainstMaster()" class="btn btn-primary btn-sm" style="font-weight: 900; padding: 8px 16px; border-radius: 10px;">
+                            <i class="fas fa-check-double"></i> Compare Spoken vs. Master
+                        </button>
+                        <button type="button" onclick="loadSamplePassageIntoVoiceReadback()" class="btn btn-secondary btn-sm" style="font-weight: 800; padding: 8px 12px; border-radius: 10px;">
+                            <i class="fas fa-file-import"></i> Load Latest Passage
+                        </button>
+                    </div>
+                    <span id="voice-readback-status-pill" style="font-size: 12px; font-weight: 800; color: var(--primary);">🎙️ Microphone Ready (en-IN / en-US)</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px;">
+                    <div>
+                        <label style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--secondary); display: block; margin-bottom: 6px;">1. Master Reference Passage</label>
+                        <textarea id="voice-readback-master-text" rows="6" class="form-control" style="margin: 0; font-size: 13px; line-height: 1.6;" placeholder="Master passage auto-loaded from active test (or click 'Load Latest Passage' / paste any reference passage here)..."></textarea>
+                    </div>
+                    <div>
+                        <label style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; color: var(--primary); display: block; margin-bottom: 6px;">2. Your Spoken Shorthand Read-Back Transcript</label>
+                        <textarea id="voice-readback-spoken-text" rows="6" class="form-control" style="margin: 0; font-size: 13px; line-height: 1.6; border-color: var(--primary);" placeholder="Click 'Start Speaking Read-Back' and read your shorthand outlines aloud (or type your read-back transcript)..."></textarea>
+                    </div>
+                </div>
+                <div id="voice-readback-diff-result" class="hidden" style="display: none; background: var(--background); border-radius: 14px; padding: 14px 16px; border: 1.5px solid var(--border);"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. CBT "My Saved MCQs" Revision Notebook & Spaced-Repetition Flashcard Deck Modal -->
+    <div id="cbt-saved-mcqs-notebook-modal" class="rp-pro-modal-backdrop hidden">
+        <div class="rp-pro-modal-card" style="max-width: 960px;">
+            <div style="padding: 16px 22px; background: linear-gradient(135deg, #312e81 0%, #5b21b6 50%, #0f172a 100%); color: #fff; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="width: 44px; height: 44px; border-radius: 12px; background: rgba(251,191,36,0.22); border: 1px solid rgba(251,191,36,0.45); display: inline-flex; align-items: center; justify-content: center; color: #fcd34d; font-size: 20px;"><i class="fas fa-bookmark"></i></span>
+                    <div>
+                        <h3 style="margin: 0; font-size: 17.5px; font-weight: 900;">My Saved MCQs Notebook &amp; Spaced-Repetition Flashcard Deck</h3>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #e0e7ff;">Interactive Bookmarked MCQs, Smart Error Logbook &amp; Spaced-Repetition (1d / 3d / 7d / 14d) Concept Flashcards</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <select id="cbt-notebook-mode-select" onchange="window.__cbtNotebookMode = this.value; renderCbtSavedMcqsNotebookList()" style="font-size: 12px; font-weight: 800; background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; padding: 6px 12px; width: auto; margin: 0;">
+                        <option value="bookmarks" style="color:#0f172a;">🔖 Bookmarked MCQs Notebook</option>
+                        <option value="flashcards" style="color:#0f172a;">🧠 Spaced-Repetition Error Flashcards (1d/3d/7d/14d)</option>
+                    </select>
+                    <select id="cbt-notebook-topic-filter" onchange="renderCbtSavedMcqsNotebookList()" style="font-size: 12px; font-weight: 800; background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 10px; padding: 6px 12px; width: auto; margin: 0;">
+                        <option value="ALL" style="color:#0f172a;">All Sub-Topics</option>
+                    </select>
+                    <button type="button" onclick="launchCustomCbtMistakeMiniQuiz(15, 'bookmarks')" class="btn btn-sm" style="background: #fbbf24; color: #0f172a; font-size: 12px; font-weight: 900; padding: 7px 14px; border-radius: 10px; border: none; cursor: pointer;">
+                        <i class="fas fa-play"></i> Practice Saved MCQs Quiz
+                    </button>
+                    <button type="button" onclick="closeCbtSavedMcqsNotebookModal()" style="width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.2); border: none; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- Quick Add Custom MCQ / Concept Note Bar -->
+            <div style="padding: 12px 22px; background: var(--background); border-bottom: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <input type="text" id="cbt-custom-mcq-q-input" class="form-control" placeholder="➕ Quick-save a tricky MCQ question or concept note to your Notebook..." style="flex: 2; min-width: 200px; margin: 0; padding: 7px 12px; font-size: 12.5px;">
+                <input type="text" id="cbt-custom-mcq-ans-input" class="form-control" placeholder="Correct Answer / Formula..." style="flex: 1; min-width: 140px; margin: 0; padding: 7px 12px; font-size: 12.5px;">
+                <input type="text" id="cbt-custom-mcq-exp-input" class="form-control" placeholder="Shortcut trick / explanation (optional)..." style="flex: 1.2; min-width: 150px; margin: 0; padding: 7px 12px; font-size: 12.5px;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="addCustomMcqToSavedNotebook()" style="padding: 8px 14px; font-size: 12px; font-weight: 800;">
+                    <i class="fa-solid fa-plus"></i> Save to Notebook
+                </button>
+            </div>
+            <div id="cbt-saved-mcqs-notebook-list" style="padding: 18px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+    </div>
+
+    <!-- 4. Parent / Guardian Weekly WhatsApp & Email Progress Summary Modal -->
+    <div id="parent-weekly-summary-modal" class="hidden" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(15,23,42,0.78); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: var(--surface); border-radius: 18px; max-width: 680px; width: 100%; max-height: 88vh; display: flex; flex-direction: column; border: 1px solid var(--border); box-shadow: 0 24px 48px rgba(0,0,0,0.35); overflow: hidden;">
+            <div style="padding: 16px 20px; background: linear-gradient(135deg, #059669, #0284c7); color: #fff; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3 style="margin: 0; font-size: 16.5px; font-weight: 900;"><i class="fa-brands fa-whatsapp"></i> Parent / Guardian Weekly Progress Summary Dispatch</h3>
+                    <p style="margin: 2px 0 0 0; font-size: 11.5px; opacity: 0.92;">Opt-in weekly report showing Attendance, Tests Completed, Net Speed Growth &amp; Batch Rank</p>
+                </div>
+                <button type="button" onclick="closeParentWeeklySummaryModal()" style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.2); border: none; color: #fff; cursor: pointer;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="padding: 18px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+                <div id="parent-summary-fallback-notice" style="display: none; padding: 8px 12px; border-radius: 9px; background: rgba(37,99,235,0.08); border: 1px solid rgba(37,99,235,0.28); font-size: 11.5px; color: var(--secondary);">
+                    <i class="fa-solid fa-circle-info" style="color: var(--primary);"></i> Parent details are not added yet, so your own <strong>Student details</strong> are pre-filled automatically. Edit below and click <strong>Save Guardian Contact</strong> to add separate Parent details.
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
+                    <div>
+                        <label style="font-size: 11px; font-weight: 800; color: var(--secondary); display: block; margin-bottom: 4px;">Parent / Guardian Name:</label>
+                        <input type="text" id="parent-guardian-name" placeholder="Parent / Guardian Name" style="margin: 0; padding: 7px 10px; font-size: 12.5px; width: 100%;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: 800; color: var(--secondary); display: block; margin-bottom: 4px;">Parent / Guardian WhatsApp Number:</label>
+                        <input type="tel" id="parent-summary-whatsapp-input" placeholder="+91 9876543210" style="margin: 0; padding: 7px 10px; font-size: 12.5px; width: 100%;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; font-weight: 800; color: var(--secondary); display: block; margin-bottom: 4px;">Parent / Guardian Email Address:</label>
+                        <input type="email" id="parent-summary-email-input" placeholder="parent@example.com" style="margin: 0; padding: 7px 10px; font-size: 12.5px; width: 100%;">
+                    </div>
+                </div>
+                <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: var(--secondary); cursor: pointer;">
+                    <input type="checkbox" id="parent-summary-optin-chk" checked style="width: 16px; height: 16px; accent-color: #059669;">
+                    <span>Enable Automated Weekly Sunday 8:00 PM Progress Summary (WhatsApp &amp; Email)</span>
+                </label>
+                <div id="parent-weekly-report-preview-box" style="background: var(--background); border: 1px solid var(--border); border-radius: 12px; padding: 14px; font-size: 12.5px; line-height: 1.55; color: var(--secondary); white-space: pre-wrap; font-family: monospace;"></div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--border);">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="saveParentWeeklySummaryPreferences()"><i class="fa-solid fa-floppy-disk"></i> Save Guardian Contact</button>
+                    <button type="button" class="btn btn-success btn-sm" onclick="dispatchParentSummaryViaWhatsApp()"><i class="fa-brands fa-whatsapp"></i> Send via WhatsApp Now</button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="dispatchParentSummaryViaEmail()"><i class="fa-solid fa-envelope"></i> Send via Email Now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Interactive Shorthand Outline Hover Dictionary Floating Tooltip -->
+    <div id="shorthand-outline-hover-tooltip" class="hidden" style="display: none; position: fixed; z-index: 10000; width: 290px; background: var(--surface); border: 2px solid var(--primary); border-radius: 14px; padding: 12px; box-shadow: 0 18px 38px rgba(15,23,42,0.32); pointer-events: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong id="shorthand-tip-word" style="font-size: 13px; color: var(--primary);">Word</strong>
+            <span id="shorthand-tip-system" style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: rgba(37,99,235,0.12); color: var(--primary);">Pitman 2000</span>
+        </div>
+        <div id="shorthand-tip-svg-box" style="background: #0f172a; border-radius: 8px; padding: 6px; margin-bottom: 6px;"></div>
+        <div id="shorthand-tip-stroke-desc" style="font-size: 11px; color: var(--secondary); line-height: 1.45;"></div>
+    </div>
+</div>
+
+<!-- Top-Level Admin Manual User Profile, Parent Details & Password Editor Modal (Never clipped by subtabs) -->
+<div id="admin-edit-user-modal" class="modal-backdrop" style="display: none; z-index: 10500;" onclick="if(event.target===this) closeAdminEditUserModal();">
+  <div class="modal-content" style="max-width: 540px; width: 95%; max-height: 90vh; overflow-y: auto; padding: 20px 22px; border-radius: 16px;" onclick="event.stopPropagation()">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 14px;">
+      <div>
+        <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--secondary);"><i class="fa-solid fa-user-pen" style="color: var(--primary);"></i> Edit User, Parent Details &amp; Password</h4>
+        <div id="admin-edit-user-id-subtitle" style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">UserID: -</div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeAdminEditUserModal()">✕</button>
+    </div>
+    <input type="hidden" id="admin-edit-user-id">
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="form-group" style="margin: 0;">
+        <label style="font-size: 12px; font-weight: 700;">Full Name <span class="required-star">*</span></label>
+        <input type="text" id="admin-edit-user-name" class="form-control" placeholder="Enter student/user full name" required>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group" style="margin: 0;">
+          <label style="font-size: 12px; font-weight: 700;">Email ID <span class="required-star">*</span></label>
+          <input type="email" id="admin-edit-user-email" class="form-control" placeholder="student@example.com" oninput="this.value=this.value.toLowerCase()" required>
+        </div>
+        <div class="form-group" style="margin: 0;">
+          <label style="font-size: 12px; font-weight: 700;">Mobile No. (10 Digits) <span class="required-star">*</span></label>
+          <input type="text" id="admin-edit-user-mobile" class="form-control" maxlength="10" placeholder="10-digit mobile number" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)" required>
+        </div>
+      </div>
+      <div class="form-group" style="margin: 0;">
+        <label style="font-size: 12px; font-weight: 700;">Set / Reset Password (Optional — leave blank to keep current)</label>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <div style="position: relative; flex: 1;">
+            <input type="password" id="admin-edit-user-password" class="form-control" minlength="4" placeholder="Enter new password (min 4 chars)" style="padding-right: 38px;">
+            <span onclick="togglePasswordVisibility('admin-edit-user-password', document.getElementById('admin-edit-pass-eye'))" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted);">
+              <i class="fa-solid fa-eye" id="admin-edit-pass-eye"></i>
+            </span>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" style="white-space: nowrap;" onclick="generateAdminUserTempPassword()" title="Generate strong temporary password"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
+        </div>
+        <small id="admin-edit-user-pass-hint" style="font-size: 11px; color: var(--text-muted); margin-top: 3px; display: block;"></small>
+      </div>
+      <div style="display: flex; gap: 16px; flex-wrap: wrap; padding: 8px 10px; border-radius: 8px; background: var(--background); border: 1px solid var(--border);">
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; cursor: pointer; margin: 0;">
+          <input type="checkbox" id="admin-edit-user-email-ver" style="width: 15px; height: 15px;"> Email Verified
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; cursor: pointer; margin: 0;">
+          <input type="checkbox" id="admin-edit-user-mobile-ver" style="width: 15px; height: 15px;"> Mobile Verified
+        </label>
+      </div>
+      <div style="padding: 12px; border-radius: 10px; background: var(--background); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 800; color: var(--secondary);"><i class="fa-solid fa-user-group" style="color: #059669;"></i> Parent / Guardian Details</span>
+          <span style="font-size: 10.5px; color: var(--text-muted);">Blank = uses Student's details</span>
+        </div>
+        <input type="text" id="admin-edit-user-parent-name" class="form-control" placeholder="Parent / Guardian Name (optional)" style="padding: 7px 10px; font-size: 12px; margin: 0;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <input type="text" id="admin-edit-user-parent-mobile" class="form-control" maxlength="10" placeholder="Parent Mobile (10 digits)" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)" style="padding: 7px 10px; font-size: 12px; margin: 0;">
+          <input type="email" id="admin-edit-user-parent-email" class="form-control" placeholder="Parent Email (optional)" oninput="this.value=this.value.toLowerCase()" style="padding: 7px 10px; font-size: 12px; margin: 0;">
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeAdminEditUserModal()">Cancel</button>
+        <button type="button" id="admin-edit-user-save-btn" class="btn btn-primary btn-sm" onclick="saveAdminEditedUserDetails()"><i class="fa-solid fa-floppy-disk"></i> Save User Details</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Top-Level Admin Member Batch Access Scope Modal (Triggered when Role -> Member or Edit Member Access) -->
+<div id="admin-member-access-modal" class="modal-backdrop" style="display: none; z-index: 10600;" onclick="if(event.target===this) closeAdminMemberAccessModal();">
+  <div class="modal-content" style="max-width: 600px; width: 95%; max-height: 92vh; overflow-y: auto; padding: 20px 22px; border-radius: 16px;" onclick="event.stopPropagation()">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 14px;">
+      <div>
+        <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--secondary);"><i class="fa-solid fa-crown" style="color: #d97706;"></i> Configure Member Batch Access Scope</h4>
+        <div id="admin-member-access-subtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Choose which institute batches this Member can access.</div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeAdminMemberAccessModal()">✕</button>
+    </div>
+    <input type="hidden" id="admin-member-access-userid">
+    <input type="hidden" id="admin-member-access-status">
+    <input type="hidden" id="admin-member-access-perms">
+    <input type="hidden" id="admin-member-access-student-perms">
+    <input type="hidden" id="admin-member-access-receipt-no">
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="form-group" style="margin: 0;">
+          <label style="font-size: 12px; font-weight: 700;">Member Plan / Tier</label>
+          <select id="admin-member-plan-select" class="form-control" style="font-size: 12.5px; margin: 0;" onchange="if(typeof window.onAdminMemberPlanPresetChange==='function') window.onAdminMemberPlanPresetChange()"></select>
+        </div>
+        <div class="form-group" style="margin: 0;">
+          <label style="font-size: 12px; font-weight: 700;">Membership Valid Until (Optional)</label>
+          <input type="date" id="admin-member-valid-until" class="form-control" style="font-size: 12.5px; margin: 0;">
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <label style="font-size: 12px; font-weight: 800; color: var(--secondary); margin: 0;">Which Batches Should This Member Access?</label>
+        <label class="rp-scope-option-card">
+          <input type="radio" name="admin-member-scope-mode" value="ALL_PAST_CURRENT_UPCOMING" checked onchange="if(typeof window.onAdminMemberScopeRadioChange==='function') window.onAdminMemberScopeRadioChange()">
+          <div>
+            <strong>All Past, Current &amp; Upcoming Batches (Full All-Access)</strong>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Unlocks every past batch, every currently running batch, and all future batches automatically.</div>
+          </div>
+        </label>
+        <label class="rp-scope-option-card">
+          <input type="radio" name="admin-member-scope-mode" value="ALL_EXISTING_ONLY" onchange="if(typeof window.onAdminMemberScopeRadioChange==='function') window.onAdminMemberScopeRadioChange()">
+          <div>
+            <strong>All Past &amp; Current Batches Only (Exclude Future/Upcoming)</strong>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Grants access to all batches created up to today; newly launched future batches remain locked.</div>
+          </div>
+        </label>
+        <label class="rp-scope-option-card">
+          <input type="radio" name="admin-member-scope-mode" value="CURRENT_AND_UPCOMING" onchange="if(typeof window.onAdminMemberScopeRadioChange==='function') window.onAdminMemberScopeRadioChange()">
+          <div>
+            <strong>Current &amp; Upcoming Batches Only (From Join Date Onward)</strong>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Grants access to batches created on or after today and all future upcoming batches (excludes older past batches).</div>
+          </div>
+        </label>
+        <label class="rp-scope-option-card">
+          <input type="radio" name="admin-member-scope-mode" value="CUSTOM_SELECTED" onchange="if(typeof window.onAdminMemberScopeRadioChange==='function') window.onAdminMemberScopeRadioChange()">
+          <div>
+            <strong>Specific Selected Batches (Custom Pick)</strong>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Hand-pick exact batches below, with an optional toggle to also include upcoming future batches.</div>
+          </div>
+        </label>
+      </div>
+
+      <div id="admin-member-custom-batches-box" style="display: none; padding: 12px; border-radius: 10px; background: var(--background); border: 1px solid var(--border); flex-direction: column; gap: 10px;">
+        <div style="font-size: 12px; font-weight: 800; color: var(--secondary);">Select Allowed Batches (RP-Trail is always included):</div>
+        <div id="admin-member-batches-checklist" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; max-height: 170px; overflow-y: auto;"></div>
+        <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--primary); cursor: pointer; margin: 2px 0 0 0;">
+          <input type="checkbox" id="admin-member-include-upcoming-cb" style="width: 15px; height: 15px;">
+          Also automatically grant all Upcoming / Future Batches created after today
+        </label>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closeAdminMemberAccessModal()">Cancel</button>
+        <button type="button" id="admin-member-access-save-btn" class="btn btn-primary btn-sm" onclick="saveAdminMemberAccessModal()"><i class="fa-solid fa-check"></i> Save Member &amp; Batch Scope</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Branded Printable PDF Fee Receipt Preview Modal (No window.open — 100% iFrame-Safe) -->
+<div id="rp-fee-receipt-modal" class="modal-backdrop" style="display: none; z-index: 10700;" onclick="if(event.target===this && typeof window.closePrintableFeeReceipt==='function') window.closePrintableFeeReceipt();">
+  <div class="modal-content" style="max-width: 720px; width: 96%; max-height: 92vh; overflow-y: auto; padding: 20px 22px; border-radius: 16px;" onclick="event.stopPropagation()">
+    <div class="rp-no-print" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 16px;">
+      <div>
+        <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--secondary);"><i class="fa-solid fa-file-invoice-dollar" style="color: #059669;"></i> Official Fee Payment Receipt</h4>
+        <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Print / Save as PDF or download an offline receipt copy.</div>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="if(typeof window.printCurrentFeeReceiptPdf==='function') window.printCurrentFeeReceiptPdf()"><i class="fa-solid fa-print"></i> Print / Save PDF</button>
+        <button type="button" class="btn btn-success btn-sm" onclick="if(typeof window.downloadCurrentFeeReceiptHtml==='function') window.downloadCurrentFeeReceiptHtml()"><i class="fa-solid fa-download"></i> Download Receipt</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="if(typeof window.closePrintableFeeReceipt==='function') window.closePrintableFeeReceipt()">✕ Close</button>
+      </div>
+    </div>
+    <div id="rp-fee-receipt-printable"></div>
+  </div>
+</div>

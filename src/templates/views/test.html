@@ -1,0 +1,60 @@
+<section id="view-test" class="app-view" style="display: none;">
+  <div class="card" style="border-top: 4px solid var(--primary); padding: 18px 20px;">
+    <!-- Well-Arranged Executive Toolbar for My Test & Practice History -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(37,99,235,0.12); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+        </div>
+        <div>
+          <h4 style="margin: 0; font-size: 16.5px; font-weight: 800; color: var(--secondary);">My Test &amp; Practice History</h4>
+          <p style="margin: 2px 0 0 0; font-size: 11.5px; color: var(--text-muted);">Search by passage or exam name, filter by discipline, or toggle time-used speed view.</p>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex: 1; justify-content: flex-end; min-width: min(100%, 320px);">
+        <div style="width: 220px; max-width: 100%; flex-shrink: 0;">
+          <input type="text" id="history-search-input" class="form-control" placeholder="🔍 Search exam or passage..." oninput="currentHistoryPage = 1; document.getElementById('history-type-filter').value='ALL'; renderTestHistoryTable();" style="width: 100%; min-height: 36px; padding: 6px 12px; font-size: 12.5px;">
+        </div>
+
+        <select id="history-type-filter" class="form-control" onchange="currentHistoryPage = 1; renderTestHistoryTable()" style="width: 185px; max-width: 100%; min-height: 36px; padding: 6px 10px; font-size: 12.5px; font-weight: 700; flex-shrink: 0;">
+          <option value="ALL" selected>🌐 All History</option>
+          <option value="typing">⌨️ Typing Test Only</option>
+          <option value="learning">🎓 Learning Typing</option>
+          <option value="pitman">📖 Pitman Shorthand</option>
+          <option value="audio">🔉 Audio Transcription</option>
+          <option value="cbt">🖥️ CBT Exam</option>
+        </select>
+
+        <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+          <input type="date" id="history-start-date" class="form-control" title="Start Date (Server Filter)" style="width: 136px; min-height: 36px; padding: 5px 8px; font-size: 11.5px; margin: 0;">
+          <input type="date" id="history-end-date" class="form-control" title="End Date (Server Filter)" style="width: 136px; min-height: 36px; padding: 5px 8px; font-size: 11.5px; margin: 0;">
+          <button type="button" class="btn btn-secondary btn-sm" style="min-height: 36px; padding: 6px 11px; font-size: 11.5px;" onclick="window.loadUserHistoryServerPage(true)" title="Query Google Sheets by Date Range">
+            <i class="fa-solid fa-filter"></i> Fetch Range
+          </button>
+          <button type="button" id="btn-user-history-load-more" class="btn btn-primary btn-sm" style="display: none; min-height: 36px; padding: 6px 11px; font-size: 11.5px;" onclick="window.loadUserHistoryServerPage(false)">
+            <i class="fa-solid fa-angles-down"></i> Load Older
+          </button>
+        </div>
+
+        <label style="display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; font-size: 12px; color: var(--secondary); background: var(--background); border: 1px solid var(--border); padding: 7px 12px; border-radius: 10px; margin: 0; min-height: 36px; white-space: nowrap; flex-shrink: 0;">
+          <input type="checkbox" id="toggle-time-used" onchange="renderTestHistoryTable()" style="width: 15px; height: 15px; accent-color: var(--primary); margin: 0; cursor: pointer;">
+          <span><i class="fa-solid fa-stopwatch" style="color: var(--primary);"></i> Time-Used Speed View</span>
+        </label>
+      </div>
+    </div>
+    
+    <div id="test-history-container" class="watermark-text-container" style="margin-top: 6px; overflow-x: auto; border-radius: 10px;">
+      <p style="color: var(--text-muted);">Loading test history...</p>
+    </div>
+
+    <!-- 👉 Pagination controls bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 10px 4px 0 4px; border-top: 1px solid var(--border);">
+      <button class="btn btn-secondary btn-sm" onclick="paginateHistory(-1)"><i class="fa-solid fa-chevron-left"></i> Previous</button>
+      <span id="history-page-indicator" style="font-size: 12.5px; font-weight: 700; color: var(--text-muted);">Page 1 of 1</span>
+      <button class="btn btn-secondary btn-sm" onclick="paginateHistory(1)">Next <i class="fa-solid fa-chevron-right"></i></button>
+    </div>
+  </div>
+</section>
+
+    <!-- HELP / FEEDBACK VIEW (Single Refresh button + Server-Only Official Admin, Superadmin & Batch Monitor Contacts) -->

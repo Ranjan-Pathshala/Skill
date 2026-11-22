@@ -1,0 +1,217 @@
+<section id="view-profile" class="app-view" style="display: none;">
+  <div class="rp-prof-shell">
+    <!-- Signature Identity & Access Hero Banner -->
+    <div class="rp-prof-hero">
+      <div class="rp-prof-hero-left">
+        <div id="profile-page-avatar" class="rp-prof-avatar">U</div>
+        <div style="min-width: 0;">
+          <div class="rp-prof-hero-name-row">
+            <h3 id="profile-page-display-name" class="rp-prof-hero-name">Student Profile</h3>
+            <span id="profile-page-role-text" class="rp-prof-hero-role">USER</span>
+          </div>
+          <div id="profile-page-meta-line" class="rp-prof-hero-meta">
+            <span id="profile-page-uid-text">UserID: -</span>
+            <span class="rp-prof-hero-meta-sep" aria-hidden="true">&middot;</span>
+            <span id="profile-page-batches-text">Batches: RP-Trail</span>
+          </div>
+        </div>
+      </div>
+      <div class="rp-prof-hero-actions">
+        <button type="button" class="rp-prof-hero-btn rp-prof-hero-btn--primary" onclick="if(typeof switchProfileSubtab==='function') switchProfileSubtab('buy-plans');">
+          <i class="fa-solid fa-cart-shopping"></i> Buy New Batch
+        </button>
+        <button type="button" class="rp-prof-hero-btn rp-prof-hero-btn--danger" onclick="executeLogout()">
+          <i class="fa-solid fa-right-from-bracket"></i> Log Out
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 Dedicated Profile Subtabs -->
+    <div class="rp-prof-tabbar" id="profile-subtab-bar" role="tablist" aria-label="Profile Sections">
+      <button type="button" class="rp-prof-tab-btn active" role="tab" aria-selected="true" data-profile-subtab="details" onclick="switchProfileSubtab('details', this)">
+        <i class="fa-solid fa-id-card"></i> <span>Profile &amp; Parents Details</span>
+      </button>
+      <button type="button" class="rp-prof-tab-btn" role="tab" aria-selected="false" data-profile-subtab="enrolled" onclick="switchProfileSubtab('enrolled', this)">
+        <i class="fa-solid fa-layer-group"></i> <span>Enrolled Batches</span>
+      </button>
+      <button type="button" class="rp-prof-tab-btn" role="tab" aria-selected="false" data-profile-subtab="buy-plans" onclick="switchProfileSubtab('buy-plans', this)">
+        <i class="fa-solid fa-bag-shopping"></i> <span>Buy New Batch</span>
+      </button>
+      <button type="button" class="rp-prof-tab-btn" role="tab" aria-selected="false" data-profile-subtab="history" onclick="switchProfileSubtab('history', this)">
+        <i class="fa-solid fa-receipt"></i> <span>Fee Payment History</span>
+      </button>
+    </div>
+
+    <!-- Subtab 1: Profile & Parents Details -->
+    <div id="profile-subtab-details" class="rp-prof-pane">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 18px; align-items: stretch;">
+        <!-- Card 1: Account Identity, Verification & Password -->
+        <div class="rp-prof-card">
+          <div class="rp-prof-card-head">
+            <div class="rp-prof-card-title-wrap">
+              <span class="rp-prof-card-icon"><i class="fa-solid fa-id-card"></i></span>
+              <div>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--secondary);">Account Details &amp; Security</h4>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">Manage your name, verified contact details, and login password.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label>Full Name <span class="required-star">*</span></label>
+            <input type="text" id="prof-name" class="form-control" required>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+              <span>Email ID <span class="required-star">*</span></span>
+              <span id="prof-email-verified-badge" class="verified-pill-badge is-verified"><i class="fa-solid fa-circle-check"></i> Verified</span>
+            </label>
+            <input type="email" id="prof-email" class="form-control" required oninput="this.value = this.value.toLowerCase()">
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+              <span>Mobile No. (WhatsApp) <span class="required-star">*</span></span>
+              <span id="prof-mobile-verified-badge" class="verified-pill-badge is-verified"><i class="fa-solid fa-circle-check"></i> Verified</span>
+            </label>
+            <input type="text" id="prof-mobile" class="form-control" required maxlength="10" minlength="10" pattern="[0-9]{10}" title="Please enter exactly 10 digits" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
+          </div>
+
+          <div id="prof-unverified-quick-action" style="display: none; padding: 12px 14px; border-radius: 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); font-size: 12px;">
+            <div style="font-weight: 800; color: #b45309; margin-bottom: 6px;">Complete Your Email &amp; WhatsApp Mobile Verification</div>
+            <button type="button" class="btn btn-primary btn-sm" style="width: 100%; background: #16a34a; border-color: #16a34a;" onclick="openExistingUserVerificationModal()">Verify Email &amp; Mobile via OTP</button>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label>New Password (leave blank to keep current)</label>
+            <div style="position: relative; width: 100%;">
+              <input type="password" id="prof-password" class="form-control" minlength="4" placeholder="Enter new password (min 4 chars)" style="width: 100%; padding-right: 40px;">
+              <span onclick="togglePasswordVisibility('prof-password', document.getElementById('toggle-password-icon'))" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); z-index: 5;">
+                <i class="fa-solid fa-eye" id="toggle-password-icon"></i>
+              </span>
+            </div>
+          </div>
+
+          <!-- Inline Dual Email + Free WhatsApp 2FA Verification Step -->
+          <div id="profile-update-otp-box" style="display: none; background: rgba(37,99,235,0.06); border: 1px dashed var(--primary); border-radius: 12px; padding: 12px;">
+            <div style="font-size: 12px; font-weight: 800; color: var(--primary); margin-bottom: 4px;">
+              <i class="fa-solid fa-shield-halved"></i> Dual 2FA Required: Email OTP &amp; WhatsApp OTP
+            </div>
+            <div id="profile-update-otp-desc" style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4;">
+              Enter both the 6-digit Email OTP and 6-digit WhatsApp Mobile OTP to confirm your profile update:
+            </div>
+            <div id="profile-update-otp-hint" style="display: none; font-size: 11.5px; font-weight: 800; color: #059669; background: rgba(16,185,129,0.12); padding: 6px 8px; border-radius: 6px; margin-bottom: 8px;"></div>
+            <div id="profile-update-wa-box" class="wa-free-otp-card" style="display: none; margin-bottom: 8px; padding: 8px;"></div>
+            <input type="text" id="prof-update-otp-input" class="form-control" maxlength="6" placeholder="1. Enter 6-Digit Email OTP" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)" style="text-align: center; font-weight: 800; letter-spacing: 3px; margin-bottom: 8px;">
+            <input type="text" id="prof-update-wa-otp-input" class="form-control" maxlength="6" placeholder="2. Enter 6-Digit WhatsApp OTP" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6)" style="text-align: center; font-weight: 800; letter-spacing: 3px; margin-bottom: 8px; border-color: #10b981;">
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" onclick="confirmProfileUpdateWithOtp()"><i class="fa-solid fa-check-double"></i> Verify &amp; Update</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="cancelProfileUpdateOtpStep()">Cancel</button>
+            </div>
+          </div>
+
+          <button type="button" id="btn-prof-save-changes" class="btn btn-primary" style="width: 100%; margin-top: auto; border-radius: 12px; min-height: 42px; font-weight: 700;" onclick="saveProfileChanges()">
+            <i class="fa-solid fa-floppy-disk"></i> Save Profile &amp; Password Changes
+          </button>
+        </div>
+
+        <!-- Card 2: Parent / Guardian Details -->
+        <div class="rp-prof-card rp-prof-card--emerald">
+          <div class="rp-prof-card-head">
+            <div class="rp-prof-card-title-wrap">
+              <span class="rp-prof-card-icon"><i class="fa-solid fa-user-group"></i></span>
+              <div>
+                <h4 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--secondary);">Parent / Guardian Details</h4>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">If left blank, your own contact details are used automatically.</p>
+              </div>
+            </div>
+            <span id="prof-parent-fallback-badge" style="font-size: 11.5px; font-weight: 700; color: #0284c7;">Using Student Details</span>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label>Parent / Guardian Name</label>
+            <input type="text" id="prof-parent-name" class="form-control" placeholder="Leave blank to use your name">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label>Parent Mobile No. (10 Digits)</label>
+            <input type="text" id="prof-parent-mobile" class="form-control" maxlength="10" placeholder="Leave blank to use your mobile" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10)">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label>Parent Email ID</label>
+            <input type="email" id="prof-parent-email" class="form-control" placeholder="Leave blank to use your email" oninput="this.value = this.value.toLowerCase()">
+          </div>
+
+          <button type="button" class="btn btn-success" style="width: 100%; margin-top: auto; border-radius: 12px; min-height: 42px; font-weight: 700;" onclick="saveParentDetailsFromProfile()">
+            <i class="fa-solid fa-floppy-disk"></i> Save Parent / Guardian Details
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subtab 2: Batches in Enrolled -->
+    <div id="profile-subtab-enrolled" class="rp-prof-pane" style="display: none;">
+      <div class="rp-prof-card rp-prof-card--emerald" id="profile-fees-card">
+        <div class="rp-prof-card-head">
+          <div class="rp-prof-card-title-wrap">
+            <span class="rp-prof-card-icon"><i class="fa-solid fa-layer-group"></i></span>
+            <div>
+              <h4 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--secondary);">Enrolled Batches &amp; Active Access</h4>
+              <p style="margin: 2px 0 0 0; font-size: 12.5px; color: var(--text-muted);">Track all batches currently assigned to your account, active membership scope, and validity status.</p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" style="border-radius: 10px;" onclick="if(typeof window.renderProfileFeesSection==='function') window.renderProfileFeesSection(true)">
+            <i class="fa-solid fa-rotate"></i> Refresh Batches
+          </button>
+        </div>
+        <div id="profile-fees-section-mount"></div>
+      </div>
+    </div>
+
+    <!-- Subtab 3: Buy New Batch & Member Plans -->
+    <div id="profile-subtab-buy-plans" class="rp-prof-pane" style="display: none;">
+      <div class="rp-prof-card rp-prof-card--violet">
+        <div class="rp-prof-card-head">
+          <div class="rp-prof-card-title-wrap">
+            <span class="rp-prof-card-icon"><i class="fa-solid fa-bag-shopping"></i></span>
+            <div>
+              <h4 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--secondary);">Buy New Batch &amp; Member Plans</h4>
+              <p style="margin: 2px 0 0 0; font-size: 12.5px; color: var(--text-muted);">Enroll in an individual batch or upgrade to an All-Access Member plan via UPI / QR.</p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" style="border-radius: 10px;" onclick="if(typeof window.refreshBuyPlansView==='function') window.refreshBuyPlansView(true)">
+            <i class="fa-solid fa-rotate"></i> Refresh Plans
+          </button>
+        </div>
+
+        <div id="buy-plans-subtab-plans" style="display: flex; flex-direction: column; gap: 16px;">
+          <div id="buy-plans-catalog-mount"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subtab 4: Fee Payment History -->
+    <div id="profile-subtab-history" class="rp-prof-pane" style="display: none;">
+      <div class="rp-prof-card rp-prof-card--amber">
+        <div class="rp-prof-card-head">
+          <div class="rp-prof-card-title-wrap">
+            <span class="rp-prof-card-icon"><i class="fa-solid fa-receipt"></i></span>
+            <div>
+              <h4 style="margin: 0; font-size: 17px; font-weight: 800; color: var(--secondary);">Fee Payment History &amp; Receipts</h4>
+              <p style="margin: 2px 0 0 0; font-size: 12.5px; color: var(--text-muted);">View all submitted UPI payments, approval status, remaining installments, and download printable receipts.</p>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" style="border-radius: 10px;" onclick="if(typeof window.renderFeePaymentHistorySubtab==='function') window.renderFeePaymentHistorySubtab('buy-plans-history-mount', true)">
+            <i class="fa-solid fa-rotate"></i> Refresh Ledger
+          </button>
+        </div>
+
+        <div id="view-fee-payment-history" style="display: flex; flex-direction: column; gap: 16px;">
+          <div id="buy-plans-history-mount"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN PANEL (With Analytics Dashboard Subtab & Real-Time Notification System) -->
