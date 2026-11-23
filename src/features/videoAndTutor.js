@@ -11,6 +11,7 @@ import { countMasterPassageStrokes, countMasterPassageWords, createInlineDataLoa
 import { cancelStenoTest, configureActiveTestModalChrome, extractYouTubeVideoId, openLearningStudioSetupScreen, triggerExamHallKeyClick } from './mediaAndDictation.js';
 import { probeYouTubeVideoDuration } from './adminPanel.js';
 import { checkMaterialAccessPermissions, preparePassageForInitialWordsRule, startTestTimer, updateLiveTypingStatusBar, updateTestSubmitMinTimeLockUI } from './typingAndEvaluation.js';
+import { buildProtectedMediaProxyUrl, isGoogleDriveOrDocsUrl } from '../utils/mediaProxy.ts';
 
 const populateEphemeralPresetRulesDropdown = (...args) => (typeof window.populateEphemeralPresetRulesDropdown === 'function' ? window.populateEphemeralPresetRulesDropdown(...args) : undefined);
 const enterImmersiveFullscreenLock = (...args) => (typeof window.enterImmersiveFullscreenLock === 'function' ? window.enterImmersiveFullscreenLock(...args) : undefined);
@@ -136,13 +137,12 @@ export function renderVideoCourseList(subtab = 'ALL') {
           return;
         }
 
-        // 4. Probe direct video streams (.mp4, .webm, .ogg, .mov, GitHub raw, Google Drive download stream, Supabase)
+        // 4. Probe direct video streams (.mp4, .webm, .ogg, .mov, GitHub raw, Google Drive via zero-footprint proxy)
         let probeSrc = rawUrl;
         if (probeSrc.includes('github.com') && probeSrc.includes('/blob/')) {
           probeSrc = probeSrc.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
-        } else if (probeSrc.includes('drive.google.com')) {
-          const m = probeSrc.match(/\/d\/([a-zA-Z0-9_-]+)/) || probeSrc.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-          if (m && m[1]) probeSrc = `https://docs.google.com/uc?export=download&id=${m[1]}`;
+        } else if (isGoogleDriveOrDocsUrl(probeSrc)) {
+          probeSrc = buildProtectedMediaProxyUrl(probeSrc, 'video');
         }
 
         const v = document.createElement('video');
@@ -1109,32 +1109,25 @@ export function toggleKeystrokeLatencyHeatmap(isEnabled, source = 'learning') {
       showToast(nextState ? '🔥 Keystroke Rhythm & Finger-Latency Heatmap: ON' : '⏸️ Keystroke Rhythm & Finger-Latency Heatmap: OFF');
     }
 
-export function resetKeystrokeLatencyHeatmapData() {
+export function resetActiveTestKeystrokeTelemetry() {
       window.keystrokeLatencyStatsMap = {};
       window.lastKeystrokeTimestampMs = 0;
       window.recentKeystrokeIntervalsMs = [];
-      renderKeystrokeLatencyHeatmap();
-      showToast('🧹 Reset Keystroke Rhythm & Finger-Latency Heatmap statistics.');
+      window._lastKeydownTelemetryAtMs = 0;
+      window._lastInputFallbackLen = 0;
+      window.lastSubmittedHeatmapIntervals = null;
     }
 
-export function recordKeystrokeLatencyForHeatmap(event, source = 'learning') {
-      if (!event || !event.key) return;
-      if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab', 'Escape'].includes(event.key)) return;
+window.resetActiveTestKeystrokeTelemetry = resetActiveTestKeystrokeTelemetry;
 
-      const now = performance.now ? performance.now() : Date.now();
-      let deltaMs = 0;
-      if (window.lastKeystrokeTimestampMs > 0) {
-        deltaMs = Math.round(now - window.lastKeystrokeTimestampMs);
+function _commitMeasuredKeystrokeSample(normKey, deltaMs) {
+      if (!normKey || !Number.isFinite(deltaMs) || deltaMs < 20 || deltaMs > 2000) return;
+      if (!window.keystrokeLatencyStatsMap || typeof window.keystrokeLatencyStatsMap !== 'object') {
+        window.keystrokeLatencyStatsMap = {};
       }
-      window.lastKeystrokeTimestampMs = now;
-
-      const isBs = event.key === 'Backspace' || event.key === 'Delete';
-      if (isBs) return;
-      if (deltaMs <= 15 || deltaMs > 2500) {
-        deltaMs = 155;
+      if (!Array.isArray(window.recentKeystrokeIntervalsMs)) {
+        window.recentKeystrokeIntervalsMs = [];
       }
-
-      const normKey = event.key === ' ' ? 'SPACE' : String(event.key).toUpperCase();
       if (!window.keystrokeLatencyStatsMap[normKey]) {
         window.keystrokeLatencyStatsMap[normKey] = { count: 0, totalMs: 0, minMs: deltaMs, maxMs: deltaMs };
       }
@@ -1145,14 +1138,74 @@ export function recordKeystrokeLatencyForHeatmap(event, source = 'learning') {
       if (deltaMs > st.maxMs) st.maxMs = deltaMs;
 
       window.recentKeystrokeIntervalsMs.push(deltaMs);
-      if (window.recentKeystrokeIntervalsMs.length > 40) {
+      if (window.recentKeystrokeIntervalsMs.length > 3000) {
         window.recentKeystrokeIntervalsMs.shift();
       }
+    }
 
-      if (window.isKeystrokeLatencyHeatmapEnabled) {
+export function resetKeystrokeLatencyHeatmapData() {
+      resetActiveTestKeystrokeTelemetry();
+      renderKeystrokeLatencyHeatmap();
+      showToast('🧹 Reset Keystroke Rhythm & Finger-Latency Heatmap statistics.');
+    }
+
+export function recordKeystrokeLatencyForHeatmap(event, source = 'learning') {
+      if (!event || !event.key) return;
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key === 'Backspace' || event.key === 'Delete') {
+        // Reset timing baseline after correction so deletion gaps don't distort character latency
+        window.lastKeystrokeTimestampMs = 0;
+        return;
+      }
+      // Only record genuine printable single-character keys (ignore Shift, Arrow, Enter, Unidentified, etc.)
+      if (event.key.length !== 1) return;
+
+      const now = performance.now ? performance.now() : Date.now();
+      window._lastKeydownTelemetryAtMs = now;
+
+      if (window.lastKeystrokeTimestampMs > 0) {
+        const deltaMs = Math.round(now - window.lastKeystrokeTimestampMs);
+        // Ignore unrealistic micro-bounces (<20ms) and reading/audio pauses (>2000ms) instead of fabricating fake 155ms samples
+        if (deltaMs >= 20 && deltaMs <= 2000) {
+          const normKey = event.key === ' ' ? 'SPACE' : String(event.key).toUpperCase();
+          _commitMeasuredKeystrokeSample(normKey, deltaMs);
+        }
+      }
+      window.lastKeystrokeTimestampMs = now;
+
+      if (window.isKeystrokeLatencyHeatmapEnabled && source === 'learning') {
         renderKeystrokeLatencyHeatmap();
       }
     }
+
+export function recordInputCharLatencyFallback(typedStr) {
+      const str = String(typedStr || '');
+      const prevLen = Number(window._lastInputFallbackLen || 0);
+      window._lastInputFallbackLen = str.length;
+      if (str.length <= prevLen) {
+        if (str.length < prevLen) window.lastKeystrokeTimestampMs = 0;
+        return;
+      }
+      const now = performance.now ? performance.now() : Date.now();
+      // If keydown already recorded this keystroke within the last 45ms, avoid double-counting
+      if (window._lastKeydownTelemetryAtMs && (now - window._lastKeydownTelemetryAtMs) < 45) {
+        return;
+      }
+      // Mobile / virtual / IME input fallback when keydown reports "Unidentified"
+      const addedChar = str.slice(-1);
+      if (addedChar && addedChar.length === 1 && addedChar !== '\n' && addedChar !== '\r') {
+        if (window.lastKeystrokeTimestampMs > 0) {
+          const deltaMs = Math.round(now - window.lastKeystrokeTimestampMs);
+          if (deltaMs >= 20 && deltaMs <= 2000) {
+            const normKey = addedChar === ' ' ? 'SPACE' : addedChar.toUpperCase();
+            _commitMeasuredKeystrokeSample(normKey, deltaMs);
+          }
+        }
+        window.lastKeystrokeTimestampMs = now;
+      }
+    }
+
+window.recordInputCharLatencyFallback = recordInputCharLatencyFallback;
 
 export function renderKeystrokeLatencyHeatmap() {
       if (!window.isKeystrokeLatencyHeatmapEnabled) return;
@@ -1169,21 +1222,23 @@ export function renderKeystrokeLatencyHeatmap() {
         overallAvg = Math.round(totalAllMs / Math.max(1, totalAllCount));
       }
 
-      let rhythmPct = 100;
-      if (window.recentKeystrokeIntervalsMs.length >= 3) {
-        const arr = window.recentKeystrokeIntervalsMs;
-        const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
-        const variance = arr.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / arr.length;
+      let rhythmPct = null;
+      const intervals = Array.isArray(window.recentKeystrokeIntervalsMs) ? window.recentKeystrokeIntervalsMs : [];
+      if (intervals.length >= 3) {
+        const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        const variance = intervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / intervals.length;
         const stdDev = Math.sqrt(variance);
         const cv = mean > 0 ? (stdDev / mean) : 0;
-        rhythmPct = Math.max(35, Math.min(100, Math.round((1 - Math.min(0.85, cv * 0.75)) * 100)));
+        rhythmPct = Math.max(25, Math.min(100, Math.round((1 - Math.min(0.85, cv * 0.75)) * 100)));
       }
 
       const sortedBySlowest = [...entries].sort((a, b) => b.avgMs - a.avgMs);
       const sortedByFastest = [...entries].sort((a, b) => a.avgMs - b.avgMs);
       const slowestText = sortedBySlowest.slice(0, 3).map(i => `${i.key} (${i.avgMs}ms)`).join(', ') || 'None yet';
       const fastestText = sortedByFastest.slice(0, 3).map(i => `${i.key} (${i.avgMs}ms)`).join(', ') || 'None yet';
-      const rhythmDesc = rhythmPct >= 85 ? `${rhythmPct}% Steady` : (rhythmPct >= 65 ? `${rhythmPct}% Moderate` : `${rhythmPct}% Uneven`);
+      const rhythmDesc = rhythmPct === null
+        ? 'Collecting...'
+        : (rhythmPct >= 85 ? `${rhythmPct}% Steady` : (rhythmPct >= 65 ? `${rhythmPct}% Moderate` : `${rhythmPct}% Uneven`));
 
       // Update Learning Studio Heatmap IDs
       const avgEl = document.getElementById('heatmap-avg-latency') || document.getElementById('heatmap-avg-latency-ms');
@@ -1201,7 +1256,7 @@ export function renderKeystrokeLatencyHeatmap() {
       const testRhyEl = document.getElementById('active-test-hm-rhythm') || document.getElementById('test-heatmap-rhythm-pct');
       const testSlowEl = document.getElementById('active-test-hm-slowest');
       if (testAvgEl) testAvgEl.innerText = overallAvg > 0 ? `${overallAvg} ms` : '0 ms';
-      if (testRhyEl) testRhyEl.innerText = `${rhythmPct}%`;
+      if (testRhyEl) testRhyEl.innerText = rhythmPct === null ? '—' : `${rhythmPct}%`;
       if (testSlowEl) testSlowEl.innerText = slowestText;
 
       const renderChipsHtml = (list) => {

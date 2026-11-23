@@ -953,96 +953,254 @@
     margin-bottom: 14px;
   }
 
+  .rp-batchhub-shell {
+    max-width: 1240px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .rp-batchhub-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .rp-batchhub-topbar-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 240px;
+    flex: 1;
+  }
+
   .rp-batchhub-kicker {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.07em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--primary);
-    margin-bottom: 6px;
+  }
+
+  .rp-batchhub-title-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
   }
 
   .rp-batchhub-title {
-    margin: 0 0 6px 0;
-    font-size: clamp(20px, 2.2vw, 24px);
+    margin: 0;
+    font-size: clamp(19px, 2vw, 22px);
     font-weight: 800;
     color: var(--secondary);
+    letter-spacing: -0.02em;
     line-height: 1.2;
   }
 
-  .rp-batchhub-subtitle {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--text-muted);
-    max-width: 70ch;
+  .rp-batchhub-role-meta {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
   }
 
-  .rp-batchhub-hero-actions {
+  .rp-batchhub-meta-line {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+
+  .rp-batchhub-topbar-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
   }
 
-  .rp-batchhub-guide-strip {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
-  }
-
-  .rp-batchhub-guide-step {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    border-radius: 10px;
-    background: var(--surface-subtle);
-    border: 1px solid var(--border);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text);
-    line-height: 1.35;
-  }
-
-  .rp-batchhub-guide-num {
-    width: 22px;
-    height: 22px;
-    border-radius: 6px;
-    background: var(--primary-soft);
-    color: var(--primary);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    font-weight: 800;
+  .rp-batchhub-select-slot {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    gap: 8px;
+  }
+
+  .rp-batchhub-select-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0;
+  }
+
+  .rp-batchhub-batch-select {
+    width: auto !important;
+    min-width: 200px;
+    max-width: 300px;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    border-radius: 9px;
+  }
+
+  .rp-batchhub-sync-btn {
+    min-height: 36px;
+    padding: 6px 12px;
+    font-weight: 700;
   }
 
   .rp-batchhub-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 8px;
+    gap: 6px;
+    padding: 6px;
     border-radius: 12px;
     background: var(--surface);
     border: 1px solid var(--border);
-    box-shadow: var(--shadow-sm);
   }
 
   .rp-batchhub-tabs .subtab-btn {
-    flex: 1 1 155px;
+    flex: 1 1 140px;
     justify-content: center;
-    min-height: 40px;
-    border-radius: 9px;
+    min-height: 38px;
+    border-radius: 8px;
     font-size: 12.5px;
     font-weight: 700;
+    gap: 7px;
+  }
+
+  .rp-batchhub-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rp-batchhub-workspace-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px !important;
+  }
+
+  .rp-batchhub-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rp-batchhub-comms-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rp-batchhub-segmented {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .rp-batchhub-seg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 160ms ease, color 160ms ease;
+  }
+
+  .rp-batchhub-seg-btn:hover {
+    color: var(--secondary);
+  }
+
+  .rp-batchhub-seg-btn.active {
+    background: var(--primary);
+    color: #ffffff;
+  }
+
+  .rp-batchhub-seg-btn.is-private-active {
+    background: #7c3aed;
+    color: #ffffff;
+  }
+
+  .rp-batchhub-count-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    background: rgba(124, 58, 237, 0.14);
+    color: #6d28d9;
+  }
+
+  .rp-batchhub-seg-btn.is-private-active .rp-batchhub-count-chip {
+    background: rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+  }
+
+  .rp-batchhub-channel-banner {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: var(--background);
+    border: 1px solid var(--border);
+    color: var(--secondary);
+    line-height: 1.45;
+  }
+
+  .rp-batchhub-composer {
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   /* Tabular numerals across stats, timers, leaderboards, and tables */
@@ -1070,19 +1228,20 @@
   }
 
   /* Cohesive Dark-Mode Contrast Parity & Visibility Guard */
-  [data-theme="dark"] .rp-batchhub-hero-card,
+  [data-theme="dark"] .rp-batchhub-topbar,
   [data-theme="dark"] .rp-batchhub-tabs,
-  body.dark-mode .rp-batchhub-hero-card,
-  body.dark-mode .rp-batchhub-tabs {
+  [data-theme="dark"] .rp-batchhub-workspace-card,
+  body.dark-mode .rp-batchhub-topbar,
+  body.dark-mode .rp-batchhub-tabs,
+  body.dark-mode .rp-batchhub-workspace-card {
     background: var(--surface);
     border-color: rgba(148, 163, 184, 0.16);
   }
 
-  [data-theme="dark"] .rp-batchhub-guide-step,
-  body.dark-mode .rp-batchhub-guide-step {
-    background: rgba(30, 41, 59, 0.72);
-    border-color: rgba(148, 163, 184, 0.16);
-    color: #e2e8f0;
+  [data-theme="dark"] .rp-batchhub-count-chip,
+  body.dark-mode .rp-batchhub-count-chip {
+    background: rgba(167, 139, 250, 0.22);
+    color: #ddd6fe;
   }
 
   [data-theme="dark"] .modal-content,
@@ -1178,6 +1337,59 @@
       max-height: 92vh !important;
       padding: 16px !important;
     }
+
+    .dashboard-welcome.rp-saas-dash-hero {
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      padding: 14px 14px !important;
+      gap: 10px !important;
+      border-radius: 14px !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+
+    .dashboard-welcome.rp-saas-dash-hero .rp-dash-hero-main {
+      flex: 1 1 auto !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+    }
+
+    .dashboard-welcome.rp-saas-dash-hero .rp-dash-hero-title {
+      font-size: 1.18rem !important;
+      line-height: 1.25 !important;
+    }
+
+    .dashboard-welcome.rp-saas-dash-hero .rp-dash-hero-desc {
+      font-size: 12px !important;
+      line-height: 1.5 !important;
+    }
+
+    .dashboard-welcome.rp-saas-dash-hero .rp-dash-hero-dock {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-width: 0 !important;
+      align-self: stretch !important;
+      padding: 9px 12px !important;
+    }
+
+    .rp-dash-carousel-caption {
+      padding: 10px 12px !important;
+    }
+
+    .rp-dash-carousel-caption-title {
+      font-size: 14px !important;
+    }
+
+    .rp-dash-carousel-caption-text {
+      font-size: 12px !important;
+    }
+  }
+
+  #view-dashboard {
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   /* Reduced motion accessibility */

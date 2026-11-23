@@ -1298,6 +1298,41 @@ window.replyShorthandDoubtWord = function(idx) {
 window._activeImmersiveLocks = new Set();
 
 const MEDIA_VIEWER_LOCK_KEYS = new Set(['pdf-modal', 'image-modal', 'reference-video', 'universal-media', 'reader-modal']);
+const EXAM_FULLSCREEN_LOCK_KEYS = new Set(['active-test-modal', 'cbt-exam', 'learning-practice', 'live-exam']);
+
+window.requestExamNativeFullscreen = function() {
+    try {
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+      if (fsEl) return;
+      const root = document.documentElement;
+      if (root.requestFullscreen) {
+        const res = root.requestFullscreen({ navigationUI: 'hide' });
+        if (res && typeof res.catch === 'function') {
+          res.catch(() => {
+            try { root.requestFullscreen().catch(() => {}); } catch (_e) {}
+          });
+        }
+      } else if (root.webkitRequestFullscreen) {
+        root.webkitRequestFullscreen();
+      } else if (root.msRequestFullscreen) {
+        root.msRequestFullscreen();
+      }
+    } catch (_e) {}
+  };
+
+window.exitExamNativeFullscreen = function() {
+    try {
+      const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+      if (!fsEl) return;
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    } catch (_e) {}
+  };
 
 window.enterImmersiveFullscreenLock = function(sourceKey = 'modal') {
     try {
@@ -1316,9 +1351,10 @@ window.enterImmersiveFullscreenLock = function(sourceKey = 'modal') {
       if (toastEl) {
         toastEl.style.display = 'none';
       }
-      // Note: Do NOT auto-trigger native browser document.documentElement.requestFullscreen() on test/viewer start,
-      // as browsers show an intrusive top/bottom "Press Esc to exit full screen" overlay popup.
-      // Our CSS already renders active tests and viewers edge-to-edge (100vw x 100dvh); users can still opt-in via the manual Full Screen button.
+      // Automatically enter native browser fullscreen (F11 mode) for all exams (CBT, Typing, Audio, Pitman, Live, Practice)
+      if (EXAM_FULLSCREEN_LOCK_KEYS.has(sourceKey)) {
+        window.requestExamNativeFullscreen();
+      }
     } catch (e) {}
   };
 
@@ -1644,26 +1680,18 @@ window.renderDashboardPinnedDirectivesOnly = function() {
       return b === 'all_batches' || b === 'all' || b === myBatch.toLowerCase();
     });
 
-    const anns = (portalState.globalData && Array.isArray(portalState.globalData.announcements)) ? portalState.globalData.announcements.slice(0, 3) : [];
-    const combined = [
-      ...pinnedOrDirectives.slice(0, 4).map(m => ({
-        title: `${m.senderName || m.authorName || 'Batch Monitor'} (${m.batchName || myBatch})`,
-        body: String(m.message || m.messageText || '').replace(/^📌\s*/, ''),
-        time: m.timestamp ? new Date(m.timestamp).toLocaleDateString('en-IN') : 'Pinned Directive',
-        badge: '📌 Pinned Batch Directive'
-      })),
-      ...anns.map(a => ({
-        title: a.Title || a.title || 'Institute Notice',
-        body: a.Content || a.content || a.Message || '',
-        time: a.Date || a.PostedDate || a.Timestamp || 'Official Notice',
-        badge: '📣 Official Announcement'
-      }))
-    ];
+    // Show ONLY pinned notices/directives from the Batch Monitor & Faculty (do not duplicate Official Notice Board & Announcements here)
+    const combined = pinnedOrDirectives.slice(0, 4).map(m => ({
+      title: `${m.senderName || m.authorName || 'Batch Monitor'} (${m.batchName || myBatch})`,
+      body: String(m.message || m.messageText || '').replace(/^📌\s*/, ''),
+      time: m.timestamp ? new Date(m.timestamp).toLocaleDateString('en-IN') : 'Pinned Directive',
+      badge: '📌 Pinned Batch Directive'
+    }));
 
     if (combined.length === 0) {
       mount.innerHTML = `
         <div style="grid-column: 1 / -1; padding: 12px 14px; border-radius: 10px; background: var(--background); border: 1px dashed var(--border); font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-          <span>📌 No pinned directives for <strong>${window.escapeHtml(myBatch)}</strong> right now. General batch messages, replies, and polls are available in the dedicated Batch Monitor &amp; Communication tab.</span>
+          <span>📌 No pinned notices from your Batch Monitor or Faculty for <strong>${window.escapeHtml(myBatch)}</strong> right now.</span>
           <button type="button" class="btn btn-sm btn-secondary" onclick="navigateTo('batchhub')">Open Batch Hub &amp; Polls &rarr;</button>
         </div>
       `;
@@ -2156,10 +2184,13 @@ window.switchPlannerGoalsSubtab = function(mode) {
   };
 
 window.switchBatchHubSubtab = function(mode) {
-    const activeMode = mode || 'feed';
+    const normalizedMode = (!mode || mode === 'feed' || mode === 'all') ? 'comms' : mode;
+    window._activeBatchHubSubtab = normalizedMode;
     const pollsCard = document.getElementById('batch-poll-creator-box') || document.getElementById('batch-hub-polls-card');
     const feedMount = document.getElementById('batchhub-dedicated-mount') || document.getElementById('batch-hub-Full-mount');
     const feedCard = document.getElementById('dashboard-batch-monitoring-card');
+    const progPane = document.getElementById('batch-monitoring-pane-progress');
+    const commsPane = document.getElementById('batch-monitoring-pane-comms');
     const padsMount = document.getElementById('batchhub-pads-mount');
     const padsCard = document.getElementById('batchhub-shorthand-pads-card');
     const doubtMount = document.getElementById('batchhub-doubt-wall-mount');
@@ -2169,24 +2200,32 @@ window.switchBatchHubSubtab = function(mode) {
       doubtMount.appendChild(doubtCard);
     }
 
-    if (pollsCard) pollsCard.style.display = (activeMode === 'all' || activeMode === 'polls') ? 'block' : 'none';
-    if (feedMount) feedMount.style.display = (activeMode === 'all' || activeMode === 'feed') ? 'flex' : 'none';
-    if (feedCard) feedCard.style.display = (activeMode === 'all' || activeMode === 'feed') ? 'block' : 'none';
-    if (padsMount) padsMount.style.display = (activeMode === 'all' || activeMode === 'pads') ? 'flex' : 'none';
-    if (padsCard) padsCard.style.display = (activeMode === 'all' || activeMode === 'pads') ? 'block' : 'none';
-    if (doubtMount) doubtMount.style.display = (activeMode === 'all' || activeMode === 'doubts') ? 'flex' : 'none';
-    if (doubtCard) doubtCard.style.display = (activeMode === 'all' || activeMode === 'doubts') ? 'block' : 'none';
+    const isMonitorCardTab = normalizedMode === 'comms' || normalizedMode === 'progress';
+    if (pollsCard) pollsCard.style.display = normalizedMode === 'polls' ? 'block' : 'none';
+    if (feedMount) feedMount.style.display = isMonitorCardTab ? 'flex' : 'none';
+    if (feedCard) feedCard.style.display = isMonitorCardTab ? 'block' : 'none';
+    if (progPane) progPane.style.display = normalizedMode === 'progress' ? 'block' : 'none';
+    if (commsPane) commsPane.style.display = normalizedMode === 'comms' ? 'block' : 'none';
+    if (padsMount) padsMount.style.display = normalizedMode === 'pads' ? 'flex' : 'none';
+    if (padsCard) padsCard.style.display = normalizedMode === 'pads' ? 'block' : 'none';
+    if (doubtMount) doubtMount.style.display = normalizedMode === 'doubts' ? 'flex' : 'none';
+    if (doubtCard) doubtCard.style.display = normalizedMode === 'doubts' ? 'block' : 'none';
 
-    if (activeMode === 'polls' && typeof window.renderBatchPollsWidget === 'function') {
+    if (isMonitorCardTab) {
+      window.currentBatchMonitoringHubTab = normalizedMode;
+      if (typeof window.renderDashboardBatchMonitoringHub === 'function') {
+        window.renderDashboardBatchMonitoringHub();
+      }
+    } else if (normalizedMode === 'polls' && typeof window.renderBatchPollsWidget === 'function') {
       window.renderBatchPollsWidget();
-    } else if (activeMode === 'pads' && typeof window.loadShorthandPadsFromServer === 'function') {
+    } else if (normalizedMode === 'pads' && typeof window.loadShorthandPadsFromServer === 'function') {
       window.loadShorthandPadsFromServer('batchhub', false);
-    } else if (activeMode === 'doubts' && typeof window.renderBatchShorthandDoubtWall === 'function') {
+    } else if (normalizedMode === 'doubts' && typeof window.renderBatchShorthandDoubtWall === 'function') {
       window.renderBatchShorthandDoubtWall();
     }
 
     document.querySelectorAll('#rp-batchhub-subtab-bar .subtab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-bsub') === activeMode);
+      btn.classList.toggle('active', btn.getAttribute('data-bsub') === normalizedMode);
     });
   };
 
@@ -2224,16 +2263,15 @@ export function injectSubtabBarsIntoDedicatedViews() {
       const bar = document.createElement('div');
       bar.id = 'rp-batchhub-subtab-bar';
       bar.className = 'subtab-bar rp-batchhub-tabs';
-      bar.style.marginBottom = '2px';
       bar.innerHTML = `
-        <button type="button" class="subtab-btn active" data-bsub="feed" onclick="window.switchBatchHubSubtab('feed')"><i class="fa-solid fa-comments"></i> 1. Batch Monitor &amp; Chat</button>
-        <button type="button" class="subtab-btn" data-bsub="polls" onclick="window.switchBatchHubSubtab('polls')"><i class="fa-solid fa-square-poll-vertical"></i> 2. Live Polls</button>
-        <button type="button" class="subtab-btn" data-bsub="pads" onclick="window.switchBatchHubSubtab('pads')"><i class="fa-solid fa-book-open"></i> 3. Shorthand Pads</button>
-        <button type="button" class="subtab-btn" data-bsub="doubts" onclick="window.switchBatchHubSubtab('doubts')"><i class="fa-solid fa-pen-nib"></i> 4. Outline Doubt Wall</button>
-        <button type="button" class="subtab-btn" data-bsub="all" onclick="window.switchBatchHubSubtab('all')"><i class="fa-solid fa-layer-group"></i> Show All</button>
+        <button type="button" class="subtab-btn active" data-bsub="comms" onclick="window.switchBatchHubSubtab('comms')"><i class="fa-solid fa-comments"></i> Announcements &amp; Chat <span id="batchhub-tab-comms-badge" class="rp-batchhub-tab-badge" style="display:none;">0</span></button>
+        <button type="button" class="subtab-btn" data-bsub="progress" onclick="window.switchBatchHubSubtab('progress')"><i class="fa-solid fa-chart-line"></i> Progress &amp; Roster</button>
+        <button type="button" class="subtab-btn" data-bsub="polls" onclick="window.switchBatchHubSubtab('polls')"><i class="fa-solid fa-square-poll-vertical"></i> Live Polls</button>
+        <button type="button" class="subtab-btn" data-bsub="pads" onclick="window.switchBatchHubSubtab('pads')"><i class="fa-solid fa-book-open"></i> Shorthand Pads</button>
+        <button type="button" class="subtab-btn" data-bsub="doubts" onclick="window.switchBatchHubSubtab('doubts')"><i class="fa-solid fa-pen-nib"></i> Outline Doubts</button>
       `;
       batchWrap.insertBefore(bar, batchWrap.children[1] || null);
-      window.switchBatchHubSubtab('feed');
+      window.switchBatchHubSubtab('comms');
     }
 
     // Weak Outlines Vault is a single unified master-detail view (word list left + Pitman outline preview right) — remove any legacy subtab bar

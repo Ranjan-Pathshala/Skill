@@ -34,6 +34,11 @@ import { extractHardWordsFromPassage, buildPitmanStrokeSvg } from './pitman.ts';
 import { portalHooks } from '../core/hooks.ts';
 import { scheduleFrameTasks, cancelFrameTasks } from '../core/domReady.ts';
 import { parseCbtQuestionsPayload } from './cbtParser.ts';
+import {
+  isGoogleDriveOrDocsUrl,
+  extractGoogleDriveFileId,
+  buildProtectedMediaProxyUrl,
+} from './mediaProxy.ts';
 
 test('formatting utilities escape HTML, sanitize URLs, format dates & clip timestamps', () => {
   assert.equal(escapeHtml(`<script>"a"&'b'</script>`), '&lt;script&gt;&quot;a&quot;&amp;&#39;b&#39;&lt;/script&gt;');
@@ -356,6 +361,49 @@ test('parseCbtQuestionsPayload parses bare arrays, wrapped objects, sections, do
   const defaultHardWords = extractHardWordsFromPassage(bigPassage);
   assert.equal(defaultHardWords.length, 50);
 });
+
+test('mediaProxy converts Google Drive, Docs, and Googleusercontent URLs to same-origin zero-footprint proxy URLs', () => {
+  assert.equal(
+    isGoogleDriveOrDocsUrl('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/view?usp=sharing'),
+    true,
+  );
+  assert.equal(
+    isGoogleDriveOrDocsUrl('https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_=s1600'),
+    true,
+  );
+  assert.equal(isGoogleDriveOrDocsUrl('https://example.com/file.pdf'), false);
+
+  assert.equal(
+    extractGoogleDriveFileId('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view?usp=sharing'),
+    '1AbCdEfGhIjKlMnOp',
+  );
+  assert.equal(
+    extractGoogleDriveFileId('https://drive.google.com/uc?export=download&id=1ZyXwVuTsRqPoNmLk'),
+    '1ZyXwVuTsRqPoNmLk',
+  );
+  assert.equal(
+    extractGoogleDriveFileId('https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_=s1600'),
+    '1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_',
+  );
+
+  assert.equal(
+    buildProtectedMediaProxyUrl('https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/preview', 'pdf'),
+    '/api/media-proxy?driveId=1AbCdEfGhIjKlMnOp&kind=pdf',
+  );
+  assert.equal(
+    buildProtectedMediaProxyUrl('https://docs.google.com/document/d/1DocId1234567890/edit', 'pdf'),
+    '/api/media-proxy?driveId=1DocId1234567890&kind=doc',
+  );
+  assert.equal(
+    buildProtectedMediaProxyUrl('https://cdn.example.com/audio.mp3', 'audio'),
+    '/api/media-proxy?url=https%3A%2F%2Fcdn.example.com%2Faudio.mp3&kind=audio',
+  );
+  assert.equal(
+    buildProtectedMediaProxyUrl('/api/media-proxy?driveId=1AbCdEfGhIjKlMnOp&kind=image', 'image'),
+    '/api/media-proxy?driveId=1AbCdEfGhIjKlMnOp&kind=image',
+  );
+});
+
 
 
 

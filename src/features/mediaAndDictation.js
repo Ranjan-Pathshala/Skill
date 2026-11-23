@@ -16,6 +16,7 @@ import { loadLearningLesson, purgeFakeInjectedRules, renderLearningKeyboard, ren
 import { countMasterPassageStrokes, countMasterPassageWords, getWatermarkText, renderDailyPracticeGoalUI } from './dashboardAndProfile.js';
 import { formatSecMMSS, getActiveDictationAudioElement } from './weakVaultAndPlanner.js';
 import { extractHardWordsFromPassage } from '../utils/pitman.ts';
+import { buildProtectedMediaProxyUrl, extractGoogleDriveFileId, isGoogleDriveOrDocsUrl } from '../utils/mediaProxy.ts';
 
 const enterImmersiveFullscreenLock = (...args) => (typeof window.enterImmersiveFullscreenLock === 'function' ? window.enterImmersiveFullscreenLock(...args) : undefined);
 const exitImmersiveFullscreenLock = (...args) => (typeof window.exitImmersiveFullscreenLock === 'function' ? window.exitImmersiveFullscreenLock(...args) : undefined);
@@ -768,6 +769,9 @@ export function launchScheduledLiveTest(liveTestId) {
       window.activeScheduledLiveTestObj = lt;
       window.activeScheduledLiveTestEndTime = eMs;
       const remainingMinutes = Math.max(0.5, (eMs - nowMs) / 60000);
+      if (typeof window.requestExamNativeFullscreen === 'function') {
+        window.requestExamNativeFullscreen();
+      }
 
       if (lt.category === 'cbttest') {
         window.lastOriginTabBeforeTest = portalState.activeTab === 'livetests' ? 'livetests' : 'cbttest';
@@ -892,36 +896,44 @@ export function openReferenceVideoModal(rawUrl, title) {
             </div>
           `;
         }
-      } else if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
-        const fileIdMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-        if (fileIdMatch && fileIdMatch[1]) {
-          const fileId = fileIdMatch[1];
-          const embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
-          const directStream = `https://drive.google.com/uc?export=download&id=${fileId}`;
+      } else if (isGoogleDriveOrDocsUrl(url)) {
+        const fileId = extractGoogleDriveFileId(url);
+        if (fileId) {
+          const proxiedVideoUrl = buildProtectedMediaProxyUrl(url, 'video');
           mediaHtml = `
-            <div style="position: relative; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; min-height: 0;">
+            <div style="position: relative; width: 100%; height: 100%; background: #000; display: flex; flex-direction: column; min-height: 0;" oncontextmenu="return false;">
               ${jumpBarHtml}
-              <video id="ref-html5-video-player" controls autoplay controlsList="nodownload" oncontextmenu="return false;" style="width:100%; flex:1; min-height:0; object-fit: contain;" src="${directStream}" onerror="this.style.display='none'; document.getElementById('ref-drive-fallback-iframe').style.display='block';"></video>
-              <iframe id="ref-drive-fallback-iframe" src="${embedUrl}" style="display:none; width:100%; flex:1; min-height:0; border:none; background:#000;" allow="autoplay" allowfullscreen></iframe>
+              <video id="ref-html5-video-player" controls autoplay playsinline controlsList="nodownload noplaybackrate" disablePictureInPicture oncontextmenu="return false;" style="width:100%; flex:1; min-height:0; object-fit: contain;" src="${proxiedVideoUrl}" onerror="const e=document.getElementById('ref-protected-video-err'); if(e) e.style.display='flex';"></video>
+              <div id="ref-protected-video-err" style="display:none; position:absolute; inset:0; align-items:center; justify-content:center; padding:24px; text-align:center; color:#e2e8f0; background:rgba(15,23,42,0.92); font-size:13px; flex-direction:column; gap:10px;">
+                <i class="fa-solid fa-shield-halved" style="font-size:28px; color:#38bdf8;"></i>
+                <strong>Protected video stream unavailable</strong>
+                <span style="color:#94a3b8; max-width:380px;">Ensure the source file is shared as "Anyone with the link" on Google Drive so the portal server can stream it privately without exposing Drive.</span>
+              </div>
             </div>
           `;
         } else {
-          mediaHtml = `<iframe src="${url}" style="width:100%; height:100%; border:none;" allowfullscreen></iframe>`;
+          const proxiedGeneric = buildProtectedMediaProxyUrl(url, 'video');
+          mediaHtml = `
+            <div style="width:100%; height:100%; display:flex; flex-direction:column; background:#000; min-height: 0;" oncontextmenu="return false;">
+              ${jumpBarHtml}
+              <video id="ref-html5-video-player" controls autoplay playsinline controlsList="nodownload" disablePictureInPicture oncontextmenu="return false;" style="width:100%; flex:1; min-height:0; object-fit: contain;" src="${proxiedGeneric}"></video>
+            </div>
+          `;
         }
-      } else if (url.match(/\.(mp4|webm|ogg|mov)$/i) || url.includes('raw.githubusercontent.com')) {
+      } else if (url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i) || url.includes('raw.githubusercontent.com') || /^https?:\/\//i.test(url)) {
+        const proxiedDirect = buildProtectedMediaProxyUrl(url, 'video');
         mediaHtml = `
-          <div style="width:100%; height:100%; display:flex; flex-direction:column; background:#000; min-height: 0;">
+          <div style="width:100%; height:100%; display:flex; flex-direction:column; background:#000; min-height: 0;" oncontextmenu="return false;">
             ${jumpBarHtml}
-            <video id="ref-html5-video-player" controls autoplay controlsList="nodownload" oncontextmenu="return false;" style="width:100%; flex:1; min-height:0; object-fit: contain;">
-              <source src="${url}" type="video/mp4">
+            <video id="ref-html5-video-player" controls autoplay playsinline controlsList="nodownload" disablePictureInPicture oncontextmenu="return false;" style="width:100%; flex:1; min-height:0; object-fit: contain;" src="${proxiedDirect}">
               Your browser does not support video playback.
             </video>
           </div>
         `;
       } else {
         mediaHtml = `
-          <div style="position: relative; width: 100%; height: 100%;">
-            <iframe src="${url}" style="width:100%; height:100%; border:none; background:#000;" allowfullscreen></iframe>
+          <div style="position: relative; width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; color:#cbd5e1; font-size:13px; padding:20px; text-align:center;">
+            Unsupported media format.
           </div>
         `;
       }
@@ -1557,17 +1569,10 @@ export async function openPdfModal(pdfUrl, title) {
       customPdfTotalPages = 1;
 
       let rawUrl = String(pdfUrl || '').trim();
-      let embedUrl = rawUrl;
-      const isHttpUrl = /^https?:\/\//i.test(rawUrl);
-      const isGoogleDrive = rawUrl.includes('drive.google.com') || rawUrl.includes('docs.google.com');
-      const fileIdMatch = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || rawUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-
-      if (fileIdMatch && fileIdMatch[1]) {
-        embedUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
-      } else if (isHttpUrl && rawUrl.includes('github.com') && rawUrl.includes('/blob/')) {
-        embedUrl = rawUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
-      }
-      customPdfRawEmbedUrl = embedUrl;
+      const isHttpUrl = /^https?:\/\//i.test(rawUrl) || rawUrl.startsWith('/api/media-proxy');
+      const isGoogleDrive = isGoogleDriveOrDocsUrl(rawUrl);
+      const protectedProxyUrl = isHttpUrl ? buildProtectedMediaProxyUrl(rawUrl, 'pdf') : rawUrl;
+      customPdfRawEmbedUrl = protectedProxyUrl;
 
       const inlineControls = document.getElementById('reader-modal-inline-controls');
       if (inlineControls) {
@@ -1591,10 +1596,10 @@ export async function openPdfModal(pdfUrl, title) {
         body.innerHTML = `
           <div class="watermark-text-container" style="position: relative; width: 100%; height: 100%; min-height: 0; background: #ffffff !important; color-scheme: light !important; display: flex; flex-direction: column; overflow: hidden; flex: 1;">
             <div class="global-watermark-layer" style="opacity: 0.12; z-index: 10; pointer-events: none;"></div>
-            <!-- Pure White Full-Viewport Scrollable Canvas -->
+            <!-- Pure White Full-Viewport Scrollable Canvas (Zero Google Drive Footprint) -->
             <div id="custom-pdf-scroll-container" oncontextmenu="return false;" style="width: 100%; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y; background: #f1f5f9 !important; display: block; text-align: center; padding: 6px; position: relative; z-index: 5; -webkit-overflow-scrolling: touch;">
               <div id="custom-pdf-status-msg" style="display: inline-block; padding: 10px 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; color: #334155; font-weight: 700; font-size: 12.5px; margin: 12px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                <i class="fa-solid fa-spinner fa-spin" style="color: var(--primary); margin-right: 6px;"></i> Loading PDF Document...
+                <i class="fa-solid fa-spinner fa-spin" style="color: var(--primary); margin-right: 6px;"></i> Loading Protected PDF Document...
               </div>
               <div id="pdf-zoomable-wrapper" style="background: #ffffff; box-shadow: 0 4px 18px rgba(15, 23, 42, 0.12); border: 1px solid #cbd5e1; border-radius: 4px; display: inline-block; margin: 0 auto; position: relative; vertical-align: top;">
                 <canvas id="custom-pdf-canvas" style="display: block; background: #ffffff;"></canvas>
@@ -1614,22 +1619,26 @@ export async function openPdfModal(pdfUrl, title) {
       enterImmersiveFullscreenLock('pdf-modal');
       renderGlobalWatermark();
 
-      const buildFallbackEmbedHtml = (urlToEmbed) => {
-        if (isGoogleDrive || urlToEmbed.includes('drive.google.com')) {
+      // Strictly same-origin protected fallback (NEVER uses drive.google.com/preview or docs.google.com/viewer)
+      const buildFallbackEmbedHtml = (safeProxyUrl) => {
+        if (!safeProxyUrl || (!safeProxyUrl.startsWith('/api/media-proxy') && !safeProxyUrl.startsWith('blob:'))) {
           return `
-            <div style="position:relative; width:100%; height:100%; background:#ffffff;">
-              <div style="position:absolute; top:0; right:0; width:64px; height:48px; background:#ffffff; z-index:20; display:flex; align-items:center; justify-content:center; font-size:12px; color:#475569;" title="Protected PDF View">
-                <i class="fa-solid fa-lock" style="color:var(--primary);"></i>
-              </div>
-              <iframe id="custom-pdf-embed-iframe" src="${urlToEmbed}" style="width:100%; height:100%; border:none; background:#ffffff !important;" allow="autoplay"></iframe>
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:28px; text-align:center; color:#334155; gap:10px;">
+              <i class="fa-solid fa-shield-halved" style="font-size:28px; color:var(--primary);"></i>
+              <strong>Protected PDF could not be streamed</strong>
+              <span style="font-size:12.5px; color:#64748b; max-width:420px;">Verify that the source PDF link is publicly accessible to the portal server ("Anyone with the link"). Direct Google Drive pop-outs are disabled for security.</span>
             </div>
           `;
         }
-        const directPdfFitUrl = urlToEmbed.includes('#') ? urlToEmbed : `${urlToEmbed}#view=Fit`;
+        const fitUrl = safeProxyUrl.includes('#') ? safeProxyUrl : `${safeProxyUrl}#toolbar=0&navpanes=0&view=Fit`;
         return `
-          <div style="position:relative; width:100%; height:100%; background:#ffffff;">
-            <object data="${directPdfFitUrl}" type="application/pdf" style="width:100%; height:100%; border:none;">
-              <iframe id="custom-pdf-embed-iframe" src="https://docs.google.com/viewer?url=${encodeURIComponent(urlToEmbed)}&embedded=true" style="width:100%; height:100%; border:none; background:#ffffff !important;"></iframe>
+          <div style="position:relative; width:100%; height:100%; background:#ffffff;" oncontextmenu="return false;">
+            <object data="${fitUrl}" type="application/pdf" style="width:100%; height:100%; border:none;">
+              <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:28px; text-align:center; color:#334155; gap:8px;">
+                <i class="fa-solid fa-file-shield" style="font-size:26px; color:var(--primary);"></i>
+                <strong>Protected PDF Viewer</strong>
+                <span style="font-size:12.5px; color:#64748b;">Please reload if the PDF canvas did not initialize.</span>
+              </div>
             </object>
           </div>
         `;
@@ -1648,22 +1657,29 @@ export async function openPdfModal(pdfUrl, title) {
             const bytes = new Uint8Array(binStr.length);
             for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
             pdfSource = { data: bytes };
-          } else if (isGoogleDrive) {
+          } else if (isHttpUrl && protectedProxyUrl.startsWith('/api/media-proxy')) {
+            // 1. Primary: fetch raw PDF bytes anonymously via our cookie-less server proxy (zero Drive footprint!)
             try {
-              const proxyRes = await apiCall('getDriveFileBase64', { fileUrl: rawUrl, url: rawUrl }, true);
-              if (proxyRes && proxyRes.success && proxyRes.base64) {
-                const binStr = atob(proxyRes.base64);
-                const bytes = new Uint8Array(binStr.length);
-                for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
-                pdfSource = { data: bytes };
+              const pResp = await fetch(protectedProxyUrl, { credentials: 'same-origin' });
+              if (pResp.ok) {
+                const ab = await pResp.arrayBuffer();
+                if (ab && ab.byteLength > 64) {
+                  pdfSource = { data: new Uint8Array(ab) };
+                }
               }
-            } catch (proxyErr) {}
-          } else if (isHttpUrl) {
-            try {
-              const directTask = pdfjsLib.getDocument({ url: embedUrl, withCredentials: false });
-              customPdfDoc = await directTask.promise;
-            } catch (corsErr) {
-              pdfSource = null;
+            } catch (_serverProxyErr) {}
+
+            // 2. Secondary fallback for Google Drive: Apps Script server-side base64 proxy (still zero client Drive cookies)
+            if (!pdfSource && isGoogleDrive) {
+              try {
+                const proxyRes = await apiCall('getDriveFileBase64', { fileUrl: rawUrl, url: rawUrl }, true);
+                if (proxyRes && proxyRes.success && proxyRes.base64) {
+                  const binStr = atob(proxyRes.base64);
+                  const bytes = new Uint8Array(binStr.length);
+                  for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+                  pdfSource = { data: bytes };
+                }
+              } catch (_gasErr) {}
             }
           } else {
             // Raw text / passage content (NOT an external HTTP URL): synthesize multi-page interactive PDF
@@ -1684,11 +1700,6 @@ export async function openPdfModal(pdfUrl, title) {
             const statusMsg = document.getElementById('custom-pdf-status-msg');
             if (statusMsg) statusMsg.style.display = 'none';
             await renderCustomPdfPage(customPdfPageNum);
-
-            const fallbackEl = document.getElementById('custom-pdf-fallback-frame');
-            if (fallbackEl && isHttpUrl) {
-              fallbackEl.innerHTML = buildFallbackEmbedHtml(customPdfRawEmbedUrl);
-            }
             return;
           }
         }
@@ -1696,7 +1707,6 @@ export async function openPdfModal(pdfUrl, title) {
         console.warn('PDF Canvas fallback activated:', err);
       }
 
-      // If rawUrl is an HTTP/Drive PDF whose raw bytes were blocked by CORS, display the real PDF in the embedded viewer immediately!
       const statusMsg = document.getElementById('custom-pdf-status-msg');
       const canvasWrap = document.getElementById('pdf-zoomable-wrapper');
       const fallbackEl = document.getElementById('custom-pdf-fallback-frame');
@@ -1704,7 +1714,7 @@ export async function openPdfModal(pdfUrl, title) {
       if (canvasWrap) canvasWrap.style.display = 'none';
       if (fallbackEl) {
         fallbackEl.style.display = 'inline-block';
-        fallbackEl.innerHTML = buildFallbackEmbedHtml(customPdfRawEmbedUrl);
+        fallbackEl.innerHTML = buildFallbackEmbedHtml(protectedProxyUrl);
         applyFallbackPdfZoomLayout();
       }
       customPdfTotalPages = 1;
@@ -2841,27 +2851,27 @@ export function classifyAndConvertVoiceMediaUrl(rawInputUrl) {
       let finalUrl = getUniversalUrl(clean, 'audio');
       let isDrive = false;
       let driveId = '';
-      let cloudProviderLabel = 'MP3 Audio Stream';
+      let cloudProviderLabel = 'Protected MP3 Audio Stream';
 
-      if (clean.includes('drive.google.com') || clean.includes('docs.google.com')) {
-        const match = clean.match(/\/d\/([a-zA-Z0-9_-]+)/) || clean.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-        if (match && match[1]) {
+      if (isGoogleDriveOrDocsUrl(clean)) {
+        const extractedId = extractGoogleDriveFileId(clean);
+        if (extractedId) {
           isDrive = true;
-          driveId = match[1];
-          finalUrl = `https://docs.google.com/uc?export=download&id=${driveId}`;
-          cloudProviderLabel = 'Google Drive → MP3 Audio Stream';
+          driveId = extractedId;
+          finalUrl = buildProtectedMediaProxyUrl(clean, 'audio');
+          cloudProviderLabel = 'Protected Audio Stream';
         }
       } else if (clean.includes('github.com') || clean.includes('raw.githubusercontent.com')) {
-        finalUrl = clean
-          .replace(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/i, 'https://raw.githubusercontent.com/$1/$2/$3')
-          .replace(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/raw\/(.+)$/i, 'https://raw.githubusercontent.com/$1/$2/$3');
-        cloudProviderLabel = 'GitHub Cloud → MP3 Audio Stream';
+        finalUrl = buildProtectedMediaProxyUrl(clean, 'audio');
+        cloudProviderLabel = 'Protected Audio Stream';
       } else if (clean.includes('supabase.co') || clean.includes('supabase.in')) {
-        finalUrl = clean;
-        cloudProviderLabel = 'Supabase Cloud → MP3 Audio Stream';
+        finalUrl = buildProtectedMediaProxyUrl(clean, 'audio');
+        cloudProviderLabel = 'Protected Audio Stream';
       } else if (clean.startsWith('blob:') || clean.startsWith('data:')) {
         finalUrl = clean;
         cloudProviderLabel = 'Recorded Microphone MP3 Stream';
+      } else if (/^https?:\/\//i.test(clean)) {
+        finalUrl = buildProtectedMediaProxyUrl(clean, 'audio');
       }
 
       return {
@@ -2952,26 +2962,15 @@ export function playCustomUserVoiceUrlInTab(tabType = 'audio') {
                 <button type="button" class="btn btn-sm btn-danger" style="padding:3px 8px; font-size:11px;" onclick="document.getElementById('${mountId}').style.display='none'; document.getElementById('${mountId}').innerHTML='';"><i class="fa-solid fa-xmark"></i></button>
               </div>
             </div>
-            <audio id="${audioElId}" controls autoplay preload="auto" controlsList="nodownload" style="width:100%; height:36px;">
-              <source src="${info.streamUrl}">
-            </audio>
-            ${info.isDrive && info.driveId ? `
-              <div id="${driveFallbackId}" style="display:none; font-size:11px; color:var(--text-muted);">
-                <iframe src="https://drive.google.com/file/d/${info.driveId}/preview" style="width:100%; height:54px; border:1px solid var(--border); border-radius:8px; background:#0f172a;" allow="autoplay"></iframe>
-              </div>
-            ` : ''}
+            <audio id="${audioElId}" controls autoplay preload="auto" controlsList="nodownload" oncontextmenu="return false;" style="width:100%; height:36px;" src="${info.streamUrl}"></audio>
           </div>
         `;
         const audioEl = document.getElementById(audioElId);
         if (audioEl) {
           audioEl.onerror = () => {
-            const fb = document.getElementById(driveFallbackId);
-            if (fb) fb.style.display = 'block';
+            if (info.isDrive) tryLoadDriveAudioIntoElement(rawUrl, audioElId);
           };
           audioEl.play().catch(() => {});
-        }
-        if (info.isDrive) {
-          tryLoadDriveAudioIntoElement(rawUrl, audioElId);
         }
       }
       showToast('🔊 Playing in MP3 Audio-Only Mode!');
@@ -3523,16 +3522,11 @@ export function startAudioDictationTestById(id) {
                     <span style="font-size:11px; color:#059669;">Click Play below</span>
                   </div>
                 ` : `
-                  <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="${mediaInfo.isVideoConverted ? 'true' : 'false'}" ${!isDirectMediaUrl ? 'data-use-tts-fallback="true"' : ''} controlsList="nodownload" style="width:100%; height:40px;">
+                  <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="${mediaInfo.isVideoConverted ? 'true' : 'false'}" ${!isDirectMediaUrl ? 'data-use-tts-fallback="true"' : ''} controlsList="nodownload" oncontextmenu="return false;" style="width:100%; height:40px;">
                     ${isDirectMediaUrl ? `<source src="${audioFileUrl}">` : ''}
                   </audio>
                   ${mediaInfo.isVideoConverted ? `
                     <div style="margin-top:5px; font-size:11px; font-weight:700; color:#059669;"><i class="fa-solid fa-music"></i> Video URL playing strictly in MP3 Audio-Only Mode</div>
-                  ` : ''}
-                  ${mediaInfo.isDrive && mediaInfo.driveId ? `
-                    <div id="stenoshala-drive-mp3-fallback" style="display:none; margin-top:6px;">
-                      <iframe src="https://drive.google.com/file/d/${mediaInfo.driveId}/preview" style="width:100%; height:54px; border:1px solid var(--border); border-radius:8px; background:#0f172a;" allow="autoplay"></iframe>
-                    </div>
                   ` : ''}
                 `}
               </div>
@@ -3956,23 +3950,16 @@ export function loadAndPlayCloudMediaInSynthesizer(autoPlayNow = true, preferAdm
           `;
         } else {
           mount.innerHTML = `
-            <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="${mediaInfo.isVideoConverted ? 'true' : 'false'}" controlsList="nodownload" style="width:100%; height:38px;">
-              <source src="${mediaInfo.streamUrl}">
-            </audio>
+            <audio id="stenoshala-dictation-audio" controls preload="metadata" data-video-converted-to-audio="${mediaInfo.isVideoConverted ? 'true' : 'false'}" controlsList="nodownload" oncontextmenu="return false;" style="width:100%; height:38px;" src="${mediaInfo.streamUrl}"></audio>
             ${mediaInfo.isVideoConverted ? `
               <div style="margin-top:5px; font-size:11px; font-weight:700; color:#059669;"><i class="fa-solid fa-music"></i> Video URL playing strictly in MP3 Audio-Only Mode</div>
             ` : ''}
-            ${mediaInfo.isDrive && mediaInfo.driveId ? `
-              <div id="stenoshala-drive-mp3-fallback" style="display:none; margin-top:6px;">
-                <iframe src="https://drive.google.com/file/d/${mediaInfo.driveId}/preview" style="width:100%; height:54px; border:1px solid var(--border); border-radius:8px; background:#0f172a;" allow="autoplay"></iframe>
-              </div>
-            ` : ''}
           `;
-          if (mediaInfo.isDrive) {
-            tryLoadDriveAudioIntoElement(rawUrl, 'stenoshala-dictation-audio');
-          }
           const audioEl = document.getElementById('stenoshala-dictation-audio');
           if (audioEl) {
+            audioEl.onerror = () => {
+              if (mediaInfo.isDrive) tryLoadDriveAudioIntoElement(rawUrl, 'stenoshala-dictation-audio');
+            };
             if (window.isAudioSpeedSyncedWithWpm !== false) {
               setSyncedTargetWpmPace(currentDictationWpm || 80);
             }
@@ -4332,6 +4319,9 @@ export function confirmExamAndStartTranscription() {
         return;
       }
       closeTranscribeExamSelector();
+      if (typeof window.requestExamNativeFullscreen === 'function') {
+        window.requestExamNativeFullscreen();
+      }
 
       stopTtsDictationSpeech();
       const dictAudio = document.getElementById('stenoshala-dictation-audio');
@@ -4342,6 +4332,9 @@ export function confirmExamAndStartTranscription() {
         window.pendingPitmanDirectLaunch = false;
         startPitmanTest(portalState.pendingAudioDictationItem, selectedRuleKey);
         return;
+      }
+      if (typeof enterImmersiveFullscreenLock === 'function') {
+        enterImmersiveFullscreenLock('active-test-modal');
       }
 
       portalState.activeTestSubtabKey = selectedRuleKey;
@@ -4438,10 +4431,16 @@ export function confirmExamAndStartTranscription() {
       if (fontSizeBadge) fontSizeBadge.textContent = initTransFontSize + 'px';
 
       updateLiveTypingStatusBar('Ready - Evaluation Rule Applied');
+      if (typeof window.resetActiveTestKeystrokeTelemetry === 'function') {
+        window.resetActiveTestKeystrokeTelemetry();
+      }
       // Auto-fetch Reading Time from Admin Evaluation Rule (with Skip option to start test immediately)
       triggerRuleReadingTimeBeforeTest(rules, () => {
         portalState.isTypingTimerStarted = true;
         portalState.testStartTime = Date.now();
+        if (typeof window.resetActiveTestKeystrokeTelemetry === 'function') {
+          window.resetActiveTestKeystrokeTelemetry();
+        }
         startTestTimer(portalState.testDurationMinutes * 60);
         updateLiveTypingStatusBar('Countdown Active - Type Transcription');
         const inputEl = document.getElementById('test-user-input');
@@ -5941,15 +5940,8 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
       url = url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
     }
 
-    let directStreamUrl = url;
-    let drivePreviewUrl = '';
-    if (url.includes('drive.google.com') || url.includes('docs.google.com')) {
-      const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-      if (m && m[1]) {
-        directStreamUrl = 'https://drive.google.com/uc?export=download&id=' + m[1];
-        drivePreviewUrl = 'https://drive.google.com/file/d/' + m[1] + '/preview';
-      }
-    }
+    const directStreamUrl = buildProtectedMediaProxyUrl(url, 'audio');
+    const isDriveSource = isGoogleDriveOrDocsUrl(url);
 
     const ytId = typeof extractYouTubeVideoId === 'function' ? extractYouTubeVideoId(url) : null;
     const safeTitleJs = String(title || 'Video Lecture').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -5970,7 +5962,7 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
         `;
       }
       viewport.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0f172a; color:#fff; padding:14px; box-sizing:border-box; gap:12px;">
+        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:#0f172a; color:#fff; padding:14px; box-sizing:border-box; gap:12px;" oncontextmenu="return false;">
           <!-- Collapsible Jump to Time Strip (Hidden by default so audio view stays ultra-clean) -->
           <div id="vc-audio-jump-toolbar" style="display:none; width:100%; max-width:560px; background:rgba(30,41,59,0.92); border:1px solid #334155; border-radius:10px; padding:7px 10px; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
             <div style="display:flex; align-items:center; gap:5px;">
@@ -5988,7 +5980,7 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
           <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(148,163,184,0.22); border-radius:16px; padding:18px 20px; max-width:560px; width:100%; display:flex; flex-direction:column; align-items:center; gap:14px;">
             <div style="text-align:center;">
               <div style="font-size:11px; font-weight:800; color:#34d399; letter-spacing:0.04em; margin-bottom:4px;">
-                <i class="fa-solid fa-headphones"></i> MP3 AUDIO-ONLY MODE${hasClipWindow ? ` · ✂️ ${clipCfg.startLabel || '00:00'}–${clipCfg.endLabel || 'End'}` : ''}
+                <i class="fa-solid fa-headphones"></i> PROTECTED MP3 AUDIO-ONLY MODE${hasClipWindow ? ` · ✂️ ${clipCfg.startLabel || '00:00'}–${clipCfg.endLabel || 'End'}` : ''}
               </div>
               <h3 style="margin:0; font-size:16px; font-weight:800; color:#f8fafc; line-height:1.35;">${title || 'Video Course Lecture'}</h3>
             </div>
@@ -6009,7 +6001,7 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
               </div>
             ` : `
               <div style="width:100%; display:flex; align-items:center; gap:8px;">
-                <audio id="universal-audio-player" controls autoplay controlsList="nodownload" style="flex:1; min-width:0; height:40px; border-radius:8px;"
+                <audio id="universal-audio-player" controls autoplay controlsList="nodownload" oncontextmenu="return false;" style="flex:1; min-width:0; height:40px; border-radius:8px;"
                        onplay="document.getElementById('vc-audio-eq-visualizer')?.classList.remove('rp-eq-paused')"
                        onpause="document.getElementById('vc-audio-eq-visualizer')?.classList.add('rp-eq-paused')"
                        src="${directStreamUrl}"></audio>
@@ -6021,12 +6013,6 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
                   <option value="2">2.0x</option>
                 </select>
               </div>
-
-              ${drivePreviewUrl ? `
-                <div id="vc-drive-audio-fallback-wrap" style="width:100%; display:none; flex-direction:column; gap:5px;">
-                  <iframe src="${drivePreviewUrl}" style="width:100%; height:56px; border:1px solid rgba(255,255,255,0.2); border-radius:8px; background:#000;" allow="autoplay"></iframe>
-                </div>
-              ` : ''}
             `}
           </div>
         </div>
@@ -6037,10 +6023,9 @@ window.openUniversalMediaViewer = function(rawUrl, title, isVideoCourseAudioMode
         if (typeof window.bindHtml5MediaClipBounds === 'function') {
           window.bindHtml5MediaClipBounds(audEl, clipCfg.startSec, clipCfg.endSec);
         }
-        if (drivePreviewUrl) {
+        if (isDriveSource) {
           audEl.onerror = () => {
-            const fb = document.getElementById('vc-drive-audio-fallback-wrap');
-            if (fb) fb.style.display = 'flex';
+            tryLoadDriveAudioIntoElement(rawUrl, 'universal-audio-player');
           };
         }
       }
@@ -6389,7 +6374,12 @@ export function injectSideBySideShorthandAnnotationStudio(historyItem) {
       </div>
     `;
 
-    shell.insertBefore(card, shell.children[1] || null);
+    const passageGridEl = document.getElementById('comparison-passage-grid');
+    if (passageGridEl && passageGridEl.parentElement === shell) {
+      passageGridEl.insertAdjacentElement('afterend', card);
+    } else {
+      shell.appendChild(card);
+    }
 
     // Wire up interactive Canvas Annotation Engine
     const imgEl = document.getElementById('rp-pad-ann-img');

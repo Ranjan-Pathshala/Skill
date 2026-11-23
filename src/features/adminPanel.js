@@ -2109,7 +2109,7 @@ export async function pollRealtimeBatchDiscussionMessages(manualSync = false) {
 if (window._batchCommsRealtimePollId) clearInterval(window._batchCommsRealtimePollId);
 
 window._batchCommsRealtimePollId = setInterval(() => {
-      if (portalState.currentUser && !document.hidden && (portalState.activeTab === 'dashboard' || portalState.activeTab === 'admin')) {
+      if (portalState.currentUser && !document.hidden && (portalState.activeTab === 'dashboard' || portalState.activeTab === 'batchhub' || portalState.activeTab === 'admin')) {
         pollRealtimeBatchDiscussionMessages(false);
       }
     }, 10000);
@@ -2117,25 +2117,23 @@ window._batchCommsRealtimePollId = setInterval(() => {
 export function switchDashboardMonitoredBatch(batchName) {
       window.currentDashboardMonitoredBatch = String(batchName || '').trim();
       renderDashboardBatchMonitoringHub();
+      if (typeof window.renderBatchPollsWidget === 'function') window.renderBatchPollsWidget();
+      if (typeof window.renderBatchShorthandDoubtWall === 'function') window.renderBatchShorthandDoubtWall();
+      if (typeof window.renderShorthandPadsGallery === 'function') window.renderShorthandPadsGallery('batchhub');
     }
 
 export function switchBatchMonitoringHubTab(tabName) {
-      window.currentBatchMonitoringHubTab = tabName === 'comms' ? 'comms' : 'progress';
+      const targetTab = tabName === 'comms' ? 'comms' : 'progress';
+      window.currentBatchMonitoringHubTab = targetTab;
+      if (typeof window.switchBatchHubSubtab === 'function') {
+        window.switchBatchHubSubtab(targetTab);
+        return;
+      }
       const progPane = document.getElementById('batch-monitoring-pane-progress');
       const commsPane = document.getElementById('batch-monitoring-pane-comms');
-      const progBtn = document.getElementById('btn-batch-hub-tab-progress');
-      const commsBtn = document.getElementById('btn-batch-hub-tab-comms');
-      if (progPane) progPane.style.display = window.currentBatchMonitoringHubTab === 'progress' ? 'block' : 'none';
-      if (commsPane) commsPane.style.display = window.currentBatchMonitoringHubTab === 'comms' ? 'block' : 'none';
-      if (progBtn) {
-        progBtn.style.background = window.currentBatchMonitoringHubTab === 'progress' ? '#b45309' : 'var(--surface)';
-        progBtn.style.color = window.currentBatchMonitoringHubTab === 'progress' ? '#fff' : '#92400e';
-      }
-      if (commsBtn) {
-        commsBtn.style.background = window.currentBatchMonitoringHubTab === 'comms' ? '#b45309' : 'var(--surface)';
-        commsBtn.style.color = window.currentBatchMonitoringHubTab === 'comms' ? '#fff' : '#92400e';
-      }
-      if (window.currentBatchMonitoringHubTab === 'comms') {
+      if (progPane) progPane.style.display = targetTab === 'progress' ? 'block' : 'none';
+      if (commsPane) commsPane.style.display = targetTab === 'comms' ? 'block' : 'none';
+      if (targetTab === 'comms') {
         renderDashboardBatchMonitoringHub();
       }
     }
@@ -2295,15 +2293,19 @@ export function renderDashboardBatchMonitoringHub() {
           card.style.display = 'block';
           const rolePillEl = document.getElementById('dashboard-batch-monitor-role-pill');
           const subTextEl = document.getElementById('dashboard-batch-monitor-subtext');
+          const topRoleEl = document.getElementById('batchhub-topbar-role-badge');
+          const topMetaEl = document.getElementById('batchhub-topbar-monitor-meta');
           const tbodyEl = document.getElementById('batch-monitoring-student-progress-tbody');
           const feedEl = document.getElementById('batch-monitoring-comms-feed');
           const kpiEl = document.getElementById('dashboard-batch-monitor-kpi-strip');
-          if (rolePillEl) rolePillEl.innerText = isAdminUser ? '🛡️ NO BATCHES CREATED YET' : '🎓 NO BATCH ASSIGNED YET';
-          if (subTextEl) {
-            subTextEl.innerHTML = isAdminUser
-              ? 'Create your first institute batch under <strong>Admin &rarr; Users &amp; Batches</strong> to activate batch monitoring, progress oversight, and direct announcements.'
-              : 'You are not assigned to an active batch yet. Contact your Admin or visit <strong>Profile &rarr; Buy Batches</strong> to join a batch.';
-          }
+          const emptyRoleTxt = isAdminUser ? 'No Batches Yet' : 'No Batch Assigned';
+          const emptyMetaHtml = isAdminUser
+            ? 'Create your first institute batch under <strong>Admin &rarr; Users &amp; Batches</strong> to activate batch monitoring, progress oversight, and direct announcements.'
+            : 'You are not assigned to an active batch yet. Contact your Admin or visit <strong>Profile &rarr; Buy Batches</strong> to join a batch.';
+          if (rolePillEl) rolePillEl.innerText = emptyRoleTxt;
+          if (topRoleEl) topRoleEl.innerText = emptyRoleTxt;
+          if (subTextEl) subTextEl.innerHTML = emptyMetaHtml;
+          if (topMetaEl) topMetaEl.innerHTML = emptyMetaHtml;
           if (kpiEl) kpiEl.innerHTML = '';
           if (tbodyEl) {
             tbodyEl.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:22px; color:var(--text-muted); font-size:12.5px;">No batch members to display yet. Once a batch is created and students are assigned, live WPM &amp; accuracy oversight appears here automatically.</td></tr>`;
@@ -2343,39 +2345,35 @@ export function renderDashboardBatchMonitoringHub() {
         : 'Appointed Batch Monitor';
       const rolePill = document.getElementById('dashboard-batch-monitor-role-pill');
       const subText = document.getElementById('dashboard-batch-monitor-subtext');
+      const topRoleEl = document.getElementById('batchhub-topbar-role-badge');
+      const topMetaEl = document.getElementById('batchhub-topbar-monitor-meta');
       const tagSelect = document.getElementById('batch-comms-msg-tag');
 
-      if (rolePill) {
-        if (isAdminUser) {
-          rolePill.innerText = roleLower === 'superadmin' ? '👑 SUPERADMIN OVERSEER' : '🛡️ INSTRUCTOR / ADMIN OVERSEER';
-        } else if (isUserMonitorForBatch(uid, activeBatch)) {
-          rolePill.innerText = `🎖️ ${(myMonitorEntry && myMonitorEntry.monitorType) ? myMonitorEntry.monitorType.toUpperCase() : 'BATCH MONITOR'} (${activeBatch})`;
-        } else {
-          rolePill.innerText = '🎓 STUDENT VIEW • INSTRUCTOR FEED & PRIVATE MONITOR DESK';
-        }
-      }
+      const roleLabelText = isAdminUser
+        ? (roleLower === 'superadmin' ? 'Superadmin' : 'Instructor / Admin')
+        : (isUserMonitorForBatch(uid, activeBatch)
+            ? `${(myMonitorEntry && myMonitorEntry.monitorType) ? myMonitorEntry.monitorType : 'Batch Monitor'}`
+            : 'Student');
 
-      if (subText) {
-        if (activeMonitorsList.length > 0) {
-          const monBadges = activeMonitorsList.map(m => `<strong>${escapeHtml(m.userName || m.userId)}</strong> <span style="color:#b45309; font-weight:800;">(${escapeHtml(m.monitorType || 'Batch Monitor')})</span>`).join(' • ');
-          subText.innerHTML = `Active Batch: <strong>${escapeHtml(activeBatch)}</strong> • Appointed Batch Monitor${activeMonitorsList.length > 1 ? 's' : ''} (${activeMonitorsList.length}/${MAX_MONITORS_PER_BATCH}): ${monBadges} • <span style="color:#0d9488; font-weight:800;">📢 Main Feed: Instructor Directives Only</span> • <span style="color:#7c3aed; font-weight:800;">🔒 Direct Queries: Student ↔ Batch Monitor</span>`;
-        } else {
-          subText.innerHTML = `Active Batch: <strong>${escapeHtml(activeBatch)}</strong> • <em>No Batch Monitor appointed yet (Admin can appoint up to ${MAX_MONITORS_PER_BATCH} in Admin → Users)</em> • <span style="color:#7c3aed; font-weight:800;">🔒 Direct Queries routed to Batch Instructor/Monitor</span>`;
-        }
-      }
+      if (rolePill) rolePill.innerText = roleLabelText;
+      if (topRoleEl) topRoleEl.innerText = roleLabelText;
 
-      // Update Channel Buttons UI
+      const metaLineHtml = activeMonitorsList.length > 0
+        ? `<span>Active Batch: <strong>${escapeHtml(activeBatch)}</strong></span> · <span>Monitor${activeMonitorsList.length > 1 ? 's' : ''} (${activeMonitorsList.length}/${MAX_MONITORS_PER_BATCH}): ${activeMonitorsList.map(m => `<strong>${escapeHtml(m.userName || m.userId)}</strong>`).join(', ')}</span>`
+        : `<span>Active Batch: <strong>${escapeHtml(activeBatch)}</strong></span> · <span>No Batch Monitor appointed yet</span>`;
+
+      if (subText) subText.innerHTML = metaLineHtml;
+      if (topMetaEl) topMetaEl.innerHTML = metaLineHtml;
+
+      // Update Channel Segmented Control UI
       const btnDir = document.getElementById('btn-batch-channel-directives');
       const btnPriv = document.getElementById('btn-batch-channel-private');
       if (btnDir) {
-        btnDir.style.background = activeChannel === 'directives' ? '#0d9488' : 'var(--surface)';
-        btnDir.style.color = activeChannel === 'directives' ? '#fff' : '#0f766e';
-        btnDir.style.border = activeChannel === 'directives' ? 'none' : '1px solid rgba(13,148,136,0.35)';
+        btnDir.classList.toggle('active', activeChannel === 'directives');
       }
       if (btnPriv) {
-        btnPriv.style.background = activeChannel === 'private_queries' ? '#7c3aed' : 'var(--surface)';
-        btnPriv.style.color = activeChannel === 'private_queries' ? '#fff' : '#7c3aed';
-        btnPriv.style.border = activeChannel === 'private_queries' ? 'none' : '1px solid rgba(124,58,237,0.35)';
+        btnPriv.classList.toggle('active', activeChannel === 'private_queries');
+        btnPriv.classList.toggle('is-private-active', activeChannel === 'private_queries');
       }
 
       const channelBanner = document.getElementById('batch-comms-channel-banner');
@@ -2528,6 +2526,12 @@ export function renderDashboardBatchMonitoringHub() {
       const privCountBadge = document.getElementById('batch-private-queries-count-badge');
       if (privCountBadge) {
         privCountBadge.innerText = String(visiblePrivateQueries.length);
+      }
+      const topTabCommsBadge = document.getElementById('batchhub-tab-comms-badge');
+      if (topTabCommsBadge) {
+        const openPrivateCount = visiblePrivateQueries.filter(q => String(q.status || 'open').toLowerCase() !== 'resolved').length;
+        topTabCommsBadge.innerText = String(openPrivateCount);
+        topTabCommsBadge.style.display = openPrivateCount > 0 ? 'inline-flex' : 'none';
       }
 
       // 👉 Requirement #1: Dedicated Telemetry Strip in 'Batch Monitoring Hub'
@@ -6761,14 +6765,38 @@ export async function deleteSubtabItem(type, subtabName, skipConfirm = false) {
       if (res.success) loadAdminData();
     }
 
+window.toggleAdminBannerSameModeUI = function() {
+      const sameChk = document.getElementById('banner-same-for-both-chk');
+      const loggedOutWrap = document.getElementById('banner-logged-out-input-wrap');
+      const loggedInLabel = document.getElementById('banner-logged-in-label');
+      const isSame = Boolean(sameChk && sameChk.checked);
+      if (loggedOutWrap) loggedOutWrap.style.display = isSame ? 'none' : '';
+      if (loggedInLabel) {
+        loggedInLabel.innerHTML = isSame
+          ? '<i class="fa-solid fa-bullhorn"></i> Top Scrolling Banner Text (Shown for Both Logged-In &amp; Logged-Out) <span class="required-star">*</span>'
+          : '<i class="fa-solid fa-user-check"></i> Logged-In Student Top Scrolling Banner Text <span class="required-star">*</span>';
+      }
+    };
+
+window.copyLoggedInBannerToLoggedOut = function() {
+      const textInput = document.getElementById('banner-text-input');
+      const loggedOutTextInput = document.getElementById('banner-logged-out-text-input');
+      if (textInput && loggedOutTextInput) {
+        loggedOutTextInput.value = textInput.value;
+        showToast('Copied Logged-In banner text to Logged-Out banner.');
+      }
+    };
+
 export async function handleSaveBannerSettings() {
       const enableChk = document.getElementById('banner-enable-chk');
+      const sameChk = document.getElementById('banner-same-for-both-chk');
       const startInput = document.getElementById('banner-start-input');
       const stopInput = document.getElementById('banner-stop-input');
       const textInput = document.getElementById('banner-text-input');
 
       const loggedOutTextInput = document.getElementById('banner-logged-out-text-input');
       let enabledState = enableChk ? enableChk.checked : false;
+      const sameForBoth = Boolean(sameChk && sameChk.checked);
       const stopVal = stopInput ? stopInput.value : '';
       let isExpired = false;
 
@@ -6781,27 +6809,46 @@ export async function handleSaveBannerSettings() {
         }
       }
 
+      const loggedInTextVal = textInput ? textInput.value.trim() : '';
+      const rawLoggedOutVal = loggedOutTextInput ? loggedOutTextInput.value.trim() : '';
+      const effectiveLoggedOutVal = sameForBoth ? loggedInTextVal : rawLoggedOutVal;
+
       const bannerPayload = {
         enabled: enabledState,
         expiredAutoDisabled: isExpired,
         startTime: startInput ? startInput.value : '',
         stopTime: stopVal,
-        text: textInput ? textInput.value.trim() : '',
-        loggedOutText: loggedOutTextInput ? loggedOutTextInput.value.trim() : ''
+        text: loggedInTextVal,
+        loggedOutText: effectiveLoggedOutVal,
+        sameForBoth,
+        bannerMode: sameForBoth ? 'same' : 'different'
       };
 
       const res = await apiCall('updateBannerSettings', bannerPayload);
-      // Mirror Logged-Out scrolling banner text into dateSpecificBanners cloud store so getPublicStats delivers it on every device before login
+      // Mirror Logged-Out scrolling banner text + mode/schedule into dateSpecificBanners cloud store so getPublicStats delivers it on every device before login
       try {
         const dbMap = getDateSpecificBannersMap();
-        if (bannerPayload.loggedOutText) {
-          dbMap['__LOGGED_OUT_BANNER__'] = { date: '__LOGGED_OUT_BANNER__', text: bannerPayload.loggedOutText, updatedAt: new Date().toISOString() };
+        if (bannerPayload.loggedOutText || sameForBoth) {
+          dbMap['__LOGGED_OUT_BANNER__'] = {
+            date: '__LOGGED_OUT_BANNER__',
+            text: bannerPayload.loggedOutText,
+            enabled: bannerPayload.enabled,
+            startTime: bannerPayload.startTime,
+            stopTime: bannerPayload.stopTime,
+            sameForBoth: bannerPayload.sameForBoth,
+            bannerMode: bannerPayload.bannerMode,
+            updatedAt: new Date().toISOString()
+          };
         } else {
           delete dbMap['__LOGGED_OUT_BANNER__'];
         }
         saveDateSpecificBannersMap(dbMap, true);
       } catch (e) {}
-      showToast(isExpired ? 'Stop Time has already passed — Banner automatically marked as Disabled.' : (res.message || 'Logged-In & Logged-Out top banners updated successfully.'));
+      showToast(
+        isExpired
+          ? 'Stop Time has already passed — Banner automatically marked as Disabled.'
+          : (res.message || (sameForBoth ? 'Same scrolling banner saved for both Logged-In & Logged-Out users.' : 'Logged-In & Logged-Out top banners updated successfully.'))
+      );
       if (!portalState.adminData) portalState.adminData = {};
       portalState.adminData.banner = bannerPayload;
       portalState.globalData.banner = bannerPayload;
@@ -6814,7 +6861,7 @@ export function renderAdminBannersTable() {
       const container = document.getElementById('admin-banners-table-container');
       if (!container) return;
 
-      let banner = { enabled: false, startTime: '', stopTime: '', text: '', loggedOutText: '' };
+      let banner = { enabled: false, startTime: '', stopTime: '', text: '', loggedOutText: '', sameForBoth: false, bannerMode: 'different' };
       try {
         if (portalState.adminData && portalState.adminData.banner) {
           banner = (typeof portalState.adminData.banner === 'string') ? JSON.parse(portalState.adminData.banner) : { ...portalState.adminData.banner };
@@ -6822,9 +6869,18 @@ export function renderAdminBannersTable() {
         const cached = JSON.parse(localStorage.getItem('steno_public_top_banner') || '{}') || {};
         const dbMap = getDateSpecificBannersMap();
         const cloudLoggedOut = dbMap['__LOGGED_OUT_BANNER__'];
-        const cloudLoggedOutTxt = cloudLoggedOut ? (typeof cloudLoggedOut === 'object' ? cloudLoggedOut.text : String(cloudLoggedOut)) : '';
+        const cloudLoggedOutTxt = cloudLoggedOut ? (typeof cloudLoggedOut === 'object' ? (cloudLoggedOut.text || '') : String(cloudLoggedOut)) : '';
         if (!banner.loggedOutText && cloudLoggedOutTxt) banner.loggedOutText = cloudLoggedOutTxt;
         if (!banner.loggedOutText && cached.loggedOutText) banner.loggedOutText = cached.loggedOutText;
+        if (banner.sameForBoth === undefined) {
+          if (cloudLoggedOut && typeof cloudLoggedOut === 'object' && typeof cloudLoggedOut.sameForBoth === 'boolean') {
+            banner.sameForBoth = cloudLoggedOut.sameForBoth;
+          } else if (typeof cached.sameForBoth === 'boolean') {
+            banner.sameForBoth = cached.sameForBoth;
+          } else {
+            banner.sameForBoth = Boolean(banner.text && banner.loggedOutText && String(banner.text).trim() === String(banner.loggedOutText).trim());
+          }
+        }
       } catch (e) {
         console.error("Error parsing banner data:", e);
       }
@@ -6840,27 +6896,32 @@ export function renderAdminBannersTable() {
       }
 
       const enableChk = document.getElementById('banner-enable-chk');
+      const sameChk = document.getElementById('banner-same-for-both-chk');
       const startInput = document.getElementById('banner-start-input');
       const stopInput = document.getElementById('banner-stop-input');
       const textInput = document.getElementById('banner-text-input');
       const loggedOutTextInput = document.getElementById('banner-logged-out-text-input');
 
       const isBannerActive = !isExpiredNow && (banner.enabled === true || String(banner.enabled).toLowerCase() === 'true');
+      const isSameMode = Boolean(banner.sameForBoth || banner.bannerMode === 'same');
 
       if (enableChk) enableChk.checked = isBannerActive;
+      if (sameChk) sameChk.checked = isSameMode;
       if (startInput) startInput.value = banner.startTime ? String(banner.startTime).substring(0, 16) : '';
       if (stopInput) stopInput.value = banner.stopTime ? String(banner.stopTime).substring(0, 16) : '';
       if (textInput) textInput.value = banner.text || '';
-      if (loggedOutTextInput) loggedOutTextInput.value = banner.loggedOutText || '';
+      if (loggedOutTextInput) loggedOutTextInput.value = isSameMode ? (banner.text || '') : (banner.loggedOutText || '');
+      if (typeof window.toggleAdminBannerSameModeUI === 'function') window.toggleAdminBannerSameModeUI();
 
       const statusBadgeText = isExpiredNow
         ? 'Disabled (Time Expired)'
         : (isBannerActive ? 'Active' : 'Disabled');
+      const modeBadgeText = isSameMode ? 'Same for Both' : 'Different';
 
       container.innerHTML = `
         <table border="1" borderColor="var(--border)" cellpadding="8" style="width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;">
           <tr style="background:var(--border);">
-            <th>Status</th><th>Start Time</th><th>Stop Time</th><th>Logged-In Banner</th><th>Logged-Out Banner</th><th>Actions</th>
+            <th>Status</th><th>Mode</th><th>Start Time</th><th>Stop Time</th><th>Logged-In Banner</th><th>Logged-Out Banner</th><th>Actions</th>
           </tr>
           <tr>
             <td>
@@ -6868,10 +6929,11 @@ export function renderAdminBannersTable() {
                 ${statusBadgeText}
               </span>
             </td>
+            <td><span style="font-weight: 800; color: var(--primary);">${modeBadgeText}</span></td>
             <td>${banner.startTime || '-'}</td>
             <td>${banner.stopTime || '-'}</td>
             <td>${banner.text || '-'}</td>
-            <td>${banner.loggedOutText || 'Default Public Banner'}</td>
+            <td>${isSameMode ? (banner.text || '-') : (banner.loggedOutText || 'Default Public Banner')}</td>
             <td><button class="btn btn-danger btn-sm" onclick="deleteBannerItem('active')">Reset Banner</button></td>
           </tr>
         </table>

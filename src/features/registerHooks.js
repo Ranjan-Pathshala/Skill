@@ -478,39 +478,8 @@ export function registerPortalHooks() {
       if (typeof window.stopExamProctoringMonitor === 'function') {
         window.stopExamProctoringMonitor();
       }
-      if (_cbtPreSubmitSnapshot && _cbtPreSubmitSnapshot.testObj && Array.isArray(_cbtPreSubmitSnapshot.testObj.questions)) {
-        const qs = _cbtPreSubmitSnapshot.testObj.questions;
-        const responses = _cbtPreSubmitSnapshot.responses || {};
-        const bank = typeof window.getCbtMistakeHistoryBank === 'function' ? window.getCbtMistakeHistoryBank() : [];
-        let added = 0;
-        qs.forEach((q, idx) => {
-          const userAns = responses[idx];
-          const correctAns = q.correctIndex ?? q.answerIndex ?? q.ans;
-          if (userAns !== undefined && userAns !== null && String(userAns) !== String(correctAns)) {
-            const qText = q.qEn || q.question || q.q || '';
-            if (qText && !bank.some((b) => (b.qEn || b.question) === qText)) {
-              bank.unshift({
-                id: `cbt_err_${Date.now()}_${idx}`,
-                qEn: qText,
-                qHi: q.qHi || '',
-                optionsEn: q.optionsEn || q.options || [],
-                optionsHi: q.optionsHi || [],
-                correctIndex: correctAns,
-                userPicked: userAns,
-                section: q.section || _cbtPreSubmitSnapshot.testObj.category || 'General',
-                testTitle: _cbtPreSubmitSnapshot.testObj.title || 'CBT Mock',
-                capturedAt: new Date().toISOString(),
-                mastered: false,
-              });
-              added++;
-            }
-          }
-        });
-        if (added > 0 && typeof window.saveCbtMistakeHistoryBank === 'function') {
-          window.saveCbtMistakeHistoryBank(bank.slice(0, 300));
-        }
-        if (typeof updateCbtRevisionCountsUI === 'function') updateCbtRevisionCountsUI();
-      }
+      if (typeof updateCbtRevisionCountsUI === 'function') updateCbtRevisionCountsUI();
+      if (typeof window.renderDedicatedCbtRevisionTab === 'function') window.renderDedicatedCbtRevisionTab();
       _cbtPreSubmitSnapshot = null;
     } catch (_e) {}
   });

@@ -14,6 +14,7 @@ import { configureActiveTestModalChrome, getActiveEvaluationRules, openPdfModal,
 import { checkAndTriggerHighScoreNotification, pushAdminRealtimeNotification, userHasBatchAssigned } from './adminPanel.js';
 import { applySavedRuleToEphemeralModal, purgeFakeInjectedRules } from './videoAndTutor.js';
 import { buildCompleteRuleDetailsGridHtml } from './cbtArena.js';
+import { buildProtectedMediaProxyUrl, isGoogleDriveOrDocsUrl } from '../utils/mediaProxy.ts';
 
 const openTranscribeExamSelector = (...args) => (typeof window.openTranscribeExamSelector === 'function' ? window.openTranscribeExamSelector(...args) : undefined);
 const enterImmersiveFullscreenLock = (...args) => (typeof window.enterImmersiveFullscreenLock === 'function' ? window.enterImmersiveFullscreenLock(...args) : undefined);
@@ -511,6 +512,9 @@ export function startTypingExam(item) {
       }
       portalState.testBackspaces = 0;
       portalState.testStartTime = 0;
+      if (typeof window.resetActiveTestKeystrokeTelemetry === 'function') {
+        window.resetActiveTestKeystrokeTelemetry();
+      }
 
       const rawFullPassage = item.ContentOrUrl || '';
       const totalFullWords = rawFullPassage.trim().split(/\s+/).filter(Boolean).length;
@@ -600,6 +604,8 @@ export function startTypingExam(item) {
       }
       const testModal = document.getElementById('active-test-modal');
       if (testModal) testModal.style.display = 'flex';
+      if (typeof enterImmersiveFullscreenLock === 'function') enterImmersiveFullscreenLock('active-test-modal');
+      if (typeof window.requestExamNativeFullscreen === 'function') window.requestExamNativeFullscreen();
       updateLiveTypingStatusBar('Ready - Press any key');
     }
 
@@ -810,6 +816,9 @@ export function handleTypingInputProgress() {
       if (!userInput || !passageContainer) return;
 
       const typed = userInput.value;
+      if (typeof window.recordInputCharLatencyFallback === 'function') {
+        window.recordInputCharLatencyFallback(typed);
+      }
       const ref = String(portalState.currentReferenceText || '');
       const activeIdx = Math.min(typed.length, Math.max(0, ref.length - 1));
 
@@ -996,6 +1005,9 @@ export function startPitmanTest(item, overrideRuleKey) {
       if (typeof logPortalAction === 'function') {
         logPortalAction('START_PITMAN_TEST', `Started Pitman Test: ${item.Title} [Rule: ${portalState.activeTestSubtabKey}]`);
       }
+      if (typeof window.requestExamNativeFullscreen === 'function') {
+        window.requestExamNativeFullscreen();
+      }
 
       window.currentExamRules = rules;
       window.isBackspaceAllowed = (rules.backspaceMode !== 'off');
@@ -1008,6 +1020,9 @@ export function startPitmanTest(item, overrideRuleKey) {
       portalState.testDurationMinutes = parseInt(rules.timeLimit) || 15;
       portalState.testBackspaces = 0;
       portalState.testStartTime = Date.now();
+      if (typeof window.resetActiveTestKeystrokeTelemetry === 'function') {
+        window.resetActiveTestKeystrokeTelemetry();
+      }
       const rawPassageRef = (item.ContentOrUrl && !String(item.ContentOrUrl).startsWith('http'))
         ? item.ContentOrUrl
         : ((item.ThumbnailUrl && item.ThumbnailUrl !== '-' && !String(item.ThumbnailUrl).startsWith('http')) ? item.ThumbnailUrl : '');
@@ -1484,8 +1499,24 @@ export async function downloadItem(url, title, accessLevel = 'public', targetBat
         existingPdfBytes = bytes.buffer;
       }
 
-      // 2. If Google Drive link, try fetching raw bytes via Apps Script backend proxy
-      if (!existingPdfBytes && (rawUrl.includes('drive.google.com') || rawUrl.includes('docs.google.com'))) {
+      // 2. Fetch PDF bytes via zero-footprint server media proxy first (never hits Google Drive with user cookies)
+      if (!existingPdfBytes && /^https?:\/\//i.test(rawUrl)) {
+        try {
+          const proxiedPdfUrl = buildProtectedMediaProxyUrl(rawUrl, 'pdf');
+          const resp = await fetch(proxiedPdfUrl, { credentials: 'same-origin' });
+          if (resp.ok) {
+            const buf = await resp.arrayBuffer();
+            if (buf && buf.byteLength > 100) {
+              existingPdfBytes = buf;
+            }
+          }
+        } catch (proxyFetchErr) {
+          existingPdfBytes = null;
+        }
+      }
+
+      // 3. Fallback: If Google Drive link, fetch raw bytes via Apps Script backend proxy
+      if (!existingPdfBytes && isGoogleDriveOrDocsUrl(rawUrl)) {
         try {
           const proxyRes = await apiCall('getDriveFileBase64', { fileUrl: rawUrl, url: rawUrl }, true);
           if (proxyRes && proxyRes.success && proxyRes.base64) {
@@ -1498,21 +1529,6 @@ export async function downloadItem(url, title, accessLevel = 'public', targetBat
             existingPdfBytes = bytes.buffer;
           }
         } catch (proxyErr) {}
-      }
-
-      // 3. Try direct fetch if HTTP(S) URL
-      if (!existingPdfBytes && /^https?:\/\//i.test(fileUrl)) {
-        try {
-          const resp = await fetch(fileUrl);
-          if (resp.ok) {
-            const buf = await resp.arrayBuffer();
-            if (buf && buf.byteLength > 100) {
-              existingPdfBytes = buf;
-            }
-          }
-        } catch (fetchErr) {
-          existingPdfBytes = null;
-        }
       }
 
       // 4. If we obtained the actual PDF bytes, apply watermark via PDFLib (or download raw bytes if encrypted)
@@ -1622,22 +1638,9 @@ export async function downloadItem(url, title, accessLevel = 'public', targetBat
         return;
       }
 
-      // 6. Direct browser download fallback for cross-origin Google Drive / external PDF links
-      let directDownloadUrl = fileUrl;
-      const driveMatch = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || rawUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-      if (driveMatch && driveMatch[1]) {
-        directDownloadUrl = `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
-      }
-      const dlLink = document.createElement('a');
-      dlLink.href = directDownloadUrl;
-      dlLink.download = cleanFileName;
-      dlLink.target = '_blank';
-      dlLink.rel = 'noopener noreferrer';
-      document.body.appendChild(dlLink);
-      dlLink.click();
-      dlLink.remove();
+      // 6. Never open external Google Drive URLs in a new tab (zero-footprint & anti-new-tab policy)
       showLoader(false);
-      showToast('📥 Direct PDF download started!');
+      showToast('⚠️ Protected PDF could not be fetched for watermarked download. Please view it inside the secure in-app PDF reader.');
     } catch (e) {
       showLoader(false);
       showToast('Error downloading PDF: ' + e.message);
@@ -1648,6 +1651,10 @@ export function getUniversalUrl(url, type = 'default') {
     const rawStr = (url !== undefined && url !== null) ? String(url).trim() : '';
     if (!rawStr || rawStr === '' || rawStr === '-') return DEFAULT_LOGO_URL;
     let processedUrl = rawStr;
+
+    if (processedUrl.startsWith('/api/media-proxy')) {
+      return processedUrl;
+    }
 
     if (processedUrl.includes('youtube.com') || processedUrl.includes('youtu.be')) {
       let videoId = '';
@@ -1668,18 +1675,11 @@ export function getUniversalUrl(url, type = 'default') {
       }
     }
 
-    if (processedUrl.includes('drive.google.com') || processedUrl.includes('docs.google.com')) {
-      const match = processedUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || processedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-      if (match && match[1]) {
-        const fileId = match[1];
-        if (type === 'image' || type === 'zoom') {
-          return `https://lh3.googleusercontent.com/d/${fileId}=s1600`;
-        }
-        if (type === 'download' || type === 'audio') {
-          return `https://drive.google.com/uc?export=download&id=${fileId}`;
-        }
-        return `https://drive.google.com/file/d/${fileId}/preview`;
-      }
+    if (isGoogleDriveOrDocsUrl(processedUrl)) {
+      const proxyKind = (type === 'image' || type === 'zoom')
+        ? 'image'
+        : (type === 'audio' ? 'audio' : (type === 'video' ? 'video' : (type === 'download' ? 'pdf' : 'file')));
+      return buildProtectedMediaProxyUrl(processedUrl, proxyKind);
     }
 
     if (processedUrl.includes('github.com')) {
@@ -2352,9 +2352,34 @@ export async function submitStenoTest(event) {
     (portalState.pendingEphemeralLearningItem && portalState.pendingEphemeralLearningItem.Title) ||
     'Master Practice Passage';
 
-  // 👉 Requirement #12: Snapshot Keystroke Latency & Rhythm Heatmap data so it displays in Comparison
+  // 👉 Requirement #12: Snapshot Keystroke Latency & Rhythm Heatmap data so it displays accurately in Comparison
   const latencySnapshot = JSON.parse(JSON.stringify(window.keystrokeLatencyStatsMap || {}));
   const intervalsSnapshot = Array.isArray(window.recentKeystrokeIntervalsMs) ? [...window.recentKeystrokeIntervalsMs] : [];
+  window.lastSubmittedHeatmapIntervals = intervalsSnapshot;
+  try {
+    if (Object.keys(latencySnapshot).length > 0 || intervalsSnapshot.length > 0) {
+      const cacheKey = 'rp_attempt_latency_cache_v1';
+      const existingCache = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+      const localDateKey = getLocalDateString();
+      const attemptSig = `${String(resolvedExamTitle || '').trim().toLowerCase()}|${localDateKey}|${totalTypedCharacter}|${Math.round(totalTypedWords)}`;
+      const altSig = `${String(resolvedPassageTitle || '').trim().toLowerCase()}|${localDateKey}|${totalTypedCharacter}`;
+      const recordData = {
+        stats: latencySnapshot,
+        intervals: intervalsSnapshot.slice(-600),
+        savedAt: Date.now()
+      };
+      existingCache[attemptSig] = recordData;
+      existingCache[altSig] = recordData;
+      const keys = Object.keys(existingCache);
+      if (keys.length > 60) {
+        keys
+          .sort((a, b) => (existingCache[a]?.savedAt || 0) - (existingCache[b]?.savedAt || 0))
+          .slice(0, keys.length - 60)
+          .forEach(k => delete existingCache[k]);
+      }
+      localStorage.setItem(cacheKey, JSON.stringify(existingCache));
+    }
+  } catch (e) {}
 
   const payload = {
     userId: portalState.currentUser ? portalState.currentUser.userId : 'GUEST',
@@ -2488,6 +2513,12 @@ export async function submitStenoTest(event) {
   if (modalElem) modalElem.style.display = 'none';
   const activeInterfaceElem = document.getElementById('active-test-interface');
   if (activeInterfaceElem) activeInterfaceElem.style.display = 'none';
+  if (typeof window.exitImmersiveFullscreenLock === 'function') {
+    window.exitImmersiveFullscreenLock('active-test-modal');
+  }
+  if (typeof window.exitExamNativeFullscreen === 'function') {
+    window.exitExamNativeFullscreen();
+  }
 
   window.isCountUpTimerMode = false;
   window.activeScheduledLiveTestEndTime = null;
@@ -3455,35 +3486,15 @@ export function openTestComparison(indexOrItem) {
       ? buildComparisonHeatmapHtml(historyItem)
       : '';
 
+    const safeReviewAudioSrc = window.currentAdminAudioCloudUrl
+      ? (isGoogleDriveOrDocsUrl(window.currentAdminAudioCloudUrl)
+          ? buildProtectedMediaProxyUrl(window.currentAdminAudioCloudUrl, 'audio')
+          : window.currentAdminAudioCloudUrl)
+      : '';
+
     body.scrollTop = 0;
     body.innerHTML = `
       <div class="rp-comparison-inner-shell" style="display: flex; flex-direction: column; gap: 16px; padding: 18px 20px 36px; width: 100%; max-width: 1360px; margin: 0 auto; box-sizing: border-box; background: var(--background); color: var(--text);">
-        
-        <!-- ERROR COLOR LEGEND BAR -->
-        <div class="error-legend-bar">
-          <span style="color: var(--secondary); font-weight: 800;"><i class="fa-solid fa-palette"></i> Error Color Legend (${punctMode === 'fullstop_only' ? 'Steno Mode: Full Stop Only in Error' : 'All Punctuation Mode'}):</span>
-          <div class="legend-badge">
-            <span class="legend-color-box" style="background: rgba(239, 68, 68, 0.4);"></span> Spelling / Wrong Word (-${deductWrong}/word)
-          </div>
-          <div class="legend-badge">
-            <span class="legend-color-box" style="background: rgba(236, 72, 153, 0.4);"></span> Verb Form Error (-${deductVerbForm}/word)
-          </div>
-          <div class="legend-badge">
-            <span class="legend-color-box" style="background: rgba(14, 165, 233, 0.4);"></span> Singular / Plural Error (-${deductSingularPlural}/word)
-          </div>
-          <div class="legend-badge">
-            <span class="legend-color-box" style="background: rgba(6, 182, 212, 0.4);"></span> Punctuation Error (-${deductPunctuation}/mark)
-          </div>
-          <div class="legend-badge">
-            <span class="legend-color-box" style="background: rgba(245, 158, 11, 0.4);"></span> Capitalization Error (-${deductCapital}/word)
-          </div>
-          <div class="legend-badge">
-            <span class="legend-color-box" style="background: rgba(139, 92, 246, 0.4);"></span> Extra Word (-${deductExtraWord}/word)
-          </div>
-          <div class="legend-badge">
-            <span class="legend-color-box" style="background: #ef4444;"></span> Word Left / Omission (-${deductOmission}/word)
-          </div>
-        </div>
 
         <div style="background: var(--surface); border: 1px solid var(--border); padding: 18px; border-radius: var(--radius); box-shadow: 0 4px 12px var(--shadow);">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
@@ -3591,7 +3602,7 @@ export function openTestComparison(indexOrItem) {
           </div>
         </div>
 
-        <!-- Requirement #6: Option to Show Complete User Typed Passage -->
+        <!-- Option to Show Complete User Typed Passage -->
         <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -3614,18 +3625,60 @@ export function openTestComparison(indexOrItem) {
           <div id="complete-user-typed-passage-panel" style="display: none; background: var(--background); border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 16px; border-radius: 8px; font-family: 'Segoe UI', monospace; font-size: 14px; line-height: 1.75; white-space: pre-wrap; color: var(--text); max-height: 280px; overflow-y: auto;">${(userText || '(No text was typed in this submission)').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
         </div>
 
-        <!-- Shorthand Outline Overlay & Synced Word Highlight (Post-Dictation Review) -->
+        <!-- ERROR COLOR LEGEND BAR (Positioned directly before Master Passage & Your Transcription) -->
+        <div class="error-legend-bar" id="comparison-error-legend-bar">
+          <span style="color: var(--secondary); font-weight: 800;"><i class="fa-solid fa-palette"></i> Error Color Legend (${punctMode === 'fullstop_only' ? 'Steno Mode: Full Stop Only in Error' : 'All Punctuation Mode'}):</span>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(239, 68, 68, 0.4);"></span> Spelling / Wrong Word (-${deductWrong}/word)
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(236, 72, 153, 0.4);"></span> Verb Form Error (-${deductVerbForm}/word)
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(14, 165, 233, 0.4);"></span> Singular / Plural Error (-${deductSingularPlural}/word)
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(6, 182, 212, 0.4);"></span> Punctuation Error (-${deductPunctuation}/mark)
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(245, 158, 11, 0.4);"></span> Capitalization Error (-${deductCapital}/word)
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: rgba(139, 92, 246, 0.4);"></span> Extra Word (-${deductExtraWord}/word)
+          </div>
+          <div class="legend-badge">
+            <span class="legend-color-box" style="background: #ef4444;"></span> Word Left / Omission (-${deductOmission}/word)
+          </div>
+        </div>
+
+        <!-- PASSAGE COMPARISON (Master Passage vs. User Transcription — Annotated) -->
+        <div id="comparison-passage-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 16px; align-items: stretch;">
+          <div style="display: flex; flex-direction: column; min-width: 0;">
+            <h4 style="margin: 0 0 8px 0; color: var(--secondary); font-size: 14px;">📑 Master Passage (${refTokens.length} Words • ${totalStrokesMaterial} Strokes) <small style="font-size:11px; color:var(--primary); font-weight:700;">(Click any word for Audio &amp; Outline)</small></h4>
+            <div class="watermark-text-container" style="background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: 10px; min-height: 240px; max-height: 520px; overflow-y: auto; line-height: 1.85; font-size: var(--master-passage-font-size, 15px); color: var(--text); word-break: break-word; overflow-wrap: anywhere;">${annotatedRefHtml.length ? annotatedRefHtml.join(' ') : '<span style="color:var(--text-muted);">(Reference passage text not available for this record)</span>'}</div>
+          </div>
+          <div style="display: flex; flex-direction: column; min-width: 0;">
+            <h4 style="margin: 0 0 8px 0; color: var(--secondary); font-size: 14px;">⌨️ Your Transcription — Annotated (${userTokens.length} Words • ${totalStrokesUser} Strokes) <small style="font-size:11px; color:var(--primary); font-weight:700;">(Click any mistake to jump to Audio)</small></h4>
+            <div class="watermark-text-container" style="background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: 10px; min-height: 240px; max-height: 520px; overflow-y: auto; line-height: 1.85; font-size: var(--master-passage-font-size, 15px); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--text); word-break: break-word; overflow-wrap: anywhere;">${annotatedUserHtml.length ? annotatedUserHtml.join(' ') : '<span style="color:var(--text-muted);">(No typed transcription recorded for this attempt)</span>'}</div>
+          </div>
+        </div>
+        <!-- Shorthand Pad & Annotation Side View mounts immediately after #comparison-passage-grid -->
+
+        <!-- SECTION-WISE MISTAKE & CORRECT WORDS BREAKDOWN -->
+        ${window._lastEvaluatedSheetExportData.sectionWiseMistakeHtml}
+
+        <!-- Post-Dictation Synced Audio & Shorthand Outline Review (Positioned directly before Rhythm & Finger Latency Heatmap) -->
         <div id="post-dictation-synced-review-panel" style="background: linear-gradient(135deg, rgba(79,70,229,0.08), rgba(14,165,233,0.06)); border: 1.5px solid rgba(79,70,229,0.3); border-radius: 12px; padding: 14px 18px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 14px;">
           <div style="flex: 1.4; min-width: 280px; display: flex; flex-direction: column; gap: 6px;">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <span style="background: #4f46e5; color: #fff; font-size: 10.5px; font-weight: 800; padding: 2px 9px; border-radius: 999px;"><i class="fa-solid fa-headphones"></i> POST-DICTATION SYNCED AUDIO &amp; SHORTHAND OUTLINE REVIEW</span>
-              <span id="post-dict-selected-word-badge" style="font-size: 11.5px; font-weight: 800; color: var(--primary);">Click any word below to jump to its audio timestamp &amp; view Pitman Outline</span>
+              <span id="post-dict-selected-word-badge" style="font-size: 11.5px; font-weight: 800; color: var(--primary);">Click any word in the passage above to jump to its audio timestamp &amp; view Pitman Outline</span>
             </div>
             <div style="font-size: 11.5px; color: var(--text-muted);">
-              Click any misspelled, omitted, or matched word in the Master Passage or Your Transcription below to jump straight to that timestamp in the dictation audio and inspect its Pitman Shorthand stroke outline.
+              Click any misspelled, omitted, or matched word in the Master Passage or Your Transcription above to jump straight to that timestamp in the dictation audio and inspect its Pitman Shorthand stroke outline.
             </div>
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
-              <audio id="post-dictation-review-audio" controls style="height: 34px; max-width: 310px;" src="${window.currentAdminAudioCloudUrl || ''}"></audio>
+              <audio id="post-dictation-review-audio" controls controlsList="nodownload" oncontextmenu="return false;" style="height: 34px; max-width: 310px;" src="${safeReviewAudioSrc}"></audio>
               <button type="button" class="btn btn-primary btn-sm" onclick="replayPostDictationFromCurrentWord()">
                 <i class="fa-solid fa-volume-high"></i> Replay Dictation from Selected Word
               </button>
@@ -3641,21 +3694,6 @@ export function openTestComparison(indexOrItem) {
             </svg>
           </div>
         </div>
-
-        <!-- PASSAGE COMPARISON (Master Passage vs. User Transcription — Annotated) -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 16px; align-items: stretch;">
-          <div style="display: flex; flex-direction: column; min-width: 0;">
-            <h4 style="margin: 0 0 8px 0; color: var(--secondary); font-size: 14px;">📑 Master Passage (${refTokens.length} Words • ${totalStrokesMaterial} Strokes) <small style="font-size:11px; color:var(--primary); font-weight:700;">(Click any word for Audio &amp; Outline)</small></h4>
-            <div class="watermark-text-container" style="background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: 10px; min-height: 240px; max-height: 520px; overflow-y: auto; line-height: 1.85; font-size: var(--master-passage-font-size, 15px); color: var(--text); word-break: break-word; overflow-wrap: anywhere;">${annotatedRefHtml.length ? annotatedRefHtml.join(' ') : '<span style="color:var(--text-muted);">(Reference passage text not available for this record)</span>'}</div>
-          </div>
-          <div style="display: flex; flex-direction: column; min-width: 0;">
-            <h4 style="margin: 0 0 8px 0; color: var(--secondary); font-size: 14px;">⌨️ Your Transcription — Annotated (${userTokens.length} Words • ${totalStrokesUser} Strokes) <small style="font-size:11px; color:var(--primary); font-weight:700;">(Click any mistake to jump to Audio)</small></h4>
-            <div class="watermark-text-container" style="background: var(--surface); border: 1px solid var(--border); padding: 16px; border-radius: 10px; min-height: 240px; max-height: 520px; overflow-y: auto; line-height: 1.85; font-size: var(--master-passage-font-size, 15px); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: var(--text); word-break: break-word; overflow-wrap: anywhere;">${annotatedUserHtml.length ? annotatedUserHtml.join(' ') : '<span style="color:var(--text-muted);">(No typed transcription recorded for this attempt)</span>'}</div>
-          </div>
-        </div>
-
-        <!-- 👉 REQUIREMENT #5: SECTION-WISE MISTAKE & CORRECT WORDS BREAKDOWN + RHYTHM & FINGER LATENCY HEATMAP AT THE BOTTOM AFTER PASSAGE COMPARISON -->
-        ${window._lastEvaluatedSheetExportData.sectionWiseMistakeHtml}
 
         ${comparisonHeatmapHtml}
 

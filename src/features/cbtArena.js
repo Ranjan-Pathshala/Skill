@@ -574,6 +574,13 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
         }
       }
 
+      // Immediately request native browser fullscreen (F11 mode) synchronously inside the user click gesture
+      if (typeof window.requestExamNativeFullscreen === 'function') {
+        window.requestExamNativeFullscreen();
+      } else if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+
       // If this CBT exam stores a remote JSON URL instead of inline questions, fetch & parse it on demand
       if ((!Array.isArray(found.questions) || found.questions.length === 0) && found.remoteQuestionsUrl) {
         try {
@@ -581,15 +588,24 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
           let remoteText = '';
           const rUrl = String(found.remoteQuestionsUrl).trim();
           if (rUrl.includes('drive.google.com') || rUrl.includes('docs.google.com')) {
-            const proxyRes = await apiCall('getDriveFileBase64', { fileUrl: rUrl, url: rUrl }, true);
-            if (proxyRes && proxyRes.success && proxyRes.base64) {
-              remoteText = decodeURIComponent(escape(atob(proxyRes.base64)));
+            const driveMatch = rUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || rUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (driveMatch && driveMatch[1]) {
+              try {
+                const pResp = await fetch(`/api/media-proxy?driveId=${encodeURIComponent(driveMatch[1])}&kind=file`, { credentials: 'same-origin' });
+                if (pResp.ok) remoteText = await pResp.text();
+              } catch (_proxyErr) {}
+            }
+            if (!remoteText) {
+              const proxyRes = await apiCall('getDriveFileBase64', { fileUrl: rUrl, url: rUrl }, true);
+              if (proxyRes && proxyRes.success && proxyRes.base64) {
+                remoteText = decodeURIComponent(escape(atob(proxyRes.base64)));
+              }
             }
           } else {
             const fetchUrl = (rUrl.includes('github.com') && rUrl.includes('/blob/'))
               ? rUrl.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
               : rUrl;
-            const resp = await fetch(fetchUrl);
+            const resp = await fetch(`/api/media-proxy?url=${encodeURIComponent(fetchUrl)}&kind=file`, { credentials: 'same-origin' });
             if (resp.ok) remoteText = await resp.text();
           }
           const remoteParsed = parseCbtQuestionsPayload(remoteText);
@@ -601,12 +617,14 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
           console.warn('Failed to fetch remote CBT questions:', err);
         }
         if (!Array.isArray(found.questions) || found.questions.length === 0) {
+          if (typeof window.exitExamNativeFullscreen === 'function') window.exitExamNativeFullscreen();
           showToast('⚠️ Could not load CBT questions from the configured link.');
           return;
         }
       }
 
       if (!Array.isArray(found.questions) || found.questions.length === 0) {
+        if (typeof window.exitExamNativeFullscreen === 'function') window.exitExamNativeFullscreen();
         showToast('⚠️ This CBT test has no valid MCQ JSON questions configured yet. Please check the material content in Admin Panel.');
         return;
       }
@@ -660,7 +678,7 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
         const btn = document.getElementById('cbt-fullscreen-toggle-btn');
         if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
           document.documentElement.requestFullscreen().then(() => {
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-compress"></i> Fit Screen';
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-compress"></i> Exit Full';
           }).catch(() => {});
         } else if (document.fullscreenElement && document.exitFullscreen) {
           document.exitFullscreen().then(() => {
@@ -668,6 +686,16 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
           }).catch(() => {});
         }
       };
+      if (!window.__cbtFsSyncBound) {
+        window.__cbtFsSyncBound = true;
+        document.addEventListener('fullscreenchange', () => {
+          const btn = document.getElementById('cbt-fullscreen-toggle-btn');
+          if (!btn) return;
+          btn.innerHTML = document.fullscreenElement
+            ? '<i class="fa-solid fa-compress"></i> Exit Full'
+            : '<i class="fa-solid fa-expand"></i> Full Screen';
+        });
+      }
       window.toggleCbtHeaderToolsBar = function(forceShow) {
         const drawer = document.getElementById('cbt-header-tools-drawer');
         const btn = document.getElementById('cbt-header-tools-toggle-btn');
@@ -690,6 +718,9 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
       // Give maximum space to question & options on smaller screens by collapsing palette until requested
       window.toggleCbtPaletteDrawer(window.innerWidth >= 1024);
       document.body.classList.add('cbt-exam-fullscreen-lock');
+      if (typeof window.enterImmersiveFullscreenLock === 'function') {
+        window.enterImmersiveFullscreenLock('cbt-exam');
+      }
       const cbtToastEl = document.getElementById('center-toast');
       if (cbtToastEl) cbtToastEl.style.display = 'none';
       window.scrollTo(0, 0);
@@ -1020,10 +1051,25 @@ export function submitCbtExam() {
         }
       }
 
+      // Auto-record every wrong CBT question directly into My Saved MCQs & Error Logbook
+      let autoLoggedWrongCount = 0;
+      if (typeof window.recordWrongCbtQuestionsToLogbook === 'function') {
+        autoLoggedWrongCount = window.recordWrongCbtQuestionsToLogbook(
+          portalState.activeCbtTest,
+          cbtUserResponses,
+          cbtQuestionConfidenceMap
+        );
+      }
+
       const examSec = document.getElementById('cbt-active-interface') || document.getElementById('cbt-exam-interface');
       const resSec = document.getElementById('cbt-result-container') || document.getElementById('cbt-result-section');
       document.body.classList.remove('cbt-exam-fullscreen-lock');
-      if (document.fullscreenElement && document.exitFullscreen) {
+      if (typeof window.exitImmersiveFullscreenLock === 'function') {
+        window.exitImmersiveFullscreenLock('cbt-exam');
+      }
+      if (typeof window.exitExamNativeFullscreen === 'function') {
+        window.exitExamNativeFullscreen();
+      } else if (document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
       }
       if (examSec) {
@@ -1157,7 +1203,11 @@ export function submitCbtExam() {
       logPortalAction('SUBMIT_CBT_EXAM', `Submitted CBT Exam: ${portalState.activeCbtTest.title} | Score: ${netScore}/${maxMarks}`);
       renderTestHistoryTable();
 
-      showToast(`CBT Exam Submitted! Score: ${netScore} / ${maxMarks}`);
+      showToast(
+        autoLoggedWrongCount > 0
+          ? `CBT Exam Submitted! Score: ${netScore} / ${maxMarks} • ${autoLoggedWrongCount} wrong/unanswered Q(s) auto-saved to Error Logbook.`
+          : `CBT Exam Submitted! Score: ${netScore} / ${maxMarks}`
+      );
     
   try { portalHooks.emit('afterCbtSubmit', ...arguments); } catch (_hk) {}
 }
@@ -1174,7 +1224,12 @@ export function exitCbtExam() {
       window.activeScheduledLiveTestEndTime = null;
       window.activeScheduledLiveTestObj = null;
       document.body.classList.remove('cbt-exam-fullscreen-lock');
-      if (document.fullscreenElement && document.exitFullscreen) {
+      if (typeof window.exitImmersiveFullscreenLock === 'function') {
+        window.exitImmersiveFullscreenLock('cbt-exam');
+      }
+      if (typeof window.exitExamNativeFullscreen === 'function') {
+        window.exitExamNativeFullscreen();
+      } else if (document.fullscreenElement && document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
       }
       const examSec = document.getElementById('cbt-active-interface') || document.getElementById('cbt-exam-interface');
@@ -1358,13 +1413,161 @@ export function isLegacySeededCbtMcqEntry(item) {
         return false;
     }
 
+export function normalizeCbtRevisionItem(item, isMistake = false) {
+        if (!item || typeof item !== 'object') return null;
+        const qText = String(item.q || item.qEn || item.question || item.qHi || '').trim();
+        if (!qText) return null;
+        const opts = Array.isArray(item.options) && item.options.length > 0
+            ? item.options
+            : (Array.isArray(item.optionsEn) && item.optionsEn.length > 0
+                ? item.optionsEn
+                : (Array.isArray(item.optionsHi) ? item.optionsHi : []));
+        const rawAns = item.answer !== undefined ? item.answer : (item.correctIndex !== undefined ? item.correctIndex : (item.answerIndex !== undefined ? item.answerIndex : 0));
+        const ansIdx = Number.isFinite(Number(rawAns)) ? Number(rawAns) : 0;
+        const mistakeType = item.mistakeType === 'unattempted'
+            ? 'unattempted'
+            : (isMistake ? 'wrong' : (item.mistakeType || 'bookmark'));
+        const unattemptedCount = Number(item.unattemptedCount ?? (mistakeType === 'unattempted' ? 1 : 0)) || 0;
+        const wrongCount = Number(item.wrongCount ?? (isMistake && mistakeType !== 'unattempted' ? 1 : 0)) || 0;
+        const correctCount = Number(item.correctCount) || 0;
+        const attemptCount = Number(item.attemptCount) || (wrongCount + correctCount);
+        const srsDays = Number(item.srsIntervalDays || (item.mastered ? 14 : 1)) || 1;
+        return {
+            ...item,
+            q: qText,
+            qEn: item.qEn || qText,
+            qHi: item.qHi || qText,
+            options: opts,
+            optionsEn: Array.isArray(item.optionsEn) && item.optionsEn.length > 0 ? item.optionsEn : opts,
+            optionsHi: Array.isArray(item.optionsHi) && item.optionsHi.length > 0 ? item.optionsHi : opts,
+            answer: ansIdx,
+            correctIndex: ansIdx,
+            mistakeType,
+            explanation: String(item.explanation || item.shortcutTrick || '').trim(),
+            section: String(item.section || 'General').trim(),
+            subTopic: String(item.subTopic || item.section || 'General').trim(),
+            testTitle: String(item.testTitle || 'CBT Mock').trim(),
+            savedAt: item.savedAt || (item.capturedAt ? new Date(item.capturedAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN')),
+            wrongCount,
+            unattemptedCount,
+            correctCount,
+            attemptCount,
+            srsIntervalDays: srsDays,
+            nextReviewTs: Number(item.nextReviewTs) || Date.now()
+        };
+    }
+
+window.recordWrongCbtQuestionsToLogbook = function(testObj, responsesMap, confidenceMap = {}) {
+        if (!testObj || !Array.isArray(testObj.questions) || !responsesMap) return 0;
+        const bank = typeof window.getCbtMistakeHistoryBank === 'function' ? window.getCbtMistakeHistoryBank() : [];
+        let changedCount = 0;
+        const nowIso = new Date().toISOString();
+        const todayLabel = new Date().toLocaleDateString('en-IN');
+
+        testObj.questions.forEach((q, idx) => {
+            const userAns = responsesMap[idx];
+            const isUnattempted = (userAns === undefined || userAns === null || userAns === '');
+            const correctAns = Number(q.correctIndex ?? q.answer ?? q.answerIndex ?? q.ans ?? 0);
+            const pickedIdx = isUnattempted ? -1 : Number(userAns);
+            if (!isUnattempted && (!Number.isFinite(pickedIdx) || pickedIdx === correctAns)) return;
+
+            const qText = String(q.qEn || q.q || q.question || q.qHi || '').trim();
+            if (!qText) return;
+            const opts = Array.isArray(q.optionsEn) && q.optionsEn.length > 0
+                ? q.optionsEn
+                : (Array.isArray(q.options) ? q.options : (Array.isArray(q.optionsHi) ? q.optionsHi : []));
+            const optsHi = Array.isArray(q.optionsHi) && q.optionsHi.length > 0 ? q.optionsHi : opts;
+            const subTopic = typeof window.classifyCbtQuestionSubTopic === 'function'
+                ? window.classifyCbtQuestionSubTopic(q)
+                : (q.section || testObj.examCategory || 'General');
+            const confTag = isUnattempted ? 'unattempted' : ((confidenceMap && confidenceMap[idx]) || 'sure');
+            const mType = isUnattempted ? 'unattempted' : 'wrong';
+
+            const existingIdx = bank.findIndex(b => String(b.q || b.qEn || b.question || '').trim() === qText);
+            if (existingIdx >= 0) {
+                const existing = bank.splice(existingIdx, 1)[0];
+                const nextWrong = isUnattempted ? (Number(existing.wrongCount) || 0) : ((Number(existing.wrongCount) || 0) + 1);
+                const nextUnattempted = isUnattempted ? ((Number(existing.unattemptedCount) || 0) + 1) : (Number(existing.unattemptedCount) || 0);
+                const prevCorrect = Number(existing.correctCount) || 0;
+                bank.unshift(normalizeCbtRevisionItem({
+                    ...existing,
+                    q: qText,
+                    qEn: qText,
+                    qHi: q.qHi || existing.qHi || qText,
+                    options: opts.length ? opts : existing.options,
+                    optionsEn: opts.length ? opts : existing.optionsEn,
+                    optionsHi: optsHi.length ? optsHi : existing.optionsHi,
+                    answer: correctAns,
+                    correctIndex: correctAns,
+                    userPicked: pickedIdx,
+                    mistakeType: mType,
+                    explanation: q.explanation || q.shortcutTrick || existing.explanation || '',
+                    section: q.section || existing.section || 'General',
+                    subTopic: subTopic || existing.subTopic || 'General',
+                    testTitle: testObj.title || existing.testTitle || 'CBT Mock',
+                    confidenceTag: confTag,
+                    wrongCount: nextWrong,
+                    unattemptedCount: nextUnattempted,
+                    correctCount: prevCorrect,
+                    attemptCount: nextWrong + prevCorrect,
+                    savedAt: todayLabel,
+                    capturedAt: nowIso,
+                    srsIntervalDays: 1,
+                    nextReviewTs: Date.now(),
+                    mastered: false
+                }, true));
+                changedCount++;
+            } else {
+                bank.unshift(normalizeCbtRevisionItem({
+                    id: `cbt_err_${Date.now()}_${idx}`,
+                    q: qText,
+                    qEn: qText,
+                    qHi: q.qHi || qText,
+                    options: opts,
+                    optionsEn: opts,
+                    optionsHi: optsHi,
+                    answer: correctAns,
+                    correctIndex: correctAns,
+                    userPicked: pickedIdx,
+                    mistakeType: mType,
+                    explanation: q.explanation || q.shortcutTrick || '',
+                    section: q.section || testObj.examCategory || 'General',
+                    subTopic,
+                    testTitle: testObj.title || 'CBT Mock',
+                    confidenceTag: confTag,
+                    wrongCount: isUnattempted ? 0 : 1,
+                    unattemptedCount: isUnattempted ? 1 : 0,
+                    correctCount: 0,
+                    attemptCount: isUnattempted ? 0 : 1,
+                    savedAt: todayLabel,
+                    capturedAt: nowIso,
+                    srsIntervalDays: 1,
+                    nextReviewTs: Date.now(),
+                    mastered: false
+                }, true));
+                changedCount++;
+            }
+        });
+
+        if (changedCount > 0 && typeof window.saveCbtMistakeHistoryBank === 'function') {
+            window.saveCbtMistakeHistoryBank(bank.slice(0, 400));
+            if (typeof window.renderDedicatedCbtRevisionTab === 'function') {
+                window.renderDedicatedCbtRevisionTab();
+            }
+        }
+        return changedCount;
+    };
+
 window.getCbtBookmarkedMcqs = function() {
         try {
             const raw = localStorage.getItem(CBT_BOOKMARKS_STORAGE_KEY);
             if (!raw) return [];
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) return [];
-            const cleaned = parsed.filter(item => !isLegacySeededCbtMcqEntry(item));
+            const cleaned = parsed
+                .filter(item => !isLegacySeededCbtMcqEntry(item))
+                .map(item => normalizeCbtRevisionItem(item, false))
+                .filter(Boolean);
             if (cleaned.length !== parsed.length) {
                 try { localStorage.setItem(CBT_BOOKMARKS_STORAGE_KEY, JSON.stringify(cleaned)); } catch (e) {}
                 if (typeof syncUserCloudStateToBackend === 'function') syncUserCloudStateToBackend();
@@ -1375,7 +1578,11 @@ window.getCbtBookmarkedMcqs = function() {
 
 window.saveCbtBookmarkedMcqs = function(list) {
         try {
-            const cleaned = (Array.isArray(list) ? list : []).filter(item => !isLegacySeededCbtMcqEntry(item)).slice(0, 300);
+            const cleaned = (Array.isArray(list) ? list : [])
+                .filter(item => !isLegacySeededCbtMcqEntry(item))
+                .map(item => normalizeCbtRevisionItem(item, false))
+                .filter(Boolean)
+                .slice(0, 300);
             localStorage.setItem(CBT_BOOKMARKS_STORAGE_KEY, JSON.stringify(cleaned));
         } catch (e) {}
         updateCbtRevisionCountsUI();
@@ -1388,8 +1595,21 @@ window.getCbtMistakeHistoryBank = function() {
             if (!raw) return [];
             const parsed = JSON.parse(raw);
             if (!Array.isArray(parsed)) return [];
-            const cleaned = parsed.filter(item => !isLegacySeededCbtMcqEntry(item));
-            if (cleaned.length !== parsed.length) {
+            let needsRepair = false;
+            const cleaned = [];
+            parsed.forEach(item => {
+                if (isLegacySeededCbtMcqEntry(item)) {
+                    needsRepair = true;
+                    return;
+                }
+                if (!item.q || !Array.isArray(item.options) || item.answer === undefined) {
+                    needsRepair = true;
+                }
+                const norm = normalizeCbtRevisionItem(item, true);
+                if (norm) cleaned.push(norm);
+                else needsRepair = true;
+            });
+            if (needsRepair) {
                 try { localStorage.setItem(CBT_MISTAKES_STORAGE_KEY, JSON.stringify(cleaned)); } catch (e) {}
             }
             return cleaned;
@@ -1398,10 +1618,15 @@ window.getCbtMistakeHistoryBank = function() {
 
 window.saveCbtMistakeHistoryBank = function(list) {
         try {
-            const cleaned = (Array.isArray(list) ? list : []).filter(item => !isLegacySeededCbtMcqEntry(item)).slice(0, 400);
+            const cleaned = (Array.isArray(list) ? list : [])
+                .filter(item => !isLegacySeededCbtMcqEntry(item))
+                .map(item => normalizeCbtRevisionItem(item, true))
+                .filter(Boolean)
+                .slice(0, 400);
             localStorage.setItem(CBT_MISTAKES_STORAGE_KEY, JSON.stringify(cleaned));
         } catch (e) {}
         updateCbtRevisionCountsUI();
+        if (typeof syncUserCloudStateToBackend === 'function') syncUserCloudStateToBackend();
     };
 
 export let _cbtNotebookClearArmUntil = 0;
@@ -1605,13 +1830,14 @@ window.renderCbtSavedMcqsNotebookList = function() {
         const modeSelect = document.getElementById('cbt-notebook-mode-select');
         if (!container) return;
 
-        const isFlashcardMode = window.__cbtNotebookMode === 'flashcards';
-        if (modeSelect && modeSelect.value !== window.__cbtNotebookMode) {
-            modeSelect.value = window.__cbtNotebookMode || 'bookmarks';
+        const activeMode = window.__cbtNotebookMode || 'all';
+        const isFlashcardMode = activeMode === 'flashcards';
+        if (modeSelect && modeSelect.value !== activeMode) {
+            modeSelect.value = activeMode;
         }
-        const rawList = isFlashcardMode
-            ? [...window.getCbtMistakeHistoryBank(), ...window.getCbtBookmarkedMcqs()]
-            : window.getCbtBookmarkedMcqs();
+        const rawList = activeMode === 'bookmarks'
+            ? window.getCbtBookmarkedMcqs()
+            : [...window.getCbtMistakeHistoryBank(), ...window.getCbtBookmarkedMcqs()];
 
         const list = [];
         const seen = new Set();
@@ -2124,11 +2350,14 @@ window.renderDedicatedCbtRevisionTab = function() {
 
     const bookmarks = typeof window.getCbtBookmarkedMcqs === 'function' ? window.getCbtBookmarkedMcqs() : [];
     const mistakes = typeof window.getCbtMistakeHistoryBank === 'function' ? window.getCbtMistakeHistoryBank() : [];
-    const mode = window.__cbtNotebookMode || 'bookmarks';
+    const wrongOnly = mistakes.map((item, i) => ({ item, i })).filter(x => x.item.mistakeType !== 'unattempted');
+    const unattemptedOnly = mistakes.map((item, i) => ({ item, i })).filter(x => x.item.mistakeType === 'unattempted');
+    const mode = window.__cbtNotebookMode || 'all';
     const totalAll = bookmarks.length + mistakes.length;
 
     const bmBtn = document.getElementById('rev-tab-btn-bookmarks');
     const fcBtn = document.getElementById('rev-tab-btn-flashcards');
+    const unBtn = document.getElementById('rev-tab-btn-unattempted');
     const allBtn = document.getElementById('rev-tab-btn-all');
     if (bmBtn) {
       bmBtn.className = mode === 'bookmarks' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
@@ -2136,7 +2365,11 @@ window.renderDedicatedCbtRevisionTab = function() {
     }
     if (fcBtn) {
       fcBtn.className = mode === 'flashcards' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
-      fcBtn.textContent = `Wrong Answers (${mistakes.length})`;
+      fcBtn.textContent = `Wrong Answers (${wrongOnly.length})`;
+    }
+    if (unBtn) {
+      unBtn.className = mode === 'unattempted' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+      unBtn.textContent = `Not Answered (${unattemptedOnly.length})`;
     }
     if (allBtn) {
       allBtn.className = mode === 'all' ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
@@ -2154,16 +2387,16 @@ window.renderDedicatedCbtRevisionTab = function() {
           <div style="font-size:21px; font-weight:900; color:#7c3aed; font-variant-numeric:tabular-nums;">${bookmarks.length}</div>
         </div>
         <div style="padding:10px 14px; border-radius:10px; background:rgba(225,29,72,0.06); border:1px solid rgba(225,29,72,0.22);">
-          <div style="font-size:11px; color:var(--text-muted); font-weight:700;">Wrong Answers Logged</div>
-          <div style="font-size:21px; font-weight:900; color:#e11d48; font-variant-numeric:tabular-nums;">${mistakes.length}</div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:700;">Wrong Answers</div>
+          <div style="font-size:21px; font-weight:900; color:#e11d48; font-variant-numeric:tabular-nums;">${wrongOnly.length}</div>
         </div>
-        <div style="padding:10px 14px; border-radius:10px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25);">
-          <div style="font-size:11px; color:var(--text-muted); font-weight:700;">Needs Review</div>
-          <div style="font-size:21px; font-weight:900; color:#d97706; font-variant-numeric:tabular-nums;">${needsReviewCount}</div>
+        <div style="padding:10px 14px; border-radius:10px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.28);">
+          <div style="font-size:11px; color:var(--text-muted); font-weight:700;">Not Answered</div>
+          <div style="font-size:21px; font-weight:900; color:#d97706; font-variant-numeric:tabular-nums;">${unattemptedOnly.length}</div>
         </div>
         <div style="padding:10px 14px; border-radius:10px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.22);">
-          <div style="font-size:11px; color:var(--text-muted); font-weight:700;">Mastered</div>
-          <div style="font-size:21px; font-weight:900; color:#059669; font-variant-numeric:tabular-nums;">${masteredCount}</div>
+          <div style="font-size:11px; color:var(--text-muted); font-weight:700;">Mastered / Review</div>
+          <div style="font-size:21px; font-weight:900; color:#059669; font-variant-numeric:tabular-nums;">${masteredCount} <span style="font-size:12px; color:#d97706; font-weight:800;">/ ${needsReviewCount}</span></div>
         </div>
       `;
     }
@@ -2175,11 +2408,13 @@ window.renderDedicatedCbtRevisionTab = function() {
     if (mode === 'bookmarks') {
       rawItems = bookmarks.map((item, i) => Object.assign({}, item, { _src: 'bm', _idx: i }));
     } else if (mode === 'flashcards') {
-      rawItems = mistakes.map((item, i) => Object.assign({}, item, { _src: 'err', _idx: i }));
+      rawItems = wrongOnly.map(({ item, i }) => Object.assign({}, item, { _src: 'err', _idx: i }));
+    } else if (mode === 'unattempted') {
+      rawItems = unattemptedOnly.map(({ item, i }) => Object.assign({}, item, { _src: 'err', _idx: i }));
     } else {
       rawItems = [
-        ...bookmarks.map((item, i) => Object.assign({}, item, { _src: 'bm', _idx: i })),
-        ...mistakes.map((item, i) => Object.assign({}, item, { _src: 'err', _idx: i }))
+        ...mistakes.map((item, i) => Object.assign({}, item, { _src: 'err', _idx: i })),
+        ...bookmarks.map((item, i) => Object.assign({}, item, { _src: 'bm', _idx: i }))
       ];
     }
 
@@ -2201,34 +2436,51 @@ window.renderDedicatedCbtRevisionTab = function() {
     }
 
     if (rawItems.length === 0) {
-      const emptyMsg = mode === 'flashcards'
-        ? 'No wrong answers logged yet. Take a CBT Mock Exam and any wrong or guessed question will appear here automatically.'
-        : 'No saved questions here yet. Click "Add Custom MCQ" above or star any question during a CBT Mock Exam.';
+      const emptyMsg = mode === 'unattempted'
+        ? 'No unanswered CBT questions logged yet. Any question you leave unanswered in a CBT Mock Exam will appear here automatically.'
+        : (mode === 'flashcards'
+            ? 'No wrong answers logged yet. Take a CBT Mock Exam and any wrong question will appear here automatically.'
+            : 'No saved questions here yet. Take a CBT Mock Exam (wrong & unanswered questions auto-save) or click "Add Custom MCQ" above.');
       inlineList.innerHTML = `<div style="padding:28px; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:12px; font-size:12.5px;">${emptyMsg}</div>`;
       return;
     }
 
     inlineList.innerHTML = rawItems.map((item, cardIdx) => {
-      const opts = Array.isArray(item.options) ? item.options : [];
-      const correctIdx = Number(item.answer ?? 0);
+      const opts = Array.isArray(item.options) && item.options.length > 0 ? item.options : (Array.isArray(item.optionsEn) ? item.optionsEn : []);
+      const correctIdx = Number(item.answer ?? item.correctIndex ?? 0);
       const isMastered = Number(item.srsIntervalDays || 1) >= 7;
       const isErr = item._src === 'err';
+      const isUnattempted = isErr && item.mistakeType === 'unattempted';
       const cardDomId = `rev-interactive-card-${item._src}-${item._idx}-${cardIdx}`;
-      const wrongTimes = Number(item.wrongCount ?? (isErr ? 1 : 0)) || 0;
+      const wrongTimes = Number(item.wrongCount ?? (isErr && !isUnattempted ? 1 : 0)) || 0;
+      const unattemptedTimes = Number(item.unattemptedCount ?? (isUnattempted ? 1 : 0)) || 0;
       const correctTimes = Number(item.correctCount) || 0;
       const attemptTimes = Number(item.attemptCount) || (wrongTimes + correctTimes);
+      const userPickedIdx = (!isUnattempted && item.userPicked !== undefined && item.userPicked !== null && Number.isFinite(Number(item.userPicked)) && Number(item.userPicked) >= 0)
+        ? Number(item.userPicked)
+        : -1;
+      const userPickedText = (userPickedIdx >= 0 && opts[userPickedIdx] !== undefined)
+        ? `(${String.fromCharCode(65 + userPickedIdx)}) ${opts[userPickedIdx]}`
+        : '';
+      const borderLeftColor = isMastered ? '#10b981' : (isUnattempted ? '#f59e0b' : (isErr ? '#e11d48' : '#7c3aed'));
+      const typeLabelColor = isUnattempted ? '#b45309' : (isErr ? '#be123c' : '#6d28d9');
+      const typeLabelText = isUnattempted
+        ? 'Not Answered'
+        : (isErr ? (item.confidenceTag === 'guess' ? '50-50 Guess' : 'Wrong Answer') : 'Saved Bookmark');
 
       return `
-        <div id="${cardDomId}" style="background:var(--background); border:1px solid var(--border); border-left:4px solid ${isMastered ? '#10b981' : (isErr ? '#e11d48' : '#7c3aed')}; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+        <div id="${cardDomId}" style="background:var(--background); border:1px solid var(--border); border-left:4px solid ${borderLeftColor}; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11.5px; font-variant-numeric:tabular-nums;">
-              <strong style="color:${isErr ? '#be123c' : '#6d28d9'};">${isErr ? (item.confidenceTag === 'guess' ? '50-50 Guess' : 'Wrong Answer') : 'Saved Bookmark'}</strong>
+              <strong style="color:${typeLabelColor};">${typeLabelText}</strong>
               <span style="color:var(--text-muted);">&middot;</span>
               <span style="color:var(--secondary); font-weight:700;">${window.escapeHtml(item.section || 'General')}${item.subTopic && item.subTopic !== item.section ? ' / ' + window.escapeHtml(item.subTopic) : ''}</span>
+              ${item.testTitle ? `<span style="color:var(--text-muted);">&middot;</span><span style="color:var(--text-muted); font-weight:600;">${window.escapeHtml(item.testTitle)}</span>` : ''}
               <span style="color:var(--text-muted);">&middot;</span>
               <span style="font-weight:800; color:${isMastered ? '#059669' : '#d97706'};">${isMastered ? 'Mastered' : 'Needs Review'}</span>
               <span style="color:var(--text-muted);">&middot;</span>
               <span class="rev-item-stats-readout" style="display:inline-flex; gap:8px; align-items:center; font-weight:800;">
+                ${unattemptedTimes > 0 ? `<span style="color:#d97706;">Skipped: ${unattemptedTimes}x</span>` : ''}
                 <span style="color:#dc2626;">Wrong: ${wrongTimes}x</span>
                 <span style="color:#059669;">Correct: ${correctTimes}x</span>
                 <span style="color:var(--text-muted);">Answered: ${attemptTimes}x</span>
@@ -2245,8 +2497,11 @@ window.renderDedicatedCbtRevisionTab = function() {
           </div>
 
           <div style="font-size:14px; font-weight:800; color:var(--secondary); line-height:1.45;">
-            Q${cardIdx + 1}. ${window.escapeHtml(item.q || '')}
+            Q${cardIdx + 1}. ${window.escapeHtml(item.q || item.qEn || '')}
           </div>
+          ${isUnattempted
+            ? `<div style="font-size:11.5px; font-weight:700; color:#b45309; background:rgba(245,158,11,0.10); border:1px solid rgba(245,158,11,0.3); padding:5px 10px; border-radius:7px;">⏭️ Not Answered in CBT Exam — click an option below to practice it now</div>`
+            : (isErr && userPickedText ? `<div style="font-size:11.5px; font-weight:700; color:#dc2626; background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.22); padding:5px 10px; border-radius:7px;">✖ Last Wrong Pick: ${window.escapeHtml(userPickedText)}</div>` : '')}
 
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px;">
             ${opts.map((optText, oIdx) => `

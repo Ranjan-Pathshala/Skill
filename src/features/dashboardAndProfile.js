@@ -15,6 +15,7 @@ import { initLearningTypingTutor, renderLearningUploadedExercisesGrid, renderVid
 import { renderAdminEvaluationRulesTable, renderLiveTestsEverywhere } from './mediaAndDictation.js';
 import { buildAlphabetBar, filterTypingWizardPassagesDropdown, getUniversalUrl, initTypingTestWizard, onTypingDateSelected, populateWordsCategoryDropdown, renderMaterialsList, renderPitmanList, renderTestHistoryTable, renderWords } from './typingAndEvaluation.js';
 import { renderCbtTestCatalog } from './cbtArena.js';
+import { isGoogleDriveOrDocsUrl } from '../utils/mediaProxy.ts';
 
 const populateAdminValidityTargetDropdown = (...args) => (typeof window.populateAdminValidityTargetDropdown === 'function' ? window.populateAdminValidityTargetDropdown(...args) : undefined);
 const switchDashboardFocusTab = (...args) => (typeof window.switchDashboardFocusTab === 'function' ? window.switchDashboardFocusTab(...args) : undefined);
@@ -1062,16 +1063,14 @@ export function renderPromoBanner() {
         activeTopBanners.push(`🛠️ [MAINTENANCE MODE — ${scopeInfo}] ${maintCfg.message}`);
       }
 
-      // 2. Date-Specific Top Website Banner Matter (shown for logged-in students)
+      // 2. Date-Specific Top Website Banner Matter
       const todayStr = getLocalDateString();
       const dateBannersMap = getDateSpecificBannersMap();
       const todaySpecificMatter = dateBannersMap[todayStr];
-      if (isLoggedIn && todaySpecificMatter && String(todaySpecificMatter.text || todaySpecificMatter || '').trim() !== '') {
-        const textVal = typeof todaySpecificMatter === 'object' ? todaySpecificMatter.text : String(todaySpecificMatter);
-        activeTopBanners.push(`📅 [${todayStr}] ${textVal}`);
-      }
+      const loggedOutBannerEntry = dateBannersMap['__LOGGED_OUT_BANNER__'];
+      const cloudMeta = (loggedOutBannerEntry && typeof loggedOutBannerEntry === 'object') ? loggedOutBannerEntry : {};
 
-      // 3. General Admin Top Website Banner — separate Logged-Out vs Logged-In scrolling banners
+      // 3. General Admin Top Website Banner — supports Same Banner for Both OR Different Logged-Out vs Logged-In banners
       const serverBanner = (portalState.globalData && portalState.globalData.banner && typeof portalState.globalData.banner === 'object')
         ? portalState.globalData.banner
         : ((portalState.adminData && portalState.adminData.banner && typeof portalState.adminData.banner === 'object') ? portalState.adminData.banner : null);
@@ -1083,20 +1082,38 @@ export function renderPromoBanner() {
         ? { ...cachedBanner, ...serverBanner }
         : cachedBanner;
 
-      const loggedOutBannerEntry = dateBannersMap['__LOGGED_OUT_BANNER__'];
       const rawLoggedInText = String((banner && banner.text) || '').trim();
+      const rawCloudLoggedOutText = String(
+        typeof loggedOutBannerEntry === 'object' ? (cloudMeta.text || '') : (loggedOutBannerEntry || '')
+      ).trim();
+      const isSameForBoth = Boolean(
+        banner.sameForBoth ||
+        banner.bannerMode === 'same' ||
+        cloudMeta.sameForBoth ||
+        cloudMeta.bannerMode === 'same'
+      );
       const rawLoggedOutText = String(
-        (banner && banner.loggedOutText) ||
-        (loggedOutBannerEntry && (typeof loggedOutBannerEntry === 'object' ? loggedOutBannerEntry.text : loggedOutBannerEntry)) ||
-        ''
+        isSameForBoth
+          ? (rawLoggedInText || (banner && banner.loggedOutText) || rawCloudLoggedOutText)
+          : ((banner && banner.loggedOutText) || rawCloudLoggedOutText || '')
       ).trim();
       const hasLoggedInText = Boolean(rawLoggedInText && rawLoggedInText !== '-');
       const hasLoggedOutText = Boolean(rawLoggedOutText && rawLoggedOutText !== '-');
 
-      let isForceEnabled = (hasLoggedInText || hasLoggedOutText) && (banner.enabled === undefined ? true : (banner.enabled === true || String(banner.enabled).toLowerCase() === 'true'));
+      if ((isLoggedIn || isSameForBoth) && todaySpecificMatter && String(todaySpecificMatter.text || todaySpecificMatter || '').trim() !== '') {
+        const textVal = typeof todaySpecificMatter === 'object' ? todaySpecificMatter.text : String(todaySpecificMatter);
+        activeTopBanners.push(`📅 [${todayStr}] ${textVal}`);
+      }
+
+      const rawEnabledVal = (banner && banner.enabled !== undefined)
+        ? banner.enabled
+        : (cloudMeta.enabled !== undefined ? cloudMeta.enabled : true);
+      let isForceEnabled = (hasLoggedInText || hasLoggedOutText) && (rawEnabledVal === true || String(rawEnabledVal).toLowerCase() === 'true');
       const now = new Date();
-      const startTime = banner && banner.startTime ? new Date(banner.startTime) : null;
-      const stopTime = banner && banner.stopTime ? new Date(banner.stopTime) : null;
+      const startTimeStr = (banner && banner.startTime) || cloudMeta.startTime || '';
+      const stopTimeStr = (banner && banner.stopTime) || cloudMeta.stopTime || '';
+      const startTime = startTimeStr ? new Date(startTimeStr) : null;
+      const stopTime = stopTimeStr ? new Date(stopTimeStr) : null;
 
       if (stopTime && !isNaN(stopTime.getTime()) && now > stopTime) {
         isForceEnabled = false;
@@ -1113,14 +1130,16 @@ export function renderPromoBanner() {
       const isWithinTimeRange = (!startTime || isNaN(startTime.getTime()) || now >= startTime) && (!stopTime || isNaN(stopTime.getTime()) || now <= stopTime);
 
       if (!isLoggedIn) {
-        // Distinct Logged-Out / Public Visitor Scrolling Banner
+        // Logged-Out / Public Visitor Scrolling Banner (same as Logged-In if configured, or separate custom text)
         if (isForceEnabled && isWithinTimeRange && hasLoggedOutText) {
           activeTopBanners.push(rawLoggedOutText);
-        } else {
+        } else if (isForceEnabled && isWithinTimeRange && isSameForBoth && hasLoggedInText) {
+          activeTopBanners.push(rawLoggedInText);
+        } else if (activeTopBanners.length === 0) {
           activeTopBanners.push('🎓 Welcome to RP Skill | Ranjan Pathshala — Sign In or Register to access Live SSC, High Court, DSSSB & Reporter Steno Dictations, Pitman Tests & CBT Exams!');
         }
       } else {
-        // Distinct Logged-In Student Scrolling Banner
+        // Logged-In Student Scrolling Banner
         if (isForceEnabled && isWithinTimeRange && hasLoggedInText) {
           activeTopBanners.push(rawLoggedInText);
         } else if (activeTopBanners.length === 0) {
@@ -1132,8 +1151,8 @@ export function renderPromoBanner() {
       }
 
       bannerElem.style.display = 'flex';
-      // Distinct visual themes for Logged-Out vs Logged-In scrolling top banner
-      if (!isLoggedIn) {
+      // Visual theme for scrolling top banner
+      if (!isLoggedIn && !isSameForBoth) {
         bannerElem.style.background = 'linear-gradient(90deg, #0f172a, #4338ca, #0284c7)';
         bannerElem.style.borderBottom = '1px solid rgba(129, 140, 248, 0.35)';
       } else {
@@ -1288,24 +1307,31 @@ export function renderDashboardCustomBanner() {
         const hasImg = (cfg.mode !== 'text') && s.imageUrl && String(s.imageUrl).trim() !== '';
         const resolvedImg = hasImg ? getUniversalUrl(String(s.imageUrl).trim(), 'image') : '';
         const hasCta = s.ctaText && String(s.ctaText).trim() !== '' && s.ctaLink && String(s.ctaLink).trim() !== '';
+        const rawCtaLink = String(s.ctaLink || '').trim();
+        const safeCtaLinkJs = rawCtaLink.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const safeCtaTitleJs = String(s.ctaText || s.title || 'Material').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         const ctaHtml = hasCta
-          ? (String(s.ctaLink).trim().startsWith('#')
-              ? `<button type="button" class="btn btn-primary btn-sm" onclick="navigateTo('${escapeHtml(String(s.ctaLink).trim().replace('#', ''))}')"><i class="fa-solid fa-arrow-right"></i> ${escapeHtml(s.ctaText)}</button>`
-              : `<a href="${escapeHtml(s.ctaLink)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> ${escapeHtml(s.ctaText)}</a>`)
+          ? (rawCtaLink.startsWith('#')
+              ? `<button type="button" class="btn btn-primary btn-sm" onclick="navigateTo('${escapeHtml(rawCtaLink.replace('#', ''))}')"><i class="fa-solid fa-arrow-right"></i> ${escapeHtml(s.ctaText)}</button>`
+              : (isGoogleDriveOrDocsUrl(rawCtaLink)
+                  ? `<button type="button" class="btn btn-primary btn-sm" onclick="openUniversalMediaViewer('${safeCtaLinkJs}', '${safeCtaTitleJs}', 'auto')"><i class="fa-solid fa-eye"></i> ${escapeHtml(s.ctaText)}</button>`
+                  : `<a href="${escapeHtml(rawCtaLink)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> ${escapeHtml(s.ctaText)}</a>`))
           : '';
         const showCaption = (cfg.mode !== 'photo') && ((s.title && String(s.title).trim()) || (s.text && String(s.text).trim()) || hasCta);
 
         if (hasImg) {
           return `
             <div class="rp-dash-carousel-slide">
-              <img src="${resolvedImg}" alt="${escapeHtml(s.title || ('Banner ' + (idx + 1)))}" onclick="openEmbeddedImageModal('${resolvedImg.replace(/'/g, "\\'")}', '${escapeHtml(s.title || ('Dashboard Banner ' + (idx + 1))).replace(/'/g, "\\'")}')" onerror="this.style.opacity='0.2'">
+              <div class="rp-dash-carousel-img-stage">
+                <img src="${resolvedImg}" alt="${escapeHtml(s.title || ('Banner ' + (idx + 1)))}" onclick="openEmbeddedImageModal('${resolvedImg.replace(/'/g, "\\'")}', '${escapeHtml(s.title || ('Dashboard Banner ' + (idx + 1))).replace(/'/g, "\\'")}')" onerror="this.style.opacity='0.2'">
+              </div>
               ${showCaption ? `
                 <div class="rp-dash-carousel-caption">
-                  <div style="flex:1; min-width:200px;">
-                    ${s.title ? `<div style="font-size:15px; font-weight:800; line-height:1.25;">${escapeHtml(s.title)}</div>` : ''}
-                    ${s.text ? `<div style="font-size:12.5px; opacity:0.92; margin-top:2px;">${escapeHtml(s.text)}</div>` : ''}
+                  <div style="flex:1; min-width:180px;">
+                    ${s.title ? `<div class="rp-dash-carousel-caption-title">${escapeHtml(s.title)}</div>` : ''}
+                    ${s.text ? `<div class="rp-dash-carousel-caption-text">${escapeHtml(s.text)}</div>` : ''}
                   </div>
-                  <div>${ctaHtml}</div>
+                  ${ctaHtml ? `<div style="flex-shrink:0;">${ctaHtml}</div>` : ''}
                 </div>
               ` : ''}
             </div>
@@ -2571,9 +2597,10 @@ export function formatTextWithUrlButtons(text) {
           }
           const safeUrl = sanitizeUrl(match[0]);
           if (safeUrl && safeUrl !== '#') {
-            out += `<br><a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; margin: 6px 0; text-decoration: none;">
-                    <i class="fa-solid fa-paperclip"></i> View Attached File
-                  </a>`;
+            const safeJsUrl = safeUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            out += `<br><button type="button" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 6px; margin: 6px 0;" onclick="openUniversalMediaViewer('${safeJsUrl}', 'Attached Study Material', 'auto')">
+                    <i class="fa-solid fa-paperclip"></i> View Attached File (Secure In-App)
+                  </button>`;
           } else {
             out += esc(match[0]);
           }
@@ -2809,16 +2836,15 @@ export function renderHomework() {
     return;
   }
 
-  const selectedDate = dateFilterInput ? dateFilterInput.value : '';
-
   const formatDateStr = (dStr) => {
     return formatLocalDate(dStr);
   };
 
   const todayStr = getLocalDateString();
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = formatLocalDate(tomorrow);
+  if (dateFilterInput && !dateFilterInput.value) {
+    dateFilterInput.value = todayStr;
+  }
+  const targetDate = (dateFilterInput && dateFilterInput.value) ? dateFilterInput.value : todayStr;
 
   const isStaff = portalState.currentUser && (portalState.currentUser.role === 'admin' || portalState.currentUser.role === 'superadmin');
 
@@ -2831,15 +2857,14 @@ export function renderHomework() {
       if (!hasBatch) return false;
     }
     const hwDate = formatDateStr(hw.TargetDate || hw.date || '');
-    if (selectedDate) {
-      return hwDate === selectedDate;
-    } else {
-      return hwDate === todayStr || hwDate === tomorrowStr;
-    }
+    return hwDate === targetDate;
   });
 
   if (filteredItems.length === 0) {
-    list.appendChild(createInlineDataLoadStatusEl(false));
+    const emptyEl = document.createElement('div');
+    emptyEl.style.cssText = 'padding: 14px; border-radius: 10px; border: 1px dashed var(--border); background: var(--background); color: var(--text-muted); font-size: 12.5px; text-align: center;';
+    emptyEl.innerHTML = `No homework assigned for <strong>${escapeHtml(targetDate)}</strong>. Change the date above to view homework for another day.`;
+    list.appendChild(emptyEl);
     return;
   }
 
@@ -3311,50 +3336,104 @@ export function changeFeedbackPage(direction) {
     }
 
 export function buildComparisonHeatmapHtml(snapshotObj) {
-      const unwrapped = (snapshotObj && snapshotObj.keystrokeLatencySnapshot && typeof snapshotObj.keystrokeLatencySnapshot === 'object')
-        ? snapshotObj.keystrokeLatencySnapshot
-        : ((snapshotObj && snapshotObj.id && !snapshotObj.keystrokeLatencySnapshot) ? null : snapshotObj);
-      const statsMap = (unwrapped && typeof unwrapped === 'object' && Object.keys(unwrapped).length > 0)
-        ? unwrapped
-        : (window.keystrokeLatencyStatsMap || {});
-      const entries = Object.entries(statsMap).map(([k, v]) => ({
-        key: k,
-        count: v.count || 1,
-        avgMs: Math.round((v.totalMs || 150) / Math.max(1, v.count || 1))
-      }));
+      let statsMap = null;
+      let intervals = null;
 
-      let overallAvg = 0;
-      if (entries.length > 0) {
-        const totalAllMs = Object.values(statsMap).reduce((acc, v) => acc + (v.totalMs || 0), 0);
-        const totalAllCount = Object.values(statsMap).reduce((acc, v) => acc + (v.count || 0), 0);
-        overallAvg = Math.round(totalAllMs / Math.max(1, totalAllCount));
+      if (snapshotObj && typeof snapshotObj === 'object') {
+        if (snapshotObj.keystrokeLatencySnapshot && typeof snapshotObj.keystrokeLatencySnapshot === 'object' && Object.keys(snapshotObj.keystrokeLatencySnapshot).length > 0) {
+          statsMap = snapshotObj.keystrokeLatencySnapshot;
+        }
+        if (Array.isArray(snapshotObj.keystrokeIntervalsSnapshot) && snapshotObj.keystrokeIntervalsSnapshot.length > 0) {
+          intervals = snapshotObj.keystrokeIntervalsSnapshot;
+        }
+
+        // Restore persisted per-attempt telemetry from localStorage if this record was reloaded from Google Sheets
+        if (!statsMap || !intervals) {
+          try {
+            const rawCache = localStorage.getItem('rp_attempt_latency_cache_v1');
+            if (rawCache) {
+              const cache = JSON.parse(rawCache);
+              const examName = String(snapshotObj.examName || snapshotObj.ExamName || '').trim().toLowerCase();
+              const passageTitle = String(snapshotObj.passageTitle || snapshotObj.PassageTitle || '').trim().toLowerCase();
+              const dateRaw = String(snapshotObj.date || snapshotObj.Date || snapshotObj.typingDate || snapshotObj.TypingDate || '').trim().slice(0, 10);
+              const typedChars = Number(snapshotObj.totalTypedCharacter ?? snapshotObj.TotalTypedCharacter ?? String(snapshotObj.userTranscription || snapshotObj.UserTranscription || '').length) || 0;
+              const typedWords = Math.round(Number(snapshotObj.totalTypedWords ?? snapshotObj.TotalTypedWords ?? 0) || 0);
+              const sig1 = `${examName}|${dateRaw}|${typedChars}|${typedWords}`;
+              const sig2 = `${passageTitle}|${dateRaw}|${typedChars}`;
+              const hit = cache[sig1] || cache[sig2];
+              if (hit) {
+                if (!statsMap && hit.stats && Object.keys(hit.stats).length > 0) statsMap = hit.stats;
+                if (!intervals && Array.isArray(hit.intervals) && hit.intervals.length > 0) intervals = hit.intervals;
+              }
+            }
+          } catch (e) {}
+        }
       }
 
-      let rhythmPct = 96;
-      const intervals = window.lastSubmittedHeatmapIntervals || window.recentKeystrokeIntervalsMs || [];
-      if (intervals.length >= 3) {
-        const mean = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-        const variance = intervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / intervals.length;
+      const validStatsMap = (statsMap && typeof statsMap === 'object') ? statsMap : {};
+      const entries = Object.entries(validStatsMap)
+        .filter(([, v]) => v && Number(v.count) > 0 && Number(v.totalMs) > 0)
+        .map(([k, v]) => ({
+          key: k,
+          count: Number(v.count),
+          avgMs: Math.round(Number(v.totalMs) / Math.max(1, Number(v.count)))
+        }));
+
+      const totalRecordedSamples = entries.reduce((acc, e) => acc + e.count, 0);
+      let overallAvg = 0;
+      if (totalRecordedSamples > 0) {
+        const totalAllMs = Object.values(validStatsMap).reduce((acc, v) => acc + (Number(v && v.totalMs) || 0), 0);
+        overallAvg = Math.round(totalAllMs / totalRecordedSamples);
+      }
+
+      // Honest fallback estimate from actual attempt speed ONLY if per-key telemetry wasn't captured on an older submission
+      let derivedEstAvgMs = 0;
+      if (overallAvg === 0 && snapshotObj && typeof snapshotObj === 'object') {
+        const rawTimeStr = String(snapshotObj.timeTaken || snapshotObj.TimeTaken || snapshotObj.timeUsed || snapshotObj.TimeUsed || '');
+        const minMatch = rawTimeStr.match(/(\d+(?:\.\d+)?)/);
+        const minsVal = minMatch ? parseFloat(minMatch[1]) : 0;
+        const charsVal = Number(snapshotObj.totalTypedCharacter ?? snapshotObj.TotalTypedCharacter ?? String(snapshotObj.userTranscription || snapshotObj.UserTranscription || '').length) || 0;
+        if (minsVal > 0 && charsVal >= 10) {
+          derivedEstAvgMs = Math.round((minsVal * 60000) / charsVal);
+        }
+      }
+
+      const validIntervals = Array.isArray(intervals)
+        ? intervals.map(Number).filter(n => Number.isFinite(n) && n >= 20 && n <= 2000)
+        : [];
+      let rhythmPct = null;
+      if (validIntervals.length >= 3) {
+        const mean = validIntervals.reduce((a, b) => a + b, 0) / validIntervals.length;
+        const variance = validIntervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / validIntervals.length;
         const stdDev = Math.sqrt(variance);
         const cv = mean > 0 ? (stdDev / mean) : 0;
-        rhythmPct = Math.max(40, Math.min(100, Math.round((1 - Math.min(0.85, cv * 0.75)) * 100)));
+        rhythmPct = Math.max(25, Math.min(100, Math.round((1 - Math.min(0.85, cv * 0.75)) * 100)));
       }
 
       const sortedBySlowest = [...entries].sort((a, b) => b.avgMs - a.avgMs);
       const sortedByFastest = [...entries].sort((a, b) => a.avgMs - b.avgMs);
-      const slowestText = sortedBySlowest.slice(0, 4).map(i => `${i.key} (${i.avgMs}ms)`).join(', ') || 'Steady across all keys';
-      const fastestText = sortedByFastest.slice(0, 4).map(i => `${i.key} (${i.avgMs}ms)`).join(', ') || 'Balanced keystrokes';
+      const slowestText = sortedBySlowest.slice(0, 4).map(i => `${i.key} (${i.avgMs}ms)`).join(', ') || 'Not recorded';
+      const fastestText = sortedByFastest.slice(0, 4).map(i => `${i.key} (${i.avgMs}ms)`).join(', ') || 'Not recorded';
+      const avgLabel = overallAvg > 0
+        ? `${overallAvg} ms`
+        : (derivedEstAvgMs > 0 ? `~${derivedEstAvgMs} ms (Est. from Speed)` : 'Not recorded');
+      const rhythmLabel = rhythmPct === null
+        ? 'Not recorded'
+        : (rhythmPct >= 85 ? `${rhythmPct}% Steady` : (rhythmPct >= 65 ? `${rhythmPct}% Moderate` : `${rhythmPct}% Uneven`));
+      const rhythmColor = rhythmPct === null
+        ? 'var(--text-muted)'
+        : (rhythmPct >= 85 ? '#059669' : (rhythmPct >= 65 ? '#d97706' : '#dc2626'));
       const isEnabled = window.isComparisonHeatmapVisible !== false;
 
       const chipsHtml = sortedBySlowest.length === 0
-        ? `<span style="font-size: 11.5px; color: var(--text-muted);">Keystroke latency telemetry automatically captured during active tests. Type in any test to see per-key latency distribution chips here.</span>`
-        : sortedBySlowest.slice(0, 18).map(item => {
+        ? `<span style="font-size: 11.5px; color: var(--text-muted);">Per-key latency telemetry was not stored for this older submission. New typing, audio, and Pitman tests automatically record exact per-key latency and rhythm steadiness here.</span>`
+        : sortedBySlowest.slice(0, 22).map(item => {
             const isFast = item.avgMs < 160;
             const isMid = item.avgMs >= 160 && item.avgMs <= 280;
             const bg = isFast ? 'rgba(16,185,129,0.14)' : (isMid ? 'rgba(245,158,11,0.16)' : 'rgba(239,68,68,0.16)');
             const border = isFast ? '#10b981' : (isMid ? '#f59e0b' : '#ef4444');
             const color = isFast ? '#059669' : (isMid ? '#d97706' : '#dc2626');
-            return `<span style="display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:6px; font-size:11px; font-weight:800; background:${bg}; border:1px solid ${border}; color:${color};">
+            return `<span style="display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:6px; font-size:11px; font-weight:800; background:${bg}; border:1px solid ${border}; color:${color}; font-variant-numeric: tabular-nums;">
               <span>${item.key}</span>
               <span style="font-size:10px; opacity:0.9;">${item.avgMs}ms (${item.count}x)</span>
             </span>`;
@@ -3365,7 +3444,7 @@ export function buildComparisonHeatmapHtml(snapshotObj) {
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <span style="font-size: 12.5px; font-weight: 800; color: var(--secondary); display: inline-flex; align-items: center; gap: 6px;">
-                <i class="fa-solid fa-fire-flame-curved" style="color: #f59e0b;"></i> Rhythm &amp; Finger-Latency Heatmap Analysis (Automatically Recorded)
+                <i class="fa-solid fa-fire-flame-curved" style="color: #f59e0b;"></i> Rhythm &amp; Finger-Latency Heatmap Analysis ${totalRecordedSamples > 0 ? `(${totalRecordedSamples} Measured Keystrokes)` : ''}
               </span>
               <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(16,185,129,0.15); color: #059669;">🟢 Fast (&lt;160ms)</span>
               <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(245,158,11,0.16); color: #d97706;">🟡 Medium (160–280ms)</span>
@@ -3376,14 +3455,14 @@ export function buildComparisonHeatmapHtml(snapshotObj) {
             </button>
           </div>
           <div id="comparison-heatmap-body-panel" style="display: ${isEnabled ? 'flex' : 'none'}; flex-direction: column; gap: 8px;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 8px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 8px; font-variant-numeric: tabular-nums;">
               <div style="background: var(--surface); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 11.5px;">
                 <span style="color: var(--text-muted); font-weight: 700;">Avg Key Latency:</span>
-                <strong style="color: var(--primary); margin-left: 4px;">${overallAvg > 0 ? overallAvg + ' ms' : '142 ms'}</strong>
+                <strong style="color: var(--primary); margin-left: 4px;">${avgLabel}</strong>
               </div>
               <div style="background: var(--surface); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 11.5px;">
                 <span style="color: var(--text-muted); font-weight: 700;">Rhythm Steadiness:</span>
-                <strong style="color: #059669; margin-left: 4px;">${rhythmPct}% Steady</strong>
+                <strong style="color: ${rhythmColor}; margin-left: 4px;">${rhythmLabel}</strong>
               </div>
               <div style="background: var(--surface); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 11.5px;">
                 <span style="color: var(--text-muted); font-weight: 700;">Slowest Keys:</span>
@@ -4168,37 +4247,27 @@ export function setupDedicatedTabsAndMoveSections() {
       batchSec.className = 'app-view';
       batchSec.style.display = 'none';
       batchSec.innerHTML = `
-        <div class="rp-batchhub-shell" style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
-          <div class="card rp-batchhub-hero-card">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:14px;">
-              <div style="flex:1; min-width:260px;">
-                <div style="display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:var(--primary); letter-spacing:0.04em; text-transform:uppercase; margin-bottom:4px;">
-                  <i class="fa-solid fa-people-group"></i> Batch Workspace &amp; Collaboration
-                </div>
-                <h3 style="margin:0 0 4px 0; font-size:20px; font-weight:800; color:var(--secondary); letter-spacing:-0.02em;">Batch Monitor &amp; Communication Hub</h3>
-                <p style="margin:0; font-size:13px; color:var(--text-muted); line-height:1.5; max-width:720px;">
-                  Choose a workspace section below to keep everything organized: track student progress &amp; announcements, vote in live polls, review shorthand notebook pads, or resolve outline doubts.
-                </p>
+        <div class="rp-batchhub-shell">
+          <div class="rp-batchhub-topbar">
+            <div class="rp-batchhub-topbar-left">
+              <div class="rp-batchhub-kicker">
+                <i class="fa-solid fa-people-group"></i> Batch Workspace
               </div>
-              <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="if(typeof renderDashboardBatchMonitoringHub==='function') renderDashboardBatchMonitoringHub(); if(typeof renderBatchShorthandDoubtWall==='function') renderBatchShorthandDoubtWall(); if(typeof window.loadShorthandPadsFromServer==='function') window.loadShorthandPadsFromServer('batchhub', false); if(typeof window.renderBatchPollsWidget==='function') window.renderBatchPollsWidget(); showToast('✅ Batch Workspace synced!');">
-                  <i class="fa-solid fa-rotate"></i> Sync Workspace
-                </button>
+              <div class="rp-batchhub-title-row">
+                <h3 class="rp-batchhub-title">Batch Monitor &amp; Communication</h3>
+                <span id="batchhub-topbar-role-badge" class="rp-batchhub-role-meta"></span>
+              </div>
+              <div id="batchhub-topbar-monitor-meta" class="rp-batchhub-meta-line">
+                Switch batches on the right or pick any workspace tab below.
               </div>
             </div>
-            <div class="rp-batchhub-guide-strip" aria-label="Quick Guide">
-              <div class="rp-batchhub-guide-step">
-                <span class="rp-batchhub-guide-num">1</span>
-                <span><strong>Monitor &amp; Chat:</strong> Batch progress, faculty directives &amp; private monitor queries</span>
+            <div class="rp-batchhub-topbar-controls">
+              <div id="batchhub-global-batch-select-slot" class="rp-batchhub-select-slot">
+                <label for="dashboard-batch-monitor-select" class="rp-batchhub-select-label">Batch</label>
               </div>
-              <div class="rp-batchhub-guide-step">
-                <span class="rp-batchhub-guide-num">2</span>
-                <span><strong>Live Polls:</strong> Vote on speed targets &amp; drill schedules</span>
-              </div>
-              <div class="rp-batchhub-guide-step">
-                <span class="rp-batchhub-guide-num">3</span>
-                <span><strong>Pads &amp; Doubts:</strong> Shorthand notebook feedback &amp; outline Q&amp;A</span>
-              </div>
+              <button type="button" class="btn btn-secondary btn-sm rp-batchhub-sync-btn" onclick="if(typeof renderDashboardBatchMonitoringHub==='function') renderDashboardBatchMonitoringHub(); if(typeof renderBatchShorthandDoubtWall==='function') renderBatchShorthandDoubtWall(); if(typeof window.loadShorthandPadsFromServer==='function') window.loadShorthandPadsFromServer('batchhub', false); if(typeof window.renderBatchPollsWidget==='function') window.renderBatchPollsWidget(); if(typeof pollRealtimeBatchDiscussionMessages==='function') pollRealtimeBatchDiscussionMessages(true); showToast('✅ Batch Workspace synced!');">
+                <i class="fa-solid fa-rotate"></i> Sync
+              </button>
             </div>
           </div>
 
@@ -4338,6 +4407,11 @@ export function setupDedicatedTabsAndMoveSections() {
       batchCard.style.marginBottom = '0';
       batchMount.appendChild(batchCard);
     }
+    const batchSelEl = document.getElementById('dashboard-batch-monitor-select');
+    const globalBatchSlot = document.getElementById('batchhub-global-batch-select-slot');
+    if (batchSelEl && globalBatchSlot && !globalBatchSlot.contains(batchSelEl)) {
+      globalBatchSlot.appendChild(batchSelEl);
+    }
 
     const doubtWallBar = document.getElementById('batch-shorthand-doubt-wall-container') || document.getElementById('dashboard-shorthand-doubt-wall-bar');
     const doubtMount = document.getElementById('batchhub-doubt-wall-mount');
@@ -4359,7 +4433,7 @@ export function setupDedicatedTabsAndMoveSections() {
       pinCard.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
           <div>
-            <span style="font-size:10px; font-weight:900; padding:2px 9px; border-radius:999px; background:rgba(124,58,237,0.14); color:#6d28d9; border:1px solid rgba(124,58,237,0.3);">📌 PINNED BATCH DIRECTIVES &amp; OFFICIAL ANNOUNCEMENTS</span>
+            <span style="font-size:10px; font-weight:900; padding:2px 9px; border-radius:999px; background:rgba(124,58,237,0.14); color:#6d28d9; border:1px solid rgba(124,58,237,0.3);">📌 PINNED BATCH MONITOR &amp; FACULTY NOTICES</span>
             <h4 style="margin:4px 0 0 0; font-size:15.5px; font-weight:900; color:var(--secondary);">Important Pinned Notices from Your Batch Monitor &amp; Faculty</h4>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -4424,7 +4498,7 @@ export function setupDedicatedTabsAndMoveSections() {
             <!-- Simple 3-step explanation strip -->
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px; padding:10px 12px; border-radius:10px; background:var(--background); border:1px solid var(--border); margin-bottom:12px; font-size:11.5px; color:var(--text-muted);">
               <div><strong style="color:var(--secondary);">1. Saved Bookmarks:</strong> Questions you star during CBT Mocks or add manually here.</div>
-              <div><strong style="color:var(--secondary);">2. Wrong Answers:</strong> Questions you answer wrongly (or guess 50-50) in CBT Mocks auto-save here.</div>
+              <div><strong style="color:var(--secondary);">2. Wrong &amp; Not Answered:</strong> Questions you answer wrongly or leave unanswered in CBT Mocks auto-save here.</div>
               <div><strong style="color:var(--secondary);">3. Self-Test &amp; Master:</strong> Click an option to check yourself, then click <em>Mark Mastered</em>.</div>
             </div>
 
@@ -4480,14 +4554,17 @@ export function setupDedicatedTabsAndMoveSections() {
           <div class="card" style="padding:18px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding-bottom:12px; border-bottom:1px solid var(--border); margin-bottom:14px;">
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button type="button" id="rev-tab-btn-bookmarks" class="btn btn-primary btn-sm" onclick="window.__cbtNotebookMode='bookmarks'; window.renderDedicatedCbtRevisionTab();">
-                  Saved Bookmarks (0)
+                <button type="button" id="rev-tab-btn-all" class="btn btn-primary btn-sm" onclick="window.__cbtNotebookMode='all'; window.renderDedicatedCbtRevisionTab();">
+                  All Questions (0)
                 </button>
                 <button type="button" id="rev-tab-btn-flashcards" class="btn btn-secondary btn-sm" onclick="window.__cbtNotebookMode='flashcards'; window.renderDedicatedCbtRevisionTab();">
                   Wrong Answers (0)
                 </button>
-                <button type="button" id="rev-tab-btn-all" class="btn btn-secondary btn-sm" onclick="window.__cbtNotebookMode='all'; window.renderDedicatedCbtRevisionTab();">
-                  All Questions (0)
+                <button type="button" id="rev-tab-btn-unattempted" class="btn btn-secondary btn-sm" onclick="window.__cbtNotebookMode='unattempted'; window.renderDedicatedCbtRevisionTab();">
+                  Not Answered (0)
+                </button>
+                <button type="button" id="rev-tab-btn-bookmarks" class="btn btn-secondary btn-sm" onclick="window.__cbtNotebookMode='bookmarks'; window.renderDedicatedCbtRevisionTab();">
+                  Saved Bookmarks (0)
                 </button>
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">

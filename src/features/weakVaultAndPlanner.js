@@ -834,6 +834,9 @@ window.launchWeakOutlinesCustomDrill = function() {
         if (activeModal) {
             activeModal.classList.remove('hidden');
             activeModal.style.display = 'flex';
+            if (typeof window.enterImmersiveFullscreenLock === 'function') {
+                window.enterImmersiveFullscreenLock('active-test-modal');
+            }
         }
         updateLiveTypingStatusBar('Ready - Weak Outlines Mastery Drill');
         startTestTimer(0);

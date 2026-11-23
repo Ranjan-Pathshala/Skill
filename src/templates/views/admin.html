@@ -1878,10 +1878,14 @@
     <!-- MODULE 1: TOP ANNOUNCEMENT TICKER (LOGGED-IN & LOGGED-OUT) & DATE-SPECIFIC BANNERS -->
     <div class="card" id="admin-banner-top-card" style="display: block; max-width: 980px; margin: 0 auto 16px auto; padding: 16px 18px; border-top: 3px solid #0d9488;">
       <h4 style="margin: 0 0 12px 0; color: var(--secondary); font-size: 15.5px; font-weight: 800;"><i class="fa-solid fa-bullhorn" style="color: var(--primary);"></i> Top Website Scrolling Banners (Logged-In &amp; Logged-Out)</h4>
-      <div style="margin-bottom: 12px;">
+      <div style="margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px;">
         <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; cursor: pointer;">
           <input type="checkbox" id="banner-enable-chk" style="width: 16px; height: 16px;">
           Enable Active Top Website Scrolling Banners
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; padding: 5px 10px; border-radius: 8px; background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.25); color: var(--primary);">
+          <input type="checkbox" id="banner-same-for-both-chk" style="width: 15px; height: 15px;" onchange="if(typeof window.toggleAdminBannerSameModeUI==='function') window.toggleAdminBannerSameModeUI()">
+          Use Same Banner for Both (Logged-In &amp; Logged-Out)
         </label>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px;">
@@ -1896,12 +1900,17 @@
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 12px;">
         <div class="form-group" style="margin-bottom: 0; padding: 10px 12px; border-radius: 10px; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.28);">
-          <label style="display: block; margin-bottom: 5px; font-weight: 800; font-size: 12px; color: #047857;"><i class="fa-solid fa-user-check"></i> Logged-In Student Top Scrolling Banner Text <span class="required-star">*</span></label>
-          <textarea id="banner-text-input" class="form-control" rows="2" placeholder="Scrolling banner text shown to logged-in students..."></textarea>
+          <label id="banner-logged-in-label" style="display: block; margin-bottom: 5px; font-weight: 800; font-size: 12px; color: #047857;"><i class="fa-solid fa-user-check"></i> Logged-In Student Top Scrolling Banner Text <span class="required-star">*</span></label>
+          <textarea id="banner-text-input" class="form-control" rows="2" placeholder="Scrolling banner text shown to logged-in students (or both when Same Banner is checked)..."></textarea>
         </div>
-        <div class="form-group" style="margin-bottom: 0; padding: 10px 12px; border-radius: 10px; background: rgba(67, 56, 202, 0.06); border: 1px solid rgba(67, 56, 202, 0.28);">
-          <label style="display: block; margin-bottom: 5px; font-weight: 800; font-size: 12px; color: #4338ca;"><i class="fa-solid fa-right-from-bracket"></i> Logged-Out / Public Visitor Top Scrolling Banner Text</label>
-          <textarea id="banner-logged-out-text-input" class="form-control" rows="2" placeholder="Different scrolling banner text shown before login (admissions, live batches, welcome)..."></textarea>
+        <div id="banner-logged-out-input-wrap" class="form-group" style="margin-bottom: 0; padding: 10px 12px; border-radius: 10px; background: rgba(67, 56, 202, 0.06); border: 1px solid rgba(67, 56, 202, 0.28);">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 5px; flex-wrap: wrap;">
+            <label style="margin: 0; font-weight: 800; font-size: 12px; color: #4338ca;"><i class="fa-solid fa-right-from-bracket"></i> Logged-Out / Public Visitor Top Scrolling Banner Text</label>
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 22px;" onclick="if(typeof window.copyLoggedInBannerToLoggedOut==='function') window.copyLoggedInBannerToLoggedOut()">
+              <i class="fa-regular fa-copy"></i> Copy Logged-In
+            </button>
+          </div>
+          <textarea id="banner-logged-out-text-input" class="form-control" rows="2" placeholder="Different scrolling banner text shown before login (or leave blank / check Same Banner above)..."></textarea>
         </div>
       </div>
       <div style="display: flex; gap: 8px; margin-bottom: 18px;">

@@ -97,7 +97,7 @@ portalState.currentTypingPassagesCache = [];
 
 export const SITE_NAME = 'RP Skill';
 
-export const DEFAULT_LOGO_URL = 'https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_';
+export const DEFAULT_LOGO_URL = '/api/media-proxy?driveId=1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_&kind=image';
 
 export const FAST_CACHE_KEY = 'steno_fast_cache_v3';
 

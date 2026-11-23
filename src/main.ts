@@ -18,11 +18,13 @@ import { mountPortalShell } from './templates/mountShell.ts';
 import { bindStateToWindow } from './core/state.ts';
 import { bindPortalGlobals } from './bridge/globals.ts';
 import { registerPortalHooks } from './features/registerHooks.js';
+import { installAntiNewTabMaterialGuards } from './utils/mediaProxy.ts';
 
 mountPortalShell();
 bindStateToWindow();
 bindPortalGlobals();
 registerPortalHooks();
+installAntiNewTabMaterialGuards();
 
 function initScrollRevealAnimations(): void {
   if (typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
