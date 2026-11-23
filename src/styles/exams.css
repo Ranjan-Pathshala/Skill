@@ -119,6 +119,41 @@ body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-palette-aside {
         border-right: none !important;
       }
 
+/* Zero-Overflow CBT Top Header & Sleek Single-Row Exam Tools Drawers */
+.rp-cbt-top-header {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        min-height: 40px !important;
+        overflow: hidden !important;
+      }
+
+.rp-cbt-top-header .rp-cbt-header-actions {
+        flex-shrink: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+      }
+
+.rp-exam-tools-drawer {
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+      }
+
+@media (max-width: 640px) {
+        .rp-cbt-top-header {
+          padding: 5px 8px !important;
+          gap: 5px !important;
+        }
+        .rp-cbt-top-header #cbt-exam-header-title {
+          font-size: 11.5px !important;
+        }
+        .rp-cbt-top-header .btn {
+          padding: 3px 6px !important;
+          font-size: 10.5px !important;
+        }
+      }
+
 /* Equal 50/50 Split Workspace for Skill Typing Exam (Full Viewport, Footer Always Pinned) */
 #active-test-modal #test-main-body-container.rp-typing-exam-body {
         overflow: hidden !important;

@@ -43,6 +43,121 @@ export function renderFeeStatusBadgeHtml(rawStatus) {
     return `<span class="rp-fee-status-badge ${cls}"><i class="fa-solid ${icon}"></i> ${st}</span>`;
   }
 
+export function inferBillingCycle(rawCycle, rawName, validityDays) {
+    const c = String(rawCycle || '').trim();
+    if (c) return c;
+    const nm = String(rawName || '').toLowerCase();
+    const d = Number(validityDays || 0) || 0;
+    if (nm.includes('month') || d === 28 || d === 30 || d === 31) return 'Monthly';
+    if (nm.includes('quarter') || nm.includes('3 month') || d === 90 || d === 91 || d === 92) return 'Quarterly';
+    if (nm.includes('half') || nm.includes('6 month') || d === 180 || d === 182 || d === 183) return 'Half-Yearly';
+    if (nm.includes('annual') || nm.includes('year') || nm.includes('12 month') || d >= 360) return 'Annual';
+    return 'Custom';
+  }
+
+export function normalizeIncludedBatchesArray(raw) {
+    if (Array.isArray(raw)) {
+      return Array.from(new Set(raw.map((x) => String(x || '').trim()).filter(Boolean)));
+    }
+    return Array.from(new Set(String(raw || '').split(',').map((x) => x.trim()).filter(Boolean)));
+  }
+
+export function getAllAvailableFeeBatches(extraBatchPlansObj) {
+    const fromInst = typeof getInstituteBatchesList === 'function' ? getInstituteBatchesList() : [];
+    const fromAdmin = (portalState.adminData && Array.isArray(portalState.adminData.instituteBatches)) ? portalState.adminData.instituteBatches : [];
+    const fromGlobal = (portalState.globalData && Array.isArray(portalState.globalData.instituteBatches)) ? portalState.globalData.instituteBatches : [];
+    const fromCfg = extraBatchPlansObj && typeof extraBatchPlansObj === 'object' ? Object.keys(extraBatchPlansObj) : [];
+    const combined = [...fromInst, ...fromAdmin, ...fromGlobal, ...fromCfg];
+    return Array.from(new Set(combined.map((b) => String(b || '').trim()).filter((b) => {
+      const low = b.toLowerCase();
+      return b && low !== 'rp-trail' && low !== 'general batch' && low !== 'free tier';
+    })));
+  }
+
+export function resolvePlanIncludedBatches(plan, availableBatches) {
+    const allBatches = Array.isArray(availableBatches) ? availableBatches : getAllAvailableFeeBatches();
+    const sc = String((plan && plan.accessScope) || 'ALL_PAST_CURRENT_UPCOMING').toUpperCase().trim();
+    const selected = normalizeIncludedBatchesArray(plan ? plan.includedBatches : []);
+    const incUpc = Boolean(plan && plan.includeUpcoming);
+    if (sc === 'CUSTOM_SELECTED') {
+      if (selected.length === 0) {
+        return {
+          scopeLabel: MEMBER_SCOPE_LABELS.CUSTOM_SELECTED,
+          batches: [],
+          suffix: incUpc ? '+ All Upcoming Batches' : '',
+          displayText: incUpc ? 'Upcoming Batches Only (No existing batch selected)' : 'No batches selected yet'
+        };
+      }
+      return {
+        scopeLabel: MEMBER_SCOPE_LABELS.CUSTOM_SELECTED,
+        batches: selected,
+        suffix: incUpc ? '+ Future Upcoming Batches' : '',
+        displayText: selected.join(', ') + (incUpc ? ' + Future Upcoming Batches' : '')
+      };
+    }
+    if (sc === 'ALL_EXISTING_ONLY') {
+      return {
+        scopeLabel: MEMBER_SCOPE_LABELS.ALL_EXISTING_ONLY,
+        batches: allBatches,
+        suffix: '(Excludes Future Batches)',
+        displayText: (allBatches.length ? allBatches.join(', ') : 'All Current Institute Batches') + ' (No Future Batches)'
+      };
+    }
+    if (sc === 'CURRENT_AND_UPCOMING') {
+      const list = selected.length ? selected : allBatches;
+      return {
+        scopeLabel: MEMBER_SCOPE_LABELS.CURRENT_AND_UPCOMING,
+        batches: list,
+        suffix: '+ All Upcoming Batches',
+        displayText: (list.length ? list.join(', ') : 'Current Batches') + ' + All Upcoming Batches'
+      };
+    }
+    return {
+      scopeLabel: MEMBER_SCOPE_LABELS.ALL_PAST_CURRENT_UPCOMING,
+      batches: allBatches,
+      suffix: '+ All Past & Upcoming Batches',
+      displayText: (allBatches.length ? allBatches.join(', ') + ' + ' : '') + 'All Past & Upcoming Batches'
+    };
+  }
+
+export function normalizeMemberBillingOptionsClient(mp, planIdx = 0) {
+    const rawList = Array.isArray(mp && mp.billingOptions) && mp.billingOptions.length > 0
+      ? mp.billingOptions
+      : (Array.isArray(mp && mp.plans) && mp.plans.length > 0 ? mp.plans : []);
+    const clean = rawList.map((opt, oIdx) => {
+      const amt = Math.max(0, Number(opt.amount !== undefined ? opt.amount : (opt.fee || 0)) || 0);
+      const days = Math.max(1, Number(opt.validityDays || 30) || 30);
+      const cycle = inferBillingCycle(opt.cycle, opt.label || opt.name, days);
+      const label = String(opt.label || opt.name || (cycle === 'Custom' ? `Option ${oIdx + 1}` : cycle)).trim();
+      return {
+        id: String(opt.id || `MO-${planIdx + 1}-${oIdx + 1}`),
+        cycle,
+        label,
+        amount: amt,
+        validityDays: days,
+        note: String(opt.note || opt.description || '').trim(),
+        allowInstallments: Boolean(opt.allowInstallments),
+        installmentCount: Math.max(2, Math.min(4, Number(opt.installmentCount || 2) || 2)),
+        firstInstallmentPercent: Math.max(20, Math.min(80, Number(opt.firstInstallmentPercent || 50) || 50))
+      };
+    });
+    if (clean.length > 0) return clean;
+    const baseAmt = Math.max(0, Number(mp && (mp.amount !== undefined ? mp.amount : mp.fee) || 0) || 0);
+    const baseDays = Math.max(1, Number((mp && mp.validityDays) || 365) || 365);
+    const baseCycle = inferBillingCycle(mp && mp.cycle, mp && mp.name, baseDays);
+    return [{
+      id: `MO-${planIdx + 1}-1`,
+      cycle: baseCycle,
+      label: baseCycle === 'Custom' ? 'Standard' : baseCycle,
+      amount: baseAmt,
+      validityDays: baseDays,
+      note: '',
+      allowInstallments: Boolean(mp && mp.allowInstallments),
+      installmentCount: 2,
+      firstInstallmentPercent: Math.max(20, Math.min(80, Number((mp && mp.firstInstallmentPercent) || 50) || 50))
+    }];
+  }
+
 export function formatScopeSummary(scope, includedBatches, includeUpcoming) {
     const sc = String(scope || 'ALL_PAST_CURRENT_UPCOMING').toUpperCase();
     if (sc === 'CUSTOM_SELECTED') {
@@ -76,52 +191,78 @@ export function getResolvedFeeConfig() {
     const qrImageUrl = String(raw.qrImageUrl || '').trim();
     const paymentInstructions = String(raw.paymentInstructions || raw.instructions || 'Pay via any UPI app (GPay / PhonePe / Paytm), then enter your 12-digit UTR / Transaction Reference ID below for verification.').trim();
 
-    // Resolve multi-plan Member Tiers
+    // Resolve multi-plan Member Main Plans (with attached Monthly / Quarterly / Annual billingOptions)
     let memberPlans = [];
     if (Array.isArray(raw.memberPlans) && raw.memberPlans.length > 0) {
-      memberPlans = raw.memberPlans.map((p, idx) => ({
-        id: String(p.id || ('MP-' + (idx + 1))),
-        name: String(p.name || 'Member Plan').trim(),
-        amount: Math.max(0, Number(p.amount || 0) || 0),
-        validityDays: Math.max(1, Number(p.validityDays || 365) || 365),
-        accessScope: String(p.accessScope || 'ALL_PAST_CURRENT_UPCOMING').trim().toUpperCase(),
-        includedBatches: Array.isArray(p.includedBatches) ? p.includedBatches.join(', ') : String(p.includedBatches || '').trim(),
-        includeUpcoming: Boolean(p.includeUpcoming || p.accessScope === 'ALL_PAST_CURRENT_UPCOMING' || p.accessScope === 'CURRENT_AND_UPCOMING'),
-        description: String(p.description || '').trim()
-      })).filter(p => p.name);
+      memberPlans = raw.memberPlans.map((p, idx) => {
+        const billingOptions = normalizeMemberBillingOptionsClient(p, idx);
+        const incBatchesArr = normalizeIncludedBatchesArray(p.includedBatches);
+        const scope = String(p.accessScope || 'ALL_PAST_CURRENT_UPCOMING').trim().toUpperCase();
+        return {
+          id: String(p.id || ('MP-' + (idx + 1))),
+          name: String(p.name || 'Member Plan').trim(),
+          amount: billingOptions[0].amount,
+          validityDays: billingOptions[0].validityDays,
+          billingOptions,
+          accessScope: scope,
+          includedBatches: incBatchesArr.join(', '),
+          includedBatchesList: incBatchesArr,
+          includeUpcoming: Boolean(p.includeUpcoming || scope === 'ALL_PAST_CURRENT_UPCOMING' || scope === 'CURRENT_AND_UPCOMING'),
+          description: String(p.description || '').trim()
+        };
+      }).filter(p => p.name);
     } else {
       const legacyAmt = Math.max(0, Number(raw.memberFee || raw.memberFeeAmount || 0) || 0);
       if (legacyAmt > 0) {
+        const legDays = Math.max(1, Number(raw.memberValidityDays || 365) || 365);
+        const legCycle = inferBillingCycle('', 'Annual', legDays);
         memberPlans = [{
           id: 'MP-1',
           name: String(raw.memberPlanTitle || 'Member All-Access Pass').trim(),
           amount: legacyAmt,
-          validityDays: Math.max(1, Number(raw.memberValidityDays || 365) || 365),
+          validityDays: legDays,
+          billingOptions: [{
+            id: 'MO-1-1',
+            cycle: legCycle,
+            label: legCycle === 'Custom' ? 'Standard' : legCycle,
+            amount: legacyAmt,
+            validityDays: legDays,
+            note: '',
+            allowInstallments: false,
+            installmentCount: 2,
+            firstInstallmentPercent: 50
+          }],
           accessScope: 'ALL_PAST_CURRENT_UPCOMING',
           includedBatches: '',
+          includedBatchesList: [],
           includeUpcoming: true,
           description: String(raw.memberDescription || raw.memberPlanDescription || 'Unlocks all past, current, and upcoming batches.').trim()
         }];
       }
     }
 
-    // Resolve multi-plan per-Batch pricing (with Installment support)
+    // Resolve multi-plan per-Batch pricing (with attached Monthly / Quarterly / Annual cycles & Installments)
     const batchPlans = {};
     if (raw.batchPlans && typeof raw.batchPlans === 'object') {
       Object.keys(raw.batchPlans).forEach((bName) => {
         const cleanB = String(bName || '').trim();
         if (!cleanB || cleanB.toLowerCase() === 'rp-trail') return;
         const arr = Array.isArray(raw.batchPlans[bName]) ? raw.batchPlans[bName] : [];
-        batchPlans[cleanB] = arr.map((p, idx) => ({
-          id: String(p.id || ('BP-' + (idx + 1))),
-          name: String(p.name || 'Standard Plan').trim(),
-          amount: Math.max(0, Number(p.amount || 0) || 0),
-          validityDays: Math.max(1, Number(p.validityDays || 90) || 90),
-          note: String(p.note || p.description || '').trim(),
-          allowInstallments: Boolean(p.allowInstallments),
-          installmentCount: Math.max(2, Math.min(4, Number(p.installmentCount || 2) || 2)),
-          firstInstallmentPercent: Math.max(20, Math.min(80, Number(p.firstInstallmentPercent || 50) || 50))
-        }));
+        batchPlans[cleanB] = arr.map((p, idx) => {
+          const days = Math.max(1, Number(p.validityDays || 90) || 90);
+          const nm = String(p.name || 'Standard Plan').trim();
+          return {
+            id: String(p.id || ('BP-' + (idx + 1))),
+            cycle: inferBillingCycle(p.cycle, nm, days),
+            name: nm,
+            amount: Math.max(0, Number(p.amount !== undefined ? p.amount : (p.fee || 0)) || 0),
+            validityDays: days,
+            note: String(p.note || p.description || '').trim(),
+            allowInstallments: Boolean(p.allowInstallments),
+            installmentCount: Math.max(2, Math.min(4, Number(p.installmentCount || 2) || 2)),
+            firstInstallmentPercent: Math.max(20, Math.min(80, Number(p.firstInstallmentPercent || 50) || 50))
+          };
+        });
       });
     }
     // Mirror any legacy batchFees not present in batchPlans
@@ -131,13 +272,14 @@ export function getResolvedFeeConfig() {
         if (!cleanB || cleanB.toLowerCase() === 'rp-trail') return;
         if (!batchPlans[cleanB] || batchPlans[cleanB].length === 0) {
           const entry = raw.batchFees[bName];
-          const amt = typeof entry === 'object' ? Math.max(0, Number(entry.amount || 0) || 0) : Math.max(0, Number(entry || 0) || 0);
+          const amt = typeof entry === 'object' ? Math.max(0, Number(entry.amount !== undefined ? entry.amount : (entry.fee || 0)) || 0) : Math.max(0, Number(entry || 0) || 0);
           const days = typeof entry === 'object' ? Math.max(1, Number(entry.validityDays || 90) || 90) : 90;
           const note = typeof entry === 'object' ? String(entry.note || entry.description || '').trim() : '';
           const allowInst = typeof entry === 'object' ? Boolean(entry.allowInstallments) : false;
-          if (amt > 0 || note) {
+          if (amt > 0 || note || (typeof entry === 'object' && entry && entry.amount !== undefined)) {
             batchPlans[cleanB] = [{
               id: 'BP-1',
+              cycle: inferBillingCycle('', 'Full Batch Plan', days),
               name: 'Full Batch Plan',
               amount: amt,
               validityDays: days,
@@ -446,10 +588,25 @@ window.triggerOneClickPlanRenewal = async function (feeType, batchName, planName
     const cfg = getResolvedFeeConfig();
     const isMem = String(feeType || '').toLowerCase().includes('member');
     if (isMem) {
-      const matched = (cfg.memberPlans || []).find(p => String(p.name || '').toLowerCase() === String(planName || '').toLowerCase()) || (cfg.memberPlans || [])[0];
-      if (matched && matched.amount > 0) {
+      const targetLow = String(planName || '').toLowerCase();
+      const matched = (cfg.memberPlans || []).find((p) => {
+        const nm = String(p.name || '').toLowerCase();
+        return nm && (nm === targetLow || targetLow.startsWith(nm + ' —') || targetLow.startsWith(nm + ' -'));
+      }) || (cfg.memberPlans || [])[0];
+      if (matched) {
+        const firstOpt = (matched.billingOptions && matched.billingOptions[0]) || { label: 'Standard', cycle: 'Annual', amount: matched.amount || 0, validityDays: matched.validityDays || 365 };
+        const fullLabel = matched.billingOptions && matched.billingOptions.length > 1 ? `${matched.name} — ${firstOpt.label}` : matched.name;
         setTimeout(() => {
-          window.openStudentUpiFeeCheckout('member', 'ALL_BATCHES', matched.amount, matched.name, matched.validityDays, matched.name, 'buy-plans-upi-checkout-panel', { isRenewal: true });
+          window.openStudentUpiFeeCheckout('member', 'ALL_BATCHES', firstOpt.amount, fullLabel, firstOpt.validityDays, fullLabel, 'buy-plans-upi-checkout-panel', {
+            isRenewal: true,
+            mainPlanName: matched.name,
+            billingCycle: firstOpt.cycle || firstOpt.label,
+            accessScope: matched.accessScope,
+            includedBatches: matched.includedBatches,
+            includeUpcoming: matched.includeUpcoming,
+            allowInstallments: Boolean(firstOpt.allowInstallments && firstOpt.amount > 0),
+            firstInstallmentPercent: firstOpt.firstInstallmentPercent || 50
+          });
         }, 120);
       } else {
         safeNotify('Please choose a Member Plan below to renew your membership.');
@@ -457,11 +614,12 @@ window.triggerOneClickPlanRenewal = async function (feeType, batchName, planName
     } else {
       const plans = (cfg.batchPlans && cfg.batchPlans[batchName]) ? cfg.batchPlans[batchName] : [];
       const matched = plans.find(p => String(p.name || '').toLowerCase() === String(planName || '').toLowerCase()) || plans[0];
-      if (matched && matched.amount > 0) {
+      if (matched) {
         setTimeout(() => {
           window.openStudentUpiFeeCheckout('batch', batchName, matched.amount, `${batchName} — ${matched.name}`, matched.validityDays, matched.name, 'buy-plans-upi-checkout-panel', {
-            allowInstallments: Boolean(matched.allowInstallments),
+            allowInstallments: Boolean(matched.allowInstallments && matched.amount > 0),
             firstInstallmentPercent: matched.firstInstallmentPercent || 50,
+            billingCycle: matched.cycle || matched.name,
             isRenewal: true
           });
         }, 120);
@@ -495,15 +653,65 @@ window.switchBuyPlansSubtab = function (subtab, btnEl) {
 window.refreshBuyPlansView = async function (forceFetch = false) {
     if (forceFetch && typeof apiCall === 'function') {
       const cfgRes = await apiCall('getFeeConfig', {}, true);
-      if (cfgRes && cfgRes.success && cfgRes.feeConfig) {
+      if (cfgRes && cfgRes.success) {
         portalState.globalData = portalState.globalData || {};
-        portalState.globalData.feeConfig = cfgRes.feeConfig;
+        if (cfgRes.feeConfig) portalState.globalData.feeConfig = cfgRes.feeConfig;
+        if (Array.isArray(cfgRes.instituteBatches)) {
+          portalState.globalData.instituteBatches = cfgRes.instituteBatches;
+          if (portalState.adminData) portalState.adminData.instituteBatches = cfgRes.instituteBatches;
+        }
       }
     }
     if (_activeBuyPlansSubtab === 'history') {
       await window.renderFeePaymentHistorySubtab('buy-plans-history-mount', true);
     } else {
       await window.renderBuyPlansCatalog('buy-plans-catalog-mount', forceFetch);
+    }
+  };
+
+window.selectMemberPlanChip = function (memberIdx, optIdx) {
+    const card = document.querySelector(`[data-buy-member-card="${memberIdx}"]`);
+    if (!card) return;
+    card.querySelectorAll('.rp-plan-chip-btn').forEach((b) => {
+      b.classList.toggle('is-selected', b.getAttribute('data-opt-idx') === String(optIdx));
+    });
+    const cfg = getResolvedFeeConfig();
+    const mp = (cfg.memberPlans || [])[memberIdx];
+    if (!mp) return;
+    const opts = mp.billingOptions || [];
+    const opt = opts[optIdx] || opts[0];
+    if (!opt) return;
+
+    const amt = Math.max(0, Number(opt.amount || 0));
+    const days = Math.max(1, Number(opt.validityDays || 365));
+    const isZeroFreePlan = amt <= 0;
+    const fullPlanName = opts.length > 1 ? `${mp.name} — ${opt.label}` : mp.name;
+
+    const priceEl = card.querySelector('.rp-member-active-price');
+    const daysEl = card.querySelector('.rp-member-active-days');
+    const noteEl = card.querySelector('.rp-member-active-note');
+    const instBadgeEl = card.querySelector('.rp-member-inst-badge');
+    const payBtn = card.querySelector('.rp-member-pay-cta');
+
+    if (priceEl) priceEl.textContent = isZeroFreePlan ? '₹0 (Free)' : ('₹' + amt.toLocaleString('en-IN'));
+    if (daysEl) daysEl.textContent = `${opt.label || opt.cycle} · ${days} days validity`;
+    if (noteEl) noteEl.textContent = opt.note || mp.description || '';
+    if (instBadgeEl) {
+      instBadgeEl.style.display = (opt.allowInstallments && !isZeroFreePlan) ? 'inline-flex' : 'none';
+    }
+    if (payBtn) {
+      payBtn.innerHTML = isZeroFreePlan
+        ? '<i class="fa-solid fa-paper-plane"></i> Request Free (₹0)'
+        : '<i class="fa-solid fa-qrcode"></i> Buy Member Plan';
+      payBtn.onclick = () => window.openStudentUpiFeeCheckout('member', 'ALL_BATCHES', amt, fullPlanName, days, fullPlanName, 'buy-plans-upi-checkout-panel', {
+        mainPlanName: mp.name,
+        billingCycle: opt.cycle || opt.label,
+        accessScope: mp.accessScope,
+        includedBatches: mp.includedBatches,
+        includeUpcoming: mp.includeUpcoming,
+        allowInstallments: Boolean(opt.allowInstallments && !isZeroFreePlan),
+        firstInstallmentPercent: opt.firstInstallmentPercent || 50
+      });
     }
   };
 
@@ -518,6 +726,7 @@ window.selectBatchPlanChip = function (batchIdx, planIdx) {
     const amt = Number(activeChip.getAttribute('data-amt') || 0);
     const days = Number(activeChip.getAttribute('data-days') || 90);
     const planName = activeChip.getAttribute('data-plan-name') || 'Standard Plan';
+    const cycle = activeChip.getAttribute('data-cycle') || planName;
     const note = activeChip.getAttribute('data-note') || '';
     const allowInst = activeChip.getAttribute('data-inst') === '1';
     const firstPct = Number(activeChip.getAttribute('data-inst-pct') || 50) || 50;
@@ -543,7 +752,8 @@ window.selectBatchPlanChip = function (batchIdx, planIdx) {
         : `<i class="fa-solid fa-indian-rupee-sign"></i> ${alreadyEnrolled ? 'Renew Plan' : 'Buy Batch'}`;
       payBtn.onclick = () => window.openStudentUpiFeeCheckout('batch', bName, amt, `${bName} — ${planName}`, days, planName, 'buy-plans-upi-checkout-panel', {
         allowInstallments: allowInst && !isZeroFreePlan,
-        firstInstallmentPercent: firstPct
+        firstInstallmentPercent: firstPct,
+        billingCycle: cycle
       });
     }
   };
@@ -564,7 +774,13 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
         apiCall('getFeeLedger', { userId: cu.userId }, true)
       ]);
       portalState.globalData = portalState.globalData || {};
-      if (cfgRes && cfgRes.success && cfgRes.feeConfig) portalState.globalData.feeConfig = cfgRes.feeConfig;
+      if (cfgRes && cfgRes.success) {
+        if (cfgRes.feeConfig) portalState.globalData.feeConfig = cfgRes.feeConfig;
+        if (Array.isArray(cfgRes.instituteBatches)) {
+          portalState.globalData.instituteBatches = cfgRes.instituteBatches;
+          if (portalState.adminData) portalState.adminData.instituteBatches = cfgRes.instituteBatches;
+        }
+      }
       if (ledRes && ledRes.success && Array.isArray(ledRes.ledger || ledRes.rows)) {
         portalState.globalData.userFeeReceipts = ledRes.ledger || ledRes.rows;
       }
@@ -574,10 +790,7 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
     const userBatches = typeof getUserAssignedBatchesList === 'function'
       ? getUserAssignedBatchesList(cu.userId, cu.batch || cu.Batch || '')
       : ['RP-Trail'];
-    const customBatches = typeof getInstituteBatchesList === 'function'
-      ? getInstituteBatchesList().filter((b) => b && b.toLowerCase() !== 'rp-trail' && b.toLowerCase() !== 'general batch' && b.toLowerCase() !== 'free tier')
-      : [];
-    const allBatchNames = Array.from(new Set([...customBatches, ...Object.keys(cfg.batchPlans || {})])).filter((b) => b && b.toLowerCase() !== 'rp-trail');
+    const allBatchNames = getAllAvailableFeeBatches(cfg.batchPlans);
     const installmentMap = computeStudentBatchInstallmentLedger(cu.userId);
 
     const roleLow = String(cu.role || '').toLowerCase();
@@ -594,59 +807,29 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
     }).length;
 
     const statusBannerHtml = `
-      <div class="card" style="margin-bottom:16px; border-left:4px solid ${isActiveMember ? '#10b981' : 'var(--primary)'}; padding:14px 18px;">
+      <div class="card" style="margin-bottom:14px; border:1px solid var(--border); padding:12px 16px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
             ${isActiveMember
-              ? `<div style="font-size:13.5px; font-weight:800; color:#047857;"><i class="fa-solid fa-crown"></i> Active Member: ${escapeHtml(cu.membershipPlan || 'Member Pass')}${cu.membershipValidUntil ? ` · Valid till ${escapeHtml(cu.membershipValidUntil)}` : ''}</div>
-                 <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Batch Access Scope: <strong style="color:var(--secondary);">${escapeHtml(memberScopeText)}</strong></div>`
-              : `<div style="font-size:13.5px; font-weight:800; color:var(--secondary);">Your Current Batches: <span style="color:var(--primary);">${escapeHtml(userBatches.join(', '))}</span>${cu.enrollmentValidUntil ? ` · Valid till ${escapeHtml(cu.enrollmentValidUntil)}` : ''}</div>
-                 <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Permanent Free Batch <strong>RP-Trail (₹0)</strong> always stays active alongside any paid batch or membership.${activeCouponsCount > 0 ? ` · <strong style="color:#047857;"><i class="fa-solid fa-tag"></i> Promo coupons available at checkout!</strong>` : ''}</div>`
+              ? `<div style="font-size:13px; font-weight:800; color:#047857;"><i class="fa-solid fa-crown"></i> Active Member: ${escapeHtml(cu.membershipPlan || 'Member Pass')}${cu.membershipValidUntil ? ` · Valid till ${escapeHtml(cu.membershipValidUntil)}` : ''}</div>
+                 <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Included Batches Scope: <strong style="color:var(--secondary);">${escapeHtml(memberScopeText)}</strong></div>`
+              : `<div style="font-size:13px; font-weight:800; color:var(--secondary);">Your Current Batches: <span style="color:var(--primary);">${escapeHtml(userBatches.join(', '))}</span>${cu.enrollmentValidUntil ? ` · Valid till ${escapeHtml(cu.enrollmentValidUntil)}` : ''}</div>
+                 <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Permanent Free Batch <strong>RP-Trail (₹0)</strong> always stays active alongside any paid batch or membership.${activeCouponsCount > 0 ? ` · <strong style="color:#047857;"><i class="fa-solid fa-tag"></i> Promo coupons available at checkout</strong>` : ''}</div>`
             }
           </div>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="window.switchBuyPlansSubtab('history')">
-            <i class="fa-solid fa-receipt"></i> View Fee Payment History
+          <button type="button" class="btn btn-secondary btn-sm" style="white-space:nowrap;" onclick="window.switchBuyPlansSubtab('history')">
+            <i class="fa-solid fa-receipt"></i> Fee Payment History
           </button>
         </div>
       </div>
     `;
 
     const batchColorThemes = [
-      {
-        accent: '#2563eb',
-        border: 'rgba(37, 99, 235, 0.32)',
-        gradient: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
-        bg: 'linear-gradient(165deg, rgba(37, 99, 235, 0.08) 0%, rgba(6, 182, 212, 0.04) 48%, var(--surface) 100%)',
-        icon: 'fa-graduation-cap'
-      },
-      {
-        accent: '#059669',
-        border: 'rgba(5, 150, 105, 0.32)',
-        gradient: 'linear-gradient(135deg, #059669 0%, #14b8a6 100%)',
-        bg: 'linear-gradient(165deg, rgba(5, 150, 105, 0.08) 0%, rgba(20, 184, 166, 0.04) 48%, var(--surface) 100%)',
-        icon: 'fa-bolt'
-      },
-      {
-        accent: '#ea580c',
-        border: 'rgba(234, 88, 12, 0.32)',
-        gradient: 'linear-gradient(135deg, #ea580c 0%, #f59e0b 100%)',
-        bg: 'linear-gradient(165deg, rgba(234, 88, 12, 0.08) 0%, rgba(245, 158, 11, 0.04) 48%, var(--surface) 100%)',
-        icon: 'fa-fire'
-      },
-      {
-        accent: '#e11d48',
-        border: 'rgba(225, 29, 72, 0.3)',
-        gradient: 'linear-gradient(135deg, #e11d48 0%, #f43f5e 55%, #fb7185 100%)',
-        bg: 'linear-gradient(165deg, rgba(225, 29, 72, 0.08) 0%, rgba(251, 113, 133, 0.04) 48%, var(--surface) 100%)',
-        icon: 'fa-award'
-      },
-      {
-        accent: '#4f46e5',
-        border: 'rgba(79, 70, 229, 0.32)',
-        gradient: 'linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%)',
-        bg: 'linear-gradient(165deg, rgba(79, 70, 229, 0.08) 0%, rgba(139, 92, 246, 0.04) 48%, var(--surface) 100%)',
-        icon: 'fa-book-open'
-      }
+      { accent: '#2563eb', border: 'rgba(37, 99, 235, 0.32)', gradient: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)', bg: 'linear-gradient(165deg, rgba(37, 99, 235, 0.08) 0%, rgba(6, 182, 212, 0.04) 48%, var(--surface) 100%)', icon: 'fa-graduation-cap' },
+      { accent: '#059669', border: 'rgba(5, 150, 105, 0.32)', gradient: 'linear-gradient(135deg, #059669 0%, #14b8a6 100%)', bg: 'linear-gradient(165deg, rgba(5, 150, 105, 0.08) 0%, rgba(20, 184, 166, 0.04) 48%, var(--surface) 100%)', icon: 'fa-bolt' },
+      { accent: '#ea580c', border: 'rgba(234, 88, 12, 0.32)', gradient: 'linear-gradient(135deg, #ea580c 0%, #f59e0b 100%)', bg: 'linear-gradient(165deg, rgba(234, 88, 12, 0.08) 0%, rgba(245, 158, 11, 0.04) 48%, var(--surface) 100%)', icon: 'fa-fire' },
+      { accent: '#e11d48', border: 'rgba(225, 29, 72, 0.3)', gradient: 'linear-gradient(135deg, #e11d48 0%, #f43f5e 55%, #fb7185 100%)', bg: 'linear-gradient(165deg, rgba(225, 29, 72, 0.08) 0%, rgba(251, 113, 133, 0.04) 48%, var(--surface) 100%)', icon: 'fa-award' },
+      { accent: '#4f46e5', border: 'rgba(79, 70, 229, 0.32)', gradient: 'linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%)', bg: 'linear-gradient(165deg, rgba(79, 70, 229, 0.08) 0%, rgba(139, 92, 246, 0.04) 48%, var(--surface) 100%)', icon: 'fa-book-open' }
     ];
 
     const memberTierThemes = [
@@ -655,43 +838,65 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
       'linear-gradient(135deg, #be185d 0%, #7c3aed 60%, #4f46e5 100%)'
     ];
 
-    // Merged Member Tier Plan Cards
+    // Merged Member Main Plan Cards (with attached Monthly / Quarterly / Annual billing cycle selector + explicit Included Batches)
     const memberCardsHtml = (cfg.memberPlans || []).map((mp, mIdx) => {
-      const scopeLabel = formatScopeSummary(mp.accessScope, mp.includedBatches, mp.includeUpcoming);
-      const safeTitle = escapeHtml(mp.name).replace(/'/g, "\\'");
+      const opts = Array.isArray(mp.billingOptions) && mp.billingOptions.length > 0
+        ? mp.billingOptions
+        : [{ id: 'mo-1', cycle: 'Annual', label: 'Standard', amount: mp.amount || 0, validityDays: mp.validityDays || 365, note: '', allowInstallments: false, firstInstallmentPercent: 50 }];
+      const firstOpt = opts[0];
+      const batchInfo = resolvePlanIncludedBatches(mp, allBatchNames);
       const tierGrad = memberTierThemes[mIdx % memberTierThemes.length];
+      const fullFirstTitle = opts.length > 1 ? `${mp.name} — ${firstOpt.label}` : mp.name;
+      const safeFullTitle = escapeHtml(fullFirstTitle).replace(/'/g, "\\'");
+      const safeMainName = escapeHtml(mp.name).replace(/'/g, "\\'");
+      const safeCycle = escapeHtml(firstOpt.cycle || firstOpt.label).replace(/'/g, "\\'");
+      const safeScope = escapeHtml(mp.accessScope || 'ALL_PAST_CURRENT_UPCOMING').replace(/'/g, "\\'");
+      const safeIncBatches = escapeHtml(mp.includedBatches || '').replace(/'/g, "\\'");
       return `
-        <div class="rp-plan-card is-member-tier" data-plan-category="member" style="--plan-gradient:${tierGrad};">
+        <div class="rp-plan-card is-member-tier" data-plan-category="member" data-buy-member-card="${mIdx}" style="--plan-gradient:${tierGrad};">
           <div>
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
-              <span class="rp-plan-type-badge"><i class="fa-solid fa-crown"></i> Member Tier</span>
-              <span style="font-size:11px; font-weight:800; color:#7c3aed; background:rgba(124,58,237,0.12); padding:3px 9px; border-radius:999px;"><i class="fa-solid fa-sparkles"></i> All-Access</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+              <span class="rp-plan-type-badge"><i class="fa-solid fa-crown"></i> Member Plan</span>
+              <span style="font-size:11px; font-weight:700; color:#7c3aed;">${opts.length} Billing Option${opts.length === 1 ? '' : 's'}</span>
             </div>
-            <div style="font-size:17px; font-weight:900; color:var(--secondary); line-height:1.25;">${escapeHtml(mp.name)}</div>
-            <div style="margin-top:8px; font-size:11.5px; font-weight:700; color:#4f46e5; background:rgba(79,70,229,0.1); border:1px solid rgba(79,70,229,0.2); padding:6px 10px; border-radius:9px; display:inline-flex; align-items:center; gap:6px;">
-              <i class="fa-solid fa-layer-group"></i> ${escapeHtml(scopeLabel)}
+            <div style="font-size:16.5px; font-weight:900; color:var(--secondary); line-height:1.25;">${escapeHtml(mp.name)}</div>
+            ${opts.length > 1 ? `
+              <div class="rp-plan-chip-selector" style="margin-top:9px;">
+                ${opts.map((o, oIdx) => `
+                  <button type="button" class="rp-plan-chip-btn ${oIdx === 0 ? 'is-selected' : ''}" data-opt-idx="${oIdx}" onclick="window.selectMemberPlanChip(${mIdx}, ${oIdx})">
+                    ${escapeHtml(o.label || o.cycle)} · ${o.amount > 0 ? '₹' + o.amount.toLocaleString('en-IN') : '₹0'}
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
+            <div class="rp-plan-included-batches-box">
+              <div><strong>Included Batches (${escapeHtml(batchInfo.scopeLabel)}):</strong></div>
+              <div style="margin-top:2px; color:var(--secondary); font-weight:600;">${escapeHtml(batchInfo.displayText)}</div>
             </div>
-            ${mp.description ? `<p style="margin:10px 0 0 0; font-size:12.5px; color:var(--text-muted); line-height:1.5;">${escapeHtml(mp.description)}</p>` : ''}
+            <div class="rp-member-inst-badge" style="display:${firstOpt.allowInstallments && firstOpt.amount > 0 ? 'inline-flex' : 'none'}; align-items:center; gap:5px; margin-top:7px; font-size:11px; font-weight:700; color:#0369a1;">
+              <i class="fa-solid fa-layer-group"></i> 2-Part Split Installments Available
+            </div>
+            <p class="rp-member-active-note" style="margin:8px 0 0 0; font-size:12px; color:var(--text-muted); line-height:1.45;">${escapeHtml(firstOpt.note || mp.description || '')}</p>
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:10px; padding-top:14px; margin-top:14px; border-top:1px dashed rgba(124,58,237,0.25); flex-wrap:wrap;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:10px; padding-top:12px; margin-top:12px; border-top:1px dashed rgba(124,58,237,0.25); flex-wrap:wrap;">
             <div>
-              <div class="mono-num rp-plan-price-highlight">${mp.amount > 0 ? '₹' + mp.amount.toLocaleString('en-IN') : '₹0 (Free)'}</div>
-              <div style="font-size:11.5px; color:var(--text-muted); font-weight:700; margin-top:2px;"><i class="fa-regular fa-clock"></i> ${mp.validityDays} Days Validity</div>
+              <div class="mono-num rp-member-active-price rp-plan-price-highlight">${firstOpt.amount > 0 ? '₹' + firstOpt.amount.toLocaleString('en-IN') : '₹0 (Free)'}</div>
+              <div class="rp-member-active-days" style="font-size:11.5px; color:var(--text-muted); font-weight:700; margin-top:2px;">${escapeHtml(firstOpt.label || firstOpt.cycle)} · ${firstOpt.validityDays} days validity</div>
             </div>
-            <button type="button" class="btn btn-sm rp-plan-cta-vibrant" onclick="window.openStudentUpiFeeCheckout('member', 'ALL_BATCHES', ${Math.max(0, Number(mp.amount || 0))}, '${safeTitle}', ${mp.validityDays}, '${safeTitle}', 'buy-plans-upi-checkout-panel')">
-              ${mp.amount > 0 ? '<i class="fa-solid fa-qrcode"></i> Buy Member Plan' : '<i class="fa-solid fa-paper-plane"></i> Request Free (₹0)'}
+            <button type="button" class="btn btn-sm rp-plan-cta-vibrant rp-member-pay-cta" onclick="window.openStudentUpiFeeCheckout('member', 'ALL_BATCHES', ${Math.max(0, Number(firstOpt.amount || 0))}, '${safeFullTitle}', ${firstOpt.validityDays}, '${safeFullTitle}', 'buy-plans-upi-checkout-panel', { mainPlanName: '${safeMainName}', billingCycle: '${safeCycle}', accessScope: '${safeScope}', includedBatches: '${safeIncBatches}', includeUpcoming: ${mp.includeUpcoming ? 'true' : 'false'}, allowInstallments: ${firstOpt.allowInstallments && firstOpt.amount > 0 ? 'true' : 'false'}, firstInstallmentPercent: ${firstOpt.firstInstallmentPercent || 50} })">
+              ${firstOpt.amount > 0 ? '<i class="fa-solid fa-qrcode"></i> Buy Member Plan' : '<i class="fa-solid fa-paper-plane"></i> Request Free (₹0)'}
             </button>
           </div>
         </div>
       `;
     }).join('');
 
-    // Merged Individual Batch Multi-Plan Cards
+    // Merged Individual Batch Multi-Plan Cards (with Monthly / Quarterly / Annual cycle selector + explicit Batch Coverage)
     const batchCardsHtml = allBatchNames.map((bName, bIdx) => {
       const plans = (cfg.batchPlans[bName] && cfg.batchPlans[bName].length > 0)
         ? cfg.batchPlans[bName]
         : [];
-      const firstPlan = plans[0] || { name: 'Standard Plan', amount: 0, validityDays: 90, note: 'Contact Admin for pricing.', allowInstallments: false, firstInstallmentPercent: 50 };
+      const firstPlan = plans[0] || { name: 'Standard Plan', cycle: 'Custom', amount: 0, validityDays: 90, note: 'Contact Admin for pricing.', allowInstallments: false, firstInstallmentPercent: 50 };
       const alreadyEnrolled = (typeof userHasBatchAssigned === 'function')
         ? userHasBatchAssigned(cu.userId, bName, cu.batch || cu.Batch || '')
         : userBatches.some((ub) => ub.toLowerCase() === bName.toLowerCase());
@@ -699,41 +904,45 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
       const hasPendingBalance = Boolean(balInfo && balInfo.remainingBalance > 0);
       const safeB = escapeHtml(bName).replace(/'/g, "\\'");
       const safeFirstPlan = escapeHtml(firstPlan.name).replace(/'/g, "\\'");
+      const safeFirstCycle = escapeHtml(firstPlan.cycle || firstPlan.name).replace(/'/g, "\\'");
       const safeBalPlan = escapeHtml((balInfo && balInfo.planName) || firstPlan.name).replace(/'/g, "\\'");
       const theme = batchColorThemes[bIdx % batchColorThemes.length];
 
       return `
         <div class="rp-plan-card ${alreadyEnrolled ? 'is-enrolled' : ''}" data-plan-category="batch" data-buy-batch-card="${bIdx}" data-batch-name="${escapeHtml(bName)}" style="--plan-accent:${theme.accent}; --plan-border:${alreadyEnrolled ? 'rgba(16, 185, 129, 0.5)' : theme.border}; --plan-gradient:${theme.gradient}; --plan-bg:${theme.bg};">
           <div>
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
               <span class="rp-plan-type-badge"><i class="fa-solid ${theme.icon}"></i> Batch Plan</span>
               ${alreadyEnrolled
-                ? '<span style="font-size:11px; font-weight:800; color:#047857; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.35); padding:3px 9px; border-radius:999px;"><i class="fa-solid fa-circle-check"></i> Unlocked</span>'
-                : ''}
+                ? '<span style="font-size:11px; font-weight:800; color:#047857;"><i class="fa-solid fa-circle-check"></i> Unlocked</span>'
+                : (plans.length > 0 ? `<span style="font-size:11px; font-weight:700; color:var(--text-muted);">${plans.length} Cycle${plans.length === 1 ? '' : 's'}</span>` : '')}
             </div>
             <div style="font-size:16.5px; font-weight:900; color:var(--secondary); line-height:1.25;">${escapeHtml(bName)}</div>
             ${plans.length > 1 ? `
-              <div class="rp-plan-chip-selector" style="margin-top:10px;">
+              <div class="rp-plan-chip-selector" style="margin-top:9px;">
                 ${plans.map((pl, pIdx) => `
-                  <button type="button" class="rp-plan-chip-btn ${pIdx === 0 ? 'is-selected' : ''}" data-plan-idx="${pIdx}" data-amt="${pl.amount}" data-days="${pl.validityDays}" data-plan-name="${escapeHtml(pl.name)}" data-note="${escapeHtml(pl.note || '')}" data-inst="${pl.allowInstallments ? '1' : '0'}" data-inst-pct="${pl.firstInstallmentPercent || 50}" onclick="window.selectBatchPlanChip(${bIdx}, ${pIdx})">
-                    ${escapeHtml(pl.name)} · ₹${pl.amount.toLocaleString('en-IN')}
+                  <button type="button" class="rp-plan-chip-btn ${pIdx === 0 ? 'is-selected' : ''}" data-plan-idx="${pIdx}" data-amt="${pl.amount}" data-days="${pl.validityDays}" data-plan-name="${escapeHtml(pl.name)}" data-cycle="${escapeHtml(pl.cycle || pl.name)}" data-note="${escapeHtml(pl.note || '')}" data-inst="${pl.allowInstallments ? '1' : '0'}" data-inst-pct="${pl.firstInstallmentPercent || 50}" onclick="window.selectBatchPlanChip(${bIdx}, ${pIdx})">
+                    ${escapeHtml(pl.name)} · ${pl.amount > 0 ? '₹' + pl.amount.toLocaleString('en-IN') : '₹0'}
                   </button>
                 `).join('')}
               </div>
             ` : ''}
-            <div class="rp-batch-inst-badge" style="display:${firstPlan.allowInstallments && firstPlan.amount > 0 ? 'inline-flex' : 'none'}; align-items:center; gap:5px; margin-top:9px; font-size:11px; font-weight:800; color:#0369a1; background:rgba(14,165,233,0.12); border:1px solid rgba(14,165,233,0.28); padding:4px 9px; border-radius:8px;">
-              <i class="fa-solid fa-layer-group"></i> 2-Part Installments Available
+            <div class="rp-plan-included-batches-box">
+              <strong>Included Batch:</strong> <span style="color:var(--secondary); font-weight:700;">${escapeHtml(bName)}</span> + RP-Trail (Free)
+            </div>
+            <div class="rp-batch-inst-badge" style="display:${firstPlan.allowInstallments && firstPlan.amount > 0 ? 'inline-flex' : 'none'}; align-items:center; gap:5px; margin-top:7px; font-size:11px; font-weight:700; color:#0369a1;">
+              <i class="fa-solid fa-layer-group"></i> 2-Part Split Installments Available
             </div>
             ${hasPendingBalance ? `
-              <div style="margin-top:9px; padding:8px 10px; border-radius:9px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.36); font-size:11.5px; color:#92400e;">
+              <div style="margin-top:8px; padding:8px 10px; border-radius:8px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.36); font-size:11.5px; color:#92400e;">
                 <strong>Installment Balance Due:</strong> Paid ₹${balInfo.totalPaid.toLocaleString('en-IN')} of ₹${balInfo.totalPlanFee.toLocaleString('en-IN')} · <strong class="mono-num">Balance ₹${balInfo.remainingBalance.toLocaleString('en-IN')}</strong>
               </div>
             ` : ''}
-            <div class="rp-batch-active-note" style="font-size:12.5px; color:var(--text-muted); margin-top:10px; line-height:1.5;">
+            <div class="rp-batch-active-note" style="font-size:12px; color:var(--text-muted); margin-top:8px; line-height:1.45;">
               ${escapeHtml(firstPlan.note || 'Dedicated batch study material, dictations & tests + permanent RP-Trail free access.')}
             </div>
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:8px; padding-top:14px; margin-top:14px; border-top:1px dashed var(--plan-border, var(--border)); flex-wrap:wrap;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:8px; padding-top:12px; margin-top:12px; border-top:1px dashed var(--plan-border, var(--border)); flex-wrap:wrap;">
             <div>
               <div class="mono-num rp-batch-active-price rp-plan-price-highlight">${plans.length > 0 ? (firstPlan.amount > 0 ? '₹' + firstPlan.amount.toLocaleString('en-IN') : '₹0 (Free)') : 'Contact Admin'}</div>
               <div class="rp-batch-active-days" style="font-size:11.5px; color:var(--text-muted); font-weight:700; margin-top:2px;">${escapeHtml(firstPlan.name)} · ${firstPlan.validityDays} days validity</div>
@@ -743,7 +952,7 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
                 ? `<button type="button" class="btn btn-sm btn-warning" style="background:linear-gradient(135deg,#f59e0b,#ea580c); color:#fff; border:none; border-radius:10px; font-weight:800;" onclick="window.openStudentUpiFeeCheckout('batch', '${safeB}', ${balInfo.totalPlanFee}, '${safeB} — Installment 2 / Balance', ${balInfo.validityDays}, '${safeBalPlan}', 'buy-plans-upi-checkout-panel', { mode: 'balance', remainingBalance: ${balInfo.remainingBalance}, priorPaid: ${balInfo.totalPaid}, totalPlanFee: ${balInfo.totalPlanFee} })"><i class="fa-solid fa-wallet"></i> Pay Balance ₹${balInfo.remainingBalance.toLocaleString('en-IN')}</button>`
                 : ''}
               ${plans.length > 0
-                ? `<button type="button" class="btn btn-sm rp-plan-cta-vibrant rp-batch-pay-cta" onclick="window.openStudentUpiFeeCheckout('batch', '${safeB}', ${Math.max(0, Number(firstPlan.amount || 0))}, '${safeB} — ${safeFirstPlan}', ${firstPlan.validityDays}, '${safeFirstPlan}', 'buy-plans-upi-checkout-panel', { allowInstallments: ${firstPlan.allowInstallments && firstPlan.amount > 0 ? 'true' : 'false'}, firstInstallmentPercent: ${firstPlan.firstInstallmentPercent || 50} })">${firstPlan.amount > 0 ? `<i class="fa-solid fa-indian-rupee-sign"></i> ${alreadyEnrolled ? 'Renew Plan' : 'Buy Batch'}` : `<i class="fa-solid fa-paper-plane"></i> Request Free (₹0)`}</button>`
+                ? `<button type="button" class="btn btn-sm rp-plan-cta-vibrant rp-batch-pay-cta" onclick="window.openStudentUpiFeeCheckout('batch', '${safeB}', ${Math.max(0, Number(firstPlan.amount || 0))}, '${safeB} — ${safeFirstPlan}', ${firstPlan.validityDays}, '${safeFirstPlan}', 'buy-plans-upi-checkout-panel', { allowInstallments: ${firstPlan.allowInstallments && firstPlan.amount > 0 ? 'true' : 'false'}, firstInstallmentPercent: ${firstPlan.firstInstallmentPercent || 50}, billingCycle: '${safeFirstCycle}' })">${firstPlan.amount > 0 ? `<i class="fa-solid fa-indian-rupee-sign"></i> ${alreadyEnrolled ? 'Renew Plan' : 'Buy Batch'}` : `<i class="fa-solid fa-paper-plane"></i> Request Free (₹0)`}</button>`
                 : `<span style="font-size:11px; color:var(--text-muted); font-weight:700;">Not Priced Yet</span>`}
             </div>
           </div>
@@ -784,7 +993,7 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
               Explore All Member Tiers &amp; Batch Plans
             </h3>
             <p style="margin:4px 0 0 0; font-size:12.5px; color:rgba(255,255,255,0.88);">
-              Unlock all-access multi-batch memberships or pick an individual batch plan with instant activation.
+              Compare Monthly, Quarterly &amp; Annual billing options and see the exact batches included in every plan.
             </p>
           </div>
           <div class="rp-merged-plans-filter-bar" role="tablist" aria-label="Filter plans">
@@ -818,6 +1027,7 @@ window.renderBuyPlansCatalog = async function (mountId = 'buy-plans-catalog-moun
     `;
 
     mount.innerHTML = `
+      ${statusBannerHtml}
       ${mergedPlansShowcaseHtml}
       <div id="buy-plans-upi-checkout-panel" class="card" style="display:none; border:2px solid var(--primary); margin-bottom:18px;"></div>
     `;
@@ -1498,13 +1708,18 @@ window.openStudentUpiFeeCheckout = function (feeType, batchName, amount, planLab
     _selectedStudentFeePlan = {
       feeType: normFeeType,
       batchName: normFeeType === 'member' ? 'ALL_BATCHES' : batchName,
+      mainPlanName: options.mainPlanName || planName || planLabel || batchName,
+      billingCycle: options.billingCycle || '',
+      accessScope: options.accessScope || '',
+      includedBatches: options.includedBatches || '',
+      includeUpcoming: Boolean(options.includeUpcoming),
       originalAmount: origAmt,
       amount: isBalanceMode ? Number(options.remainingBalance) : origAmt,
       planLabel: planLabel || planName || batchName,
       planName: planName || planLabel || batchName,
       validityDays: Number(validityDays) || 90,
       panelId: targetPanelId,
-      allowInstallments: Boolean(options.allowInstallments && normFeeType === 'batch' && !isBalanceMode),
+      allowInstallments: Boolean(options.allowInstallments && !isBalanceMode),
       firstInstallmentPercent: Math.max(20, Math.min(80, Number(options.firstInstallmentPercent || 50) || 50)),
       installmentMode: 'full',
       mode: isBalanceMode ? 'balance' : 'new',
@@ -1514,6 +1729,14 @@ window.openStudentUpiFeeCheckout = function (feeType, batchName, amount, planLab
       discountAmount: 0,
       installmentLabel: isBalanceMode ? 'Installment 2 of 2 (Balance)' : 'Full Payment'
     };
+
+    const checkoutBatchInfo = normFeeType === 'member'
+      ? resolvePlanIncludedBatches({
+          accessScope: _selectedStudentFeePlan.accessScope || 'ALL_PAST_CURRENT_UPCOMING',
+          includedBatches: _selectedStudentFeePlan.includedBatches,
+          includeUpcoming: _selectedStudentFeePlan.includeUpcoming
+        }, getAllAvailableFeeBatches(cfg.batchPlans)).displayText
+      : `${batchName} + RP-Trail (Permanent Free)`;
 
     const isInitiallyZero = _selectedStudentFeePlan.amount <= 0;
     const firstInstPct = _selectedStudentFeePlan.firstInstallmentPercent;
@@ -1530,6 +1753,7 @@ window.openStudentUpiFeeCheckout = function (feeType, batchName, amount, planLab
             ${options.isRenewal ? 'PLAN RENEWAL · ' : ''}${isInitiallyZero ? 'FREE (₹0) ENROLLMENT REQUEST' : 'UPI / QR FEE CHECKOUT'}
           </div>
           <h4 style="margin:3px 0 0 0; font-size:16px; color:var(--secondary);">${escapeHtml(_selectedStudentFeePlan.planLabel)} · <span id="checkout-header-payable-amt" class="mono-num">${isInitiallyZero ? '₹0 (Free)' : ('₹' + _selectedStudentFeePlan.amount.toLocaleString('en-IN'))}</span></h4>
+          <div style="font-size:11.5px; color:var(--secondary); font-weight:700; margin-top:3px;">Included Batches: <span style="font-weight:600; color:var(--text-muted);">${escapeHtml(checkoutBatchInfo)}</span></div>
           <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">${escapeHtml(cfg.paymentInstructions)}</div>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('${targetPanelId}').style.display='none'"><i class="fa-solid fa-xmark"></i> Close</button>
@@ -1672,6 +1896,8 @@ window.submitStudentFeeUtrPayment = async function () {
         userId: portalState.currentUser.userId,
         feeType: _selectedStudentFeePlan.feeType,
         batchName: _selectedStudentFeePlan.batchName,
+        mainPlanName: _selectedStudentFeePlan.mainPlanName || _selectedStudentFeePlan.planName,
+        billingCycle: _selectedStudentFeePlan.billingCycle || '',
         planName: _selectedStudentFeePlan.planName,
         validityDays: _selectedStudentFeePlan.validityDays,
         amountPaid: isZeroFeeRequest ? 0 : _selectedStudentFeePlan.amount,
@@ -1731,39 +1957,99 @@ window.submitStudentFeeUtrPayment = async function () {
     }
   };
 
+let _adminPublishedPlansFilter = 'all';
+let _adminEditingFocusKey = '';
+let _adminRenderedBatchKeys = [];
+
+async function confirmFeePlanDelete(title, message) {
+    if (typeof window.rpConfirmDelete === 'function') {
+      return Boolean(await window.rpConfirmDelete({
+        title: title || 'Delete Plan?',
+        message: message || 'Are you sure you want to delete this item?',
+        confirmText: 'Delete'
+      }));
+    }
+    return true;
+  }
+
 export function readAdminFeeBuilderInputsIntoState() {
     if (!_adminFeeBuilderState) return;
-    // Capture Member Plan edits from DOM
+    // Capture Member Main Plan edits + attached billingOptions + checked batches from DOM
     document.querySelectorAll('#adm-member-plans-list [data-mp-idx]').forEach((row) => {
       const idx = Number(row.getAttribute('data-mp-idx'));
       if (!_adminFeeBuilderState.memberPlans[idx]) return;
+      const checkedBatches = Array.from(row.querySelectorAll('.adm-mp-batch-cb:checked'))
+        .map((cb) => String(cb.value || '').trim())
+        .filter(Boolean);
+      const extraBatches = normalizeIncludedBatchesArray(row.querySelector('.adm-mp-batches-extra')?.value || '');
+      const mergedBatches = Array.from(new Set([...checkedBatches, ...extraBatches]));
+
+      const billingOptions = [];
+      row.querySelectorAll('[data-mp-opt-idx]').forEach((optRow, oFallback) => {
+        const cycleSel = String(optRow.querySelector('.adm-mp-opt-cycle')?.value || 'Custom').trim();
+        const labelVal = String(optRow.querySelector('.adm-mp-opt-label')?.value || '').trim();
+        const amtVal = Math.max(0, Number(optRow.querySelector('.adm-mp-opt-amt')?.value || 0) || 0);
+        const daysVal = Math.max(1, Number(optRow.querySelector('.adm-mp-opt-days')?.value || 30) || 30);
+        const noteVal = String(optRow.querySelector('.adm-mp-opt-note')?.value || '').trim();
+        const allowInst = Boolean(optRow.querySelector('.adm-mp-opt-inst')?.checked);
+        const firstPct = Math.max(20, Math.min(80, Number(optRow.querySelector('.adm-mp-opt-inst-pct')?.value || 50) || 50));
+        const existingOpt = (_adminFeeBuilderState.memberPlans[idx].billingOptions || [])[oFallback] || {};
+        const finalCycle = inferBillingCycle(cycleSel, labelVal, daysVal);
+        billingOptions.push({
+          id: existingOpt.id || `MO-${idx + 1}-${oFallback + 1}`,
+          cycle: finalCycle,
+          label: labelVal || (finalCycle === 'Custom' ? `Option ${oFallback + 1}` : finalCycle),
+          amount: amtVal,
+          validityDays: daysVal,
+          note: noteVal,
+          allowInstallments: allowInst,
+          installmentCount: 2,
+          firstInstallmentPercent: firstPct
+        });
+      });
+
+      const safeOpts = billingOptions.length > 0
+        ? billingOptions
+        : normalizeMemberBillingOptionsClient(_adminFeeBuilderState.memberPlans[idx], idx);
+      const scopeVal = String(row.querySelector('.adm-mp-scope')?.value || 'ALL_PAST_CURRENT_UPCOMING').toUpperCase();
+
       _adminFeeBuilderState.memberPlans[idx] = {
         ..._adminFeeBuilderState.memberPlans[idx],
         name: String(row.querySelector('.adm-mp-name')?.value || '').trim(),
-        amount: Math.max(0, Number(row.querySelector('.adm-mp-amt')?.value || 0) || 0),
-        validityDays: Math.max(1, Number(row.querySelector('.adm-mp-days')?.value || 365) || 365),
-        accessScope: String(row.querySelector('.adm-mp-scope')?.value || 'ALL_PAST_CURRENT_UPCOMING'),
-        includedBatches: String(row.querySelector('.adm-mp-batches')?.value || '').trim(),
+        amount: safeOpts[0].amount,
+        validityDays: safeOpts[0].validityDays,
+        billingOptions: safeOpts,
+        accessScope: scopeVal,
+        includedBatches: mergedBatches.join(', '),
+        includedBatchesList: mergedBatches,
         includeUpcoming: Boolean(row.querySelector('.adm-mp-upcoming')?.checked),
         description: String(row.querySelector('.adm-mp-desc')?.value || '').trim()
       };
     });
-    // Capture Batch Plan edits from DOM (including Installments toggle)
-    document.querySelectorAll('#adm-batch-plans-builder [data-bp-batch]').forEach((row) => {
-      const bName = row.getAttribute('data-bp-batch');
+
+    // Capture Batch Plan edits from DOM (including cycle & Installments toggle)
+    document.querySelectorAll('#adm-batch-plans-builder [data-bp-batch-idx]').forEach((row) => {
+      const bIdx = Number(row.getAttribute('data-bp-batch-idx'));
+      const bName = _adminRenderedBatchKeys[bIdx] || row.getAttribute('data-bp-batch') || '';
       const idx = Number(row.getAttribute('data-bp-idx'));
-      if (!_adminFeeBuilderState.batchPlans[bName] || !_adminFeeBuilderState.batchPlans[bName][idx]) return;
+      if (!bName || !_adminFeeBuilderState.batchPlans[bName] || !_adminFeeBuilderState.batchPlans[bName][idx]) return;
+      const cycleSel = String(row.querySelector('.adm-bp-cycle')?.value || 'Custom').trim();
+      const nameVal = String(row.querySelector('.adm-bp-name')?.value || '').trim();
+      const daysVal = Math.max(1, Number(row.querySelector('.adm-bp-days')?.value || 90) || 90);
+      const finalCycle = inferBillingCycle(cycleSel, nameVal, daysVal);
       _adminFeeBuilderState.batchPlans[bName][idx] = {
         ..._adminFeeBuilderState.batchPlans[bName][idx],
-        name: String(row.querySelector('.adm-bp-name')?.value || '').trim(),
+        cycle: finalCycle,
+        name: nameVal || (finalCycle === 'Custom' ? 'Standard Plan' : `${finalCycle} Plan`),
         amount: Math.max(0, Number(row.querySelector('.adm-bp-amt')?.value || 0) || 0),
-        validityDays: Math.max(1, Number(row.querySelector('.adm-bp-days')?.value || 90) || 90),
+        validityDays: daysVal,
         note: String(row.querySelector('.adm-bp-note')?.value || '').trim(),
         allowInstallments: Boolean(row.querySelector('.adm-bp-inst')?.checked),
         installmentCount: 2,
         firstInstallmentPercent: Math.max(20, Math.min(80, Number(row.querySelector('.adm-bp-inst-pct')?.value || 50) || 50))
       };
     });
+
     // Capture Promo Coupon edits from DOM
     document.querySelectorAll('#adm-coupons-list [data-cp-idx]').forEach((row) => {
       const idx = Number(row.getAttribute('data-cp-idx'));
@@ -1782,27 +2068,139 @@ export function readAdminFeeBuilderInputsIntoState() {
     });
   }
 
+window.onAdminCyclePresetSelectChange = function (selectEl) {
+    if (!selectEl) return;
+    const row = selectEl.closest('[data-mp-opt-idx], [data-bp-idx]');
+    if (!row) return;
+    const cycle = String(selectEl.value || '').trim();
+    const presetDays = { 'Monthly': 30, 'Quarterly': 90, 'Half-Yearly': 180, 'Annual': 365 };
+    const daysInput = row.querySelector('.adm-mp-opt-days, .adm-bp-days');
+    const nameInput = row.querySelector('.adm-mp-opt-label, .adm-bp-name');
+    if (presetDays[cycle] && daysInput) {
+      daysInput.value = String(presetDays[cycle]);
+    }
+    if (nameInput && (!nameInput.value.trim() || /^(Monthly|Quarterly|Half-Yearly|Annual|Standard|Option \d+|Plan \d+)(\s+Plan)?$/i.test(nameInput.value.trim()))) {
+      nameInput.value = cycle === 'Custom' ? nameInput.value : (row.hasAttribute('data-bp-idx') ? `${cycle} Plan` : cycle);
+    }
+  };
+
 window.addAdminMemberPlanRow = function () {
     readAdminFeeBuilderInputsIntoState();
     _adminFeeBuilderState = _adminFeeBuilderState || { memberPlans: [], batchPlans: {}, coupons: [] };
+    const newIdx = _adminFeeBuilderState.memberPlans.length;
+    const ts = Date.now();
     _adminFeeBuilderState.memberPlans.push({
-      id: 'MP-' + Date.now(),
-      name: 'Member Plan ' + (_adminFeeBuilderState.memberPlans.length + 1),
+      id: 'MP-' + ts,
+      name: 'Member Plan ' + (newIdx + 1),
       amount: 0,
-      validityDays: 365,
+      validityDays: 30,
+      billingOptions: [
+        { id: `MO-${ts}-M`, cycle: 'Monthly', label: 'Monthly', amount: 0, validityDays: 30, note: '30-day access', allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 },
+        { id: `MO-${ts}-Q`, cycle: 'Quarterly', label: 'Quarterly', amount: 0, validityDays: 90, note: '3-month access', allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 },
+        { id: `MO-${ts}-A`, cycle: 'Annual', label: 'Annual', amount: 0, validityDays: 365, note: 'Full-year best value', allowInstallments: true, installmentCount: 2, firstInstallmentPercent: 50 }
+      ],
       accessScope: 'ALL_PAST_CURRENT_UPCOMING',
       includedBatches: '',
+      includedBatchesList: [],
       includeUpcoming: true,
       description: ''
     });
+    _adminEditingFocusKey = `member:${newIdx}`;
+    renderAdminFeeBuildersOnly();
+    setTimeout(() => window.focusEditAdminFeePlan('member', newIdx), 40);
+  };
+
+window.addAdminMemberBillingOption = function (mpIdx) {
+    readAdminFeeBuilderInputsIntoState();
+    const mp = _adminFeeBuilderState && _adminFeeBuilderState.memberPlans && _adminFeeBuilderState.memberPlans[mpIdx];
+    if (!mp) return;
+    if (!Array.isArray(mp.billingOptions)) mp.billingOptions = [];
+    mp.billingOptions.push({
+      id: 'MO-' + Date.now(),
+      cycle: 'Custom',
+      label: 'Custom Cycle ' + (mp.billingOptions.length + 1),
+      amount: 0,
+      validityDays: 60,
+      note: '',
+      allowInstallments: false,
+      installmentCount: 2,
+      firstInstallmentPercent: 50
+    });
+    _adminEditingFocusKey = `member:${mpIdx}`;
     renderAdminFeeBuildersOnly();
   };
 
-window.removeAdminMemberPlanRow = function (idx) {
+window.addAdminMemberStandardCycles = function (mpIdx) {
     readAdminFeeBuilderInputsIntoState();
-    if (_adminFeeBuilderState && Array.isArray(_adminFeeBuilderState.memberPlans)) {
-      _adminFeeBuilderState.memberPlans.splice(idx, 1);
+    const mp = _adminFeeBuilderState && _adminFeeBuilderState.memberPlans && _adminFeeBuilderState.memberPlans[mpIdx];
+    if (!mp) return;
+    if (!Array.isArray(mp.billingOptions)) mp.billingOptions = [];
+    const existingCycles = new Set(mp.billingOptions.map((o) => String(o.cycle || o.label || '').toLowerCase()));
+    const ts = Date.now();
+    const presets = [
+      { id: `MO-${ts}-M`, cycle: 'Monthly', label: 'Monthly', amount: 0, validityDays: 30, note: '30-day rolling membership', allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 },
+      { id: `MO-${ts}-Q`, cycle: 'Quarterly', label: 'Quarterly', amount: 0, validityDays: 90, note: '3-month membership', allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 },
+      { id: `MO-${ts}-A`, cycle: 'Annual', label: 'Annual', amount: 0, validityDays: 365, note: 'Full-year membership (best value)', allowInstallments: true, installmentCount: 2, firstInstallmentPercent: 50 }
+    ];
+    let added = 0;
+    presets.forEach((p) => {
+      if (!existingCycles.has(p.cycle.toLowerCase())) {
+        mp.billingOptions.push(p);
+        added++;
+      }
+    });
+    _adminEditingFocusKey = `member:${mpIdx}`;
+    renderAdminFeeBuildersOnly();
+    safeNotify(added > 0 ? `Attached ${added} Monthly/Quarterly/Annual billing option(s) to "${mp.name}" — enter ₹ fees & Save!` : `Monthly, Quarterly & Annual options are already attached to "${mp.name}".`);
+  };
+
+window.removeAdminMemberBillingOption = function (mpIdx, optIdx) {
+    readAdminFeeBuilderInputsIntoState();
+    const mp = _adminFeeBuilderState && _adminFeeBuilderState.memberPlans && _adminFeeBuilderState.memberPlans[mpIdx];
+    if (!mp || !Array.isArray(mp.billingOptions)) return;
+    if (mp.billingOptions.length <= 1) {
+      safeNotify('Each Main Member Plan needs at least 1 billing cycle option.');
+      return;
     }
+    mp.billingOptions.splice(optIdx, 1);
+    mp.amount = mp.billingOptions[0].amount;
+    mp.validityDays = mp.billingOptions[0].validityDays;
+    renderAdminFeeBuildersOnly();
+  };
+
+window.toggleAdminMemberAllBatches = function (mpIdx, selectAll) {
+    readAdminFeeBuilderInputsIntoState();
+    const mp = _adminFeeBuilderState && _adminFeeBuilderState.memberPlans && _adminFeeBuilderState.memberPlans[mpIdx];
+    if (!mp) return;
+    const allBatches = getAllAvailableFeeBatches(_adminFeeBuilderState.batchPlans);
+    mp.includedBatchesList = selectAll ? allBatches.slice() : [];
+    mp.includedBatches = mp.includedBatchesList.join(', ');
+    if (selectAll && mp.accessScope !== 'CUSTOM_SELECTED' && mp.accessScope !== 'CURRENT_AND_UPCOMING') {
+      mp.accessScope = 'CUSTOM_SELECTED';
+    }
+    renderAdminFeeBuildersOnly();
+  };
+
+window.onAdminMemberPlanScopeChange = function (mpIdx, newScope) {
+    readAdminFeeBuilderInputsIntoState();
+    const mp = _adminFeeBuilderState && _adminFeeBuilderState.memberPlans && _adminFeeBuilderState.memberPlans[mpIdx];
+    if (!mp) return;
+    mp.accessScope = String(newScope || 'ALL_PAST_CURRENT_UPCOMING').toUpperCase();
+    if (mp.accessScope === 'ALL_PAST_CURRENT_UPCOMING' || mp.accessScope === 'CURRENT_AND_UPCOMING') {
+      mp.includeUpcoming = true;
+    } else if (mp.accessScope === 'ALL_EXISTING_ONLY') {
+      mp.includeUpcoming = false;
+    }
+    renderAdminFeeBuildersOnly();
+  };
+
+window.removeAdminMemberPlanRow = async function (idx) {
+    readAdminFeeBuilderInputsIntoState();
+    const mp = _adminFeeBuilderState && Array.isArray(_adminFeeBuilderState.memberPlans) ? _adminFeeBuilderState.memberPlans[idx] : null;
+    if (!mp) return;
+    const ok = await confirmFeePlanDelete('Delete Member Plan?', `Delete "${mp.name || 'this Member Plan'}" and all its attached billing cycles? Click Save to confirm in Google Sheets.`);
+    if (!ok) return;
+    _adminFeeBuilderState.memberPlans.splice(idx, 1);
     renderAdminFeeBuildersOnly();
   };
 
@@ -1814,6 +2212,7 @@ window.addAdminBatchPlanRow = function (batchName) {
     }
     _adminFeeBuilderState.batchPlans[batchName].push({
       id: 'BP-' + Date.now(),
+      cycle: 'Custom',
       name: 'Plan ' + (_adminFeeBuilderState.batchPlans[batchName].length + 1),
       amount: 0,
       validityDays: 90,
@@ -1822,7 +2221,13 @@ window.addAdminBatchPlanRow = function (batchName) {
       installmentCount: 2,
       firstInstallmentPercent: 50
     });
+    _adminEditingFocusKey = `batch:${batchName}`;
     renderAdminFeeBuildersOnly();
+  };
+
+window.addAdminBatchPlanRowByIdx = function (bIdx) {
+    const bName = _adminRenderedBatchKeys[bIdx];
+    if (bName) window.addAdminBatchPlanRow(bName);
   };
 
 window.addAdminBatchStandardTierPresets = function (batchName) {
@@ -1831,22 +2236,28 @@ window.addAdminBatchStandardTierPresets = function (batchName) {
     if (!Array.isArray(_adminFeeBuilderState.batchPlans[batchName])) {
       _adminFeeBuilderState.batchPlans[batchName] = [];
     }
-    const existingNames = new Set(_adminFeeBuilderState.batchPlans[batchName].map(p => String(p.name || '').toLowerCase()));
+    const existingCycles = new Set(_adminFeeBuilderState.batchPlans[batchName].map(p => String(p.cycle || p.name || '').toLowerCase()));
     const ts = Date.now();
     const presets = [
-      { id: 'BP-' + ts + '-M', name: 'Monthly Plan', amount: 0, validityDays: 30, note: '30-day rolling batch access', allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 },
-      { id: 'BP-' + ts + '-Q', name: 'Quarterly Plan', amount: 0, validityDays: 90, note: '3-month batch access with priority review', allowInstallments: true, installmentCount: 2, firstInstallmentPercent: 50 },
-      { id: 'BP-' + ts + '-A', name: 'Annual Plan', amount: 0, validityDays: 365, note: 'Full-year batch access (best value)', allowInstallments: true, installmentCount: 2, firstInstallmentPercent: 50 }
+      { id: 'BP-' + ts + '-M', cycle: 'Monthly', name: 'Monthly Plan', amount: 0, validityDays: 30, note: '30-day rolling batch access', allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 },
+      { id: 'BP-' + ts + '-Q', cycle: 'Quarterly', name: 'Quarterly Plan', amount: 0, validityDays: 90, note: '3-month batch access with priority review', allowInstallments: true, installmentCount: 2, firstInstallmentPercent: 50 },
+      { id: 'BP-' + ts + '-A', cycle: 'Annual', name: 'Annual Plan', amount: 0, validityDays: 365, note: 'Full-year batch access (best value)', allowInstallments: true, installmentCount: 2, firstInstallmentPercent: 50 }
     ];
     let added = 0;
     presets.forEach((p) => {
-      if (!existingNames.has(p.name.toLowerCase())) {
+      if (!existingCycles.has(p.cycle.toLowerCase()) && !existingCycles.has(p.name.toLowerCase())) {
         _adminFeeBuilderState.batchPlans[batchName].push(p);
         added++;
       }
     });
+    _adminEditingFocusKey = `batch:${batchName}`;
     renderAdminFeeBuildersOnly();
-    safeNotify(added > 0 ? `Added ${added} Monthly/Quarterly/Annual plan template(s) for ${batchName} — enter ₹ fees & Save!` : `Monthly, Quarterly & Annual plans already exist for ${batchName}.`);
+    safeNotify(added > 0 ? `Attached ${added} Monthly/Quarterly/Annual cycle(s) to "${batchName}" — enter ₹ fees & Save!` : `Monthly, Quarterly & Annual plans already exist for "${batchName}".`);
+  };
+
+window.addAdminBatchStandardTierPresetsByIdx = function (bIdx) {
+    const bName = _adminRenderedBatchKeys[bIdx];
+    if (bName) window.addAdminBatchStandardTierPresets(bName);
   };
 
 window.removeAdminBatchPlanRow = function (batchName, idx) {
@@ -1855,6 +2266,34 @@ window.removeAdminBatchPlanRow = function (batchName, idx) {
       _adminFeeBuilderState.batchPlans[batchName].splice(idx, 1);
     }
     renderAdminFeeBuildersOnly();
+  };
+
+window.removeAdminBatchPlanRowByIdx = function (bIdx, pIdx) {
+    const bName = _adminRenderedBatchKeys[bIdx];
+    if (bName) window.removeAdminBatchPlanRow(bName, pIdx);
+  };
+
+window.addNewBatchToFeeBuilder = function () {
+    const inp = document.getElementById('adm-fee-custom-batch-name-input');
+    const bName = String(inp ? inp.value : '').trim();
+    if (!bName || bName.toLowerCase() === 'rp-trail') {
+      safeNotify('Enter a valid Batch name (RP-Trail is always permanent Free ₹0).');
+      return;
+    }
+    readAdminFeeBuilderInputsIntoState();
+    _adminFeeBuilderState = _adminFeeBuilderState || { memberPlans: [], batchPlans: {}, coupons: [] };
+    if (!Array.isArray(_adminFeeBuilderState.batchPlans[bName]) || _adminFeeBuilderState.batchPlans[bName].length === 0) {
+      const ts = Date.now();
+      _adminFeeBuilderState.batchPlans[bName] = [
+        { id: 'BP-' + ts + '-M', cycle: 'Monthly', name: 'Monthly Plan', amount: 0, validityDays: 30, note: '30-day batch access', allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 },
+        { id: 'BP-' + ts + '-Q', cycle: 'Quarterly', name: 'Quarterly Plan', amount: 0, validityDays: 90, note: '3-month batch access', allowInstallments: true, installmentCount: 2, firstInstallmentPercent: 50 },
+        { id: 'BP-' + ts + '-A', cycle: 'Annual', name: 'Annual Plan', amount: 0, validityDays: 365, note: 'Full-year batch access', allowInstallments: true, installmentCount: 2, firstInstallmentPercent: 50 }
+      ];
+    }
+    if (inp) inp.value = '';
+    _adminEditingFocusKey = `batch:${bName}`;
+    renderAdminFeeBuildersOnly();
+    setTimeout(() => window.focusEditAdminFeePlan('batch', bName), 40);
   };
 
 window.addAdminCouponRow = function () {
@@ -1884,89 +2323,374 @@ window.removeAdminCouponRow = function (idx) {
     renderAdminFeeBuildersOnly();
   };
 
+window.filterAdminPublishedPlansDir = function (category) {
+    _adminPublishedPlansFilter = (category === 'member' || category === 'batch') ? category : 'all';
+    renderAdminPublishedPlansDirectory();
+  };
+
+window.focusEditAdminFeePlan = function (type, keyOrIdx) {
+    _adminEditingFocusKey = `${type}:${keyOrIdx}`;
+    document.querySelectorAll('.rp-fee-plan-editor-box.is-editing-focus').forEach((el) => el.classList.remove('is-editing-focus'));
+    let targetEl = null;
+    if (type === 'member') {
+      targetEl = document.querySelector(`#adm-member-plans-list [data-mp-idx="${keyOrIdx}"]`);
+    } else {
+      const bIdx = _adminRenderedBatchKeys.findIndex((b) => b === String(keyOrIdx));
+      if (bIdx >= 0) {
+        targetEl = document.querySelector(`#adm-batch-plans-builder [data-batch-card-idx="${bIdx}"]`);
+      }
+    }
+    if (targetEl) {
+      targetEl.classList.add('is-editing-focus');
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const firstInput = targetEl.querySelector('input[type="text"], input[type="number"]');
+      if (firstInput) setTimeout(() => firstInput.focus(), 220);
+    } else {
+      safeNotify('Editor section scrolled into view below.');
+    }
+  };
+
+window.deleteAdminPublishedPlan = async function (type, keyOrIdx) {
+    readAdminFeeBuilderInputsIntoState();
+    if (!_adminFeeBuilderState) return;
+    if (type === 'member') {
+      const idx = Number(keyOrIdx);
+      const mp = (_adminFeeBuilderState.memberPlans || [])[idx];
+      if (!mp) return;
+      const ok = await confirmFeePlanDelete('Delete Uploaded Member Plan?', `Permanently delete "${mp.name}" and its attached billing cycles from Google Sheets?`);
+      if (!ok) return;
+      _adminFeeBuilderState.memberPlans.splice(idx, 1);
+    } else {
+      const bName = String(keyOrIdx || '');
+      if (!bName || !_adminFeeBuilderState.batchPlans[bName]) return;
+      const ok = await confirmFeePlanDelete('Delete Uploaded Batch Plans?', `Permanently delete all uploaded pricing cycles for batch "${bName}" from Google Sheets?`);
+      if (!ok) return;
+      delete _adminFeeBuilderState.batchPlans[bName];
+    }
+    renderAdminFeeBuildersOnly();
+    await window.saveAdminFeeConfiguration();
+  };
+
+export function renderAdminPublishedPlansDirectory() {
+    const dirMount = document.getElementById('adm-published-plans-directory-mount');
+    if (!dirMount || !_adminFeeBuilderState) return;
+
+    const availableBatches = getAllAvailableFeeBatches(_adminFeeBuilderState.batchPlans);
+    const rows = [];
+
+    (_adminFeeBuilderState.memberPlans || []).forEach((mp, idx) => {
+      if (!mp || !mp.name) return;
+      const opts = normalizeMemberBillingOptionsClient(mp, idx);
+      const batchInfo = resolvePlanIncludedBatches(mp, availableBatches);
+      rows.push({
+        type: 'member',
+        keyOrIdx: idx,
+        title: mp.name,
+        subtitle: mp.description || batchInfo.scopeLabel,
+        cycles: opts.map((o) => ({
+          label: o.label || o.cycle,
+          amount: o.amount,
+          days: o.validityDays,
+          installments: Boolean(o.allowInstallments && o.amount > 0)
+        })),
+        includedBatchesText: batchInfo.displayText,
+        scopeLabel: batchInfo.scopeLabel
+      });
+    });
+
+    Object.keys(_adminFeeBuilderState.batchPlans || {}).forEach((bName) => {
+      const plans = _adminFeeBuilderState.batchPlans[bName];
+      if (!Array.isArray(plans) || plans.length === 0) return;
+      rows.push({
+        type: 'batch',
+        keyOrIdx: bName,
+        title: bName,
+        subtitle: 'Individual Batch Main Plan',
+        cycles: plans.map((pl) => ({
+          label: pl.name || pl.cycle || 'Standard',
+          amount: Math.max(0, Number(pl.amount || 0)),
+          days: Math.max(1, Number(pl.validityDays || 90)),
+          installments: Boolean(pl.allowInstallments && Number(pl.amount || 0) > 0)
+        })),
+        includedBatchesText: `${bName} (+ RP-Trail Permanent Free)`,
+        scopeLabel: 'Single Batch Access'
+      });
+    });
+
+    const memberCount = rows.filter((r) => r.type === 'member').length;
+    const batchCount = rows.filter((r) => r.type === 'batch').length;
+    const filtered = rows.filter((r) => _adminPublishedPlansFilter === 'all' || r.type === _adminPublishedPlansFilter);
+
+    const kpiPlanCountEl = document.getElementById('adm-kpi-published-plans-count');
+    if (kpiPlanCountEl) kpiPlanCountEl.textContent = String(rows.length);
+
+    dirMount.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <div>
+          <h4 style="margin:0; font-size:15px; color:var(--secondary);"><i class="fa-solid fa-table-list" style="color:var(--primary);"></i> Uploaded / Published Plans Directory (${rows.length})</h4>
+          <p style="margin:3px 0 0 0; font-size:12px; color:var(--text-muted);">View every saved Member Main Plan &amp; Batch Plan, attached Monthly / Quarterly / Annual cycles, included batches, and click <strong>Edit</strong> or <strong>Delete</strong> directly.</p>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <button type="button" class="btn btn-sm ${_adminPublishedPlansFilter === 'all' ? 'btn-primary' : 'btn-secondary'}" onclick="window.filterAdminPublishedPlansDir('all')">All (${rows.length})</button>
+          <button type="button" class="btn btn-sm ${_adminPublishedPlansFilter === 'member' ? 'btn-primary' : 'btn-secondary'}" onclick="window.filterAdminPublishedPlansDir('member')">Member (${memberCount})</button>
+          <button type="button" class="btn btn-sm ${_adminPublishedPlansFilter === 'batch' ? 'btn-primary' : 'btn-secondary'}" onclick="window.filterAdminPublishedPlansDir('batch')">Batches (${batchCount})</button>
+          <button type="button" class="btn btn-sm btn-success" onclick="window.addAdminMemberPlanRow()"><i class="fa-solid fa-plus"></i> New Member Plan</button>
+        </div>
+      </div>
+      ${filtered.length > 0 ? `
+        <div class="table-responsive">
+          <table class="rp-fee-dir-table">
+            <thead>
+              <tr>
+                <th>Main Plan</th>
+                <th>Type</th>
+                <th>Attached Billing Cycles (Monthly / Quarterly / Annual)</th>
+                <th>Included Batches</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map((r) => {
+                const safeKey = r.type === 'member'
+                  ? String(r.keyOrIdx)
+                  : `'${escapeHtml(r.keyOrIdx).replace(/'/g, "\\'")}'`;
+                return `
+                  <tr>
+                    <td>
+                      <div style="font-weight:800; color:var(--secondary); font-size:13px;">${escapeHtml(r.title)}</div>
+                      <div style="font-size:11.5px; color:var(--text-muted); margin-top:2px;">${escapeHtml(r.subtitle)}</div>
+                    </td>
+                    <td style="white-space:nowrap;">
+                      <span style="font-weight:800; font-size:11.5px; color:${r.type === 'member' ? '#7c3aed' : 'var(--primary)'};">
+                        <i class="fa-solid ${r.type === 'member' ? 'fa-crown' : 'fa-graduation-cap'}"></i> ${r.type === 'member' ? 'Member Plan' : 'Batch Plan'}
+                      </span>
+                    </td>
+                    <td style="min-width:210px;">
+                      <div class="rp-fee-cycle-summary-list">
+                        ${r.cycles.map((c) => `
+                          <div class="rp-fee-cycle-summary-row">
+                            <span style="font-weight:700; color:var(--secondary);">${escapeHtml(c.label)}${c.installments ? ' <span style="font-size:10px; color:#0369a1;">(2-Split)</span>' : ''}</span>
+                            <span class="mono-num" style="font-weight:800; color:${c.amount > 0 ? 'var(--secondary)' : '#047857'};">${c.amount > 0 ? '₹' + c.amount.toLocaleString('en-IN') : '₹0 Free'} · ${c.days}d</span>
+                          </div>
+                        `).join('')}
+                      </div>
+                    </td>
+                    <td style="max-width:280px;">
+                      <div style="font-size:11px; font-weight:700; color:var(--text-muted);">${escapeHtml(r.scopeLabel)}</div>
+                      <div style="font-size:12px; font-weight:700; color:var(--secondary); margin-top:2px; line-height:1.4;">${escapeHtml(r.includedBatchesText)}</div>
+                    </td>
+                    <td style="text-align:right; white-space:nowrap;">
+                      <div style="display:inline-flex; gap:6px;">
+                        <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 10px; min-height:28px;" onclick="window.focusEditAdminFeePlan('${r.type}', ${safeKey})"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+                        <button type="button" class="btn btn-danger btn-sm" style="padding:4px 9px; min-height:28px;" onclick="window.deleteAdminPublishedPlan('${r.type}', ${safeKey})" title="Delete & Save"><i class="fa-solid fa-trash"></i></button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : `
+        <div style="padding:18px; border-radius:8px; border:1px dashed var(--border); text-align:center; font-size:12.5px; color:var(--text-muted);">
+          No uploaded plans found in this view yet. Add a <strong>Member Main Plan</strong> or <strong>Batch Pricing Plan</strong> below and click <strong>Save to Google Sheets</strong>.
+        </div>
+      `}
+    `;
+  }
+
 export function renderAdminFeeBuildersOnly() {
     const mpMount = document.getElementById('adm-member-plans-list');
     const bpMount = document.getElementById('adm-batch-plans-builder');
     const cpMount = document.getElementById('adm-coupons-list');
     if (!_adminFeeBuilderState) return;
 
+    const allAvailableBatches = getAllAvailableFeeBatches(_adminFeeBuilderState.batchPlans);
+    _adminRenderedBatchKeys = allAvailableBatches.slice();
+
+    renderAdminPublishedPlansDirectory();
+
+    const cycleOptionsHtml = (selectedCycle) => {
+      const c = String(selectedCycle || 'Custom');
+      return ['Monthly', 'Quarterly', 'Half-Yearly', 'Annual', 'Custom']
+        .map((opt) => `<option value="${opt}" ${c.toLowerCase() === opt.toLowerCase() ? 'selected' : ''}>${opt}</option>`)
+        .join('');
+    };
+
     if (mpMount) {
       const mPlans = _adminFeeBuilderState.memberPlans || [];
-      mpMount.innerHTML = mPlans.length > 0 ? mPlans.map((mp, idx) => `
-        <div data-mp-idx="${idx}" style="padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--background); display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px; align-items:end;">
-          <div class="form-group" style="margin:0;">
-            <label style="font-size:11px; font-weight:700;">Member Tier Name</label>
-            <input type="text" class="form-control adm-mp-name" value="${escapeHtml(mp.name)}" placeholder="e.g. Gold All-Access" style="min-height:34px; margin:0;">
+      mpMount.innerHTML = mPlans.length > 0 ? mPlans.map((mp, idx) => {
+        const opts = normalizeMemberBillingOptionsClient(mp, idx);
+        const selectedBatchesArr = normalizeIncludedBatchesArray(mp.includedBatchesList || mp.includedBatches);
+        const selectedSet = new Set(selectedBatchesArr.map((b) => b.toLowerCase()));
+        const extraBatchesOnly = selectedBatchesArr.filter((b) => !allAvailableBatches.some((ab) => ab.toLowerCase() === b.toLowerCase()));
+        const batchPreview = resolvePlanIncludedBatches(mp, allAvailableBatches);
+        const isFocused = _adminEditingFocusKey === `member:${idx}`;
+        const showCheckboxes = mp.accessScope === 'CUSTOM_SELECTED' || mp.accessScope === 'CURRENT_AND_UPCOMING';
+
+        return `
+          <div data-mp-idx="${idx}" class="rp-fee-plan-editor-box ${isFocused ? 'is-editing-focus' : ''}">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+              <div style="font-size:13.5px; font-weight:800; color:#7c3aed;">
+                <i class="fa-solid fa-crown"></i> Main Member Plan #${idx + 1}: <span style="color:var(--secondary);">${escapeHtml(mp.name || 'Untitled Plan')}</span>
+              </div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 9px; font-size:11px; min-height:28px;" onclick="window.addAdminMemberStandardCycles(${idx})"><i class="fa-solid fa-wand-magic-sparkles"></i> + Monthly / Quarterly / Annual</button>
+                <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 9px; font-size:11px; min-height:28px;" onclick="window.addAdminMemberBillingOption(${idx})"><i class="fa-solid fa-plus"></i> Add Cycle</button>
+                <button type="button" class="btn btn-danger btn-sm" style="padding:4px 8px; min-height:28px;" onclick="window.removeAdminMemberPlanRow(${idx})" title="Remove Member Plan"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px; align-items:end;">
+              <div class="form-group" style="margin:0;">
+                <label style="font-size:11px; font-weight:700;">Main Plan Name</label>
+                <input type="text" class="form-control adm-mp-name" value="${escapeHtml(mp.name)}" placeholder="e.g. Gold All-Access Pass" style="min-height:34px; margin:0;">
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label style="font-size:11px; font-weight:700;">Batch Access Scope</label>
+                <select class="form-control adm-mp-scope" onchange="window.onAdminMemberPlanScopeChange(${idx}, this.value)" style="min-height:34px; margin:0; font-size:12px;">
+                  <option value="ALL_PAST_CURRENT_UPCOMING" ${mp.accessScope === 'ALL_PAST_CURRENT_UPCOMING' ? 'selected' : ''}>All Batches (Past + Current + Upcoming)</option>
+                  <option value="ALL_EXISTING_ONLY" ${mp.accessScope === 'ALL_EXISTING_ONLY' ? 'selected' : ''}>All Existing Batches Only (No Future)</option>
+                  <option value="CURRENT_AND_UPCOMING" ${mp.accessScope === 'CURRENT_AND_UPCOMING' ? 'selected' : ''}>Current / Selected &amp; All Upcoming Batches</option>
+                  <option value="CUSTOM_SELECTED" ${mp.accessScope === 'CUSTOM_SELECTED' ? 'selected' : ''}>Specific Selected Batches</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label style="font-size:11px; font-weight:700;">Plan Description</label>
+                <input type="text" class="form-control adm-mp-desc" value="${escapeHtml(mp.description || '')}" placeholder="Shown to students on Buy Plans page" style="min-height:34px; margin:0;">
+              </div>
+              <div style="display:flex; align-items:center; min-height:34px;">
+                <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; cursor:pointer; margin:0;">
+                  <input type="checkbox" class="adm-mp-upcoming" ${mp.includeUpcoming ? 'checked' : ''}> Auto-Unlock Future Upcoming Batches
+                </label>
+              </div>
+            </div>
+
+            <!-- Interactive Included Batches Selector -->
+            <div style="margin-top:10px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--background);">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                <div style="font-size:11.5px; font-weight:800; color:var(--secondary);">
+                  <i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> Which Batches Are Included in This Plan?
+                </div>
+                ${showCheckboxes && allAvailableBatches.length > 0 ? `
+                  <div style="display:flex; gap:6px;">
+                    <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:10.5px; min-height:24px;" onclick="window.toggleAdminMemberAllBatches(${idx}, true)">Select All</button>
+                    <button type="button" class="btn btn-secondary btn-sm" style="padding:2px 8px; font-size:10.5px; min-height:24px;" onclick="window.toggleAdminMemberAllBatches(${idx}, false)">Clear</button>
+                  </div>
+                ` : ''}
+              </div>
+              <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">
+                Effective Coverage: <strong style="color:var(--secondary);">${escapeHtml(batchPreview.displayText)}</strong>
+              </div>
+              <div style="display:${showCheckboxes ? 'block' : 'none'}; margin-top:6px;">
+                ${allAvailableBatches.length > 0 ? `
+                  <div class="rp-batch-checklist-grid">
+                    ${allAvailableBatches.map((bName) => {
+                      const checked = selectedSet.has(bName.toLowerCase());
+                      return `
+                        <label class="rp-batch-check-item ${checked ? 'is-checked' : ''}">
+                          <input type="checkbox" class="adm-mp-batch-cb" value="${escapeHtml(bName)}" ${checked ? 'checked' : ''} onchange="this.closest('label').classList.toggle('is-checked', this.checked)">
+                          <span>${escapeHtml(bName)}</span>
+                        </label>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : `<div style="font-size:11.5px; color:var(--text-muted); margin-top:4px;">No custom batches found yet. Create batches in Users &amp; Roles or type batch names below.</div>`}
+                <input type="text" class="form-control adm-mp-batches-extra" value="${escapeHtml(extraBatchesOnly.join(', '))}" placeholder="Optional extra batch names (comma-separated)" style="min-height:30px; margin-top:8px; margin-bottom:0; font-size:11.5px;">
+              </div>
+            </div>
+
+            <!-- Attached Monthly / Quarterly / Annual Billing Cycles -->
+            <div class="rp-billing-cycles-wrap">
+              <div style="font-size:11.5px; font-weight:800; color:var(--secondary); margin-bottom:6px;">
+                <i class="fa-solid fa-calendar-days" style="color:#7c3aed;"></i> Attached Billing Cycles (${opts.length}) — Monthly / Quarterly / Half-Yearly / Annual
+              </div>
+              <div class="rp-billing-cycle-grid-head">
+                <span>Billing Cycle</span>
+                <span>Display Label</span>
+                <span>Fee (₹)</span>
+                <span>Days</span>
+                <span>Cycle Note</span>
+                <span>2-Split</span>
+                <span>1st %</span>
+                <span></span>
+              </div>
+              ${opts.map((opt, oIdx) => `
+                <div data-mp-opt-idx="${oIdx}" class="rp-billing-cycle-grid-row">
+                  <select class="form-control adm-mp-opt-cycle" onchange="window.onAdminCyclePresetSelectChange(this)" style="min-height:32px; margin:0; font-size:12px;">
+                    ${cycleOptionsHtml(opt.cycle)}
+                  </select>
+                  <input type="text" class="form-control adm-mp-opt-label" value="${escapeHtml(opt.label)}" placeholder="e.g. Monthly / Annual" style="min-height:32px; margin:0; font-size:12px;">
+                  <input type="number" min="0" class="form-control mono-num adm-mp-opt-amt" value="${opt.amount}" placeholder="₹ Fee" style="min-height:32px; margin:0; font-size:12px;">
+                  <input type="number" min="1" class="form-control mono-num adm-mp-opt-days" value="${opt.validityDays}" placeholder="Days" style="min-height:32px; margin:0; font-size:12px;">
+                  <input type="text" class="form-control adm-mp-opt-note" value="${escapeHtml(opt.note || '')}" placeholder="Optional note" style="min-height:32px; margin:0; font-size:12px;">
+                  <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; white-space:nowrap; margin:0; cursor:pointer;" title="Allow 2-part split installment">
+                    <input type="checkbox" class="adm-mp-opt-inst" ${opt.allowInstallments ? 'checked' : ''}> Split
+                  </label>
+                  <input type="number" min="20" max="80" class="form-control mono-num adm-mp-opt-inst-pct" value="${opt.firstInstallmentPercent || 50}" title="1st installment %" style="min-height:32px; margin:0; font-size:11.5px;">
+                  <button type="button" class="btn btn-danger btn-sm" style="padding:4px 8px; min-height:30px;" onclick="window.removeAdminMemberBillingOption(${idx}, ${oIdx})" title="Remove Billing Cycle"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+              `).join('')}
+            </div>
           </div>
-          <div class="form-group" style="margin:0;">
-            <label style="font-size:11px; font-weight:700;">Fee Amount (₹)</label>
-            <input type="number" min="0" class="form-control mono-num adm-mp-amt" value="${mp.amount}" style="min-height:34px; margin:0;">
-          </div>
-          <div class="form-group" style="margin:0;">
-            <label style="font-size:11px; font-weight:700;">Validity (Days)</label>
-            <input type="number" min="1" class="form-control mono-num adm-mp-days" value="${mp.validityDays}" style="min-height:34px; margin:0;">
-          </div>
-          <div class="form-group" style="margin:0; grid-column:span 2;">
-            <label style="font-size:11px; font-weight:700;">Default Batch Access Scope</label>
-            <select class="form-control adm-mp-scope" style="min-height:34px; margin:0; font-size:12px;">
-              <option value="ALL_PAST_CURRENT_UPCOMING" ${mp.accessScope === 'ALL_PAST_CURRENT_UPCOMING' ? 'selected' : ''}>All Batches (Past + Current + Upcoming)</option>
-              <option value="ALL_EXISTING_ONLY" ${mp.accessScope === 'ALL_EXISTING_ONLY' ? 'selected' : ''}>All Existing Batches Only (No Future)</option>
-              <option value="CURRENT_AND_UPCOMING" ${mp.accessScope === 'CURRENT_AND_UPCOMING' ? 'selected' : ''}>Current &amp; Upcoming Batches</option>
-              <option value="CUSTOM_SELECTED" ${mp.accessScope === 'CUSTOM_SELECTED' ? 'selected' : ''}>Specific Selected Batches</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin:0;">
-            <label style="font-size:11px; font-weight:700;">Custom Batches (CSV)</label>
-            <input type="text" class="form-control adm-mp-batches" value="${escapeHtml(mp.includedBatches || '')}" placeholder="Optional for Custom scope" style="min-height:34px; margin:0;">
-          </div>
-          <div class="form-group" style="margin:0; grid-column:span 2;">
-            <label style="font-size:11px; font-weight:700;">Description</label>
-            <input type="text" class="form-control adm-mp-desc" value="${escapeHtml(mp.description || '')}" placeholder="Shown to students on Buy Plans page" style="min-height:34px; margin:0;">
-          </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-            <label style="display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; cursor:pointer; margin:0;">
-              <input type="checkbox" class="adm-mp-upcoming" ${mp.includeUpcoming ? 'checked' : ''}> Auto-Upcoming
-            </label>
-            <button type="button" class="btn btn-danger btn-sm" style="padding:4px 8px; min-height:30px;" onclick="window.removeAdminMemberPlanRow(${idx})" title="Remove Member Plan"><i class="fa-solid fa-trash"></i></button>
-          </div>
-        </div>
-      `).join('') : `<div style="padding:12px; border-radius:8px; border:1px dashed var(--border); font-size:12px; color:var(--text-muted);">No Member Plans added yet. Click <strong>+ Add Member Plan</strong> to create Bronze / Silver / Gold / All-Access tiers.</div>`;
+        `;
+      }).join('') : `<div style="padding:14px; border-radius:8px; border:1px dashed var(--border); font-size:12px; color:var(--text-muted);">No Member Main Plans added yet. Click <strong>+ Add Member Plan</strong> to create a Main Plan with attached Monthly, Quarterly &amp; Annual billing options and batch selection.</div>`;
     }
 
     if (bpMount) {
-      const customBatches = typeof getInstituteBatchesList === 'function'
-        ? getInstituteBatchesList().filter((b) => b && b.toLowerCase() !== 'rp-trail' && b.toLowerCase() !== 'general batch' && b.toLowerCase() !== 'free tier')
-        : [];
-      const allBatches = Array.from(new Set([...customBatches, ...Object.keys(_adminFeeBuilderState.batchPlans || {})])).filter((b) => b && b.toLowerCase() !== 'rp-trail');
+      const addCustomBatchBar = `
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--background);">
+          <input type="text" id="adm-fee-custom-batch-name-input" class="form-control" placeholder="Add pricing for a batch name (e.g. SSC Steno 2026)..." style="min-height:32px; margin:0; flex:1; min-width:200px; font-size:12px;">
+          <button type="button" class="btn btn-secondary btn-sm" style="min-height:32px; white-space:nowrap;" onclick="window.addNewBatchToFeeBuilder()"><i class="fa-solid fa-plus"></i> Add Batch Pricing Card</button>
+        </div>
+      `;
 
-      if (allBatches.length === 0) {
-        bpMount.innerHTML = `<div style="padding:14px; border-radius:10px; border:1px dashed var(--border); font-size:12.5px; color:var(--text-muted);">No custom batches created yet. Create a batch in <strong>Users &amp; Roles</strong> first, then add one or more pricing plans for it here. (<strong>RP-Trail</strong> is always Free ₹0.)</div>`;
+      if (allAvailableBatches.length === 0) {
+        bpMount.innerHTML = addCustomBatchBar + `<div style="padding:14px; border-radius:10px; border:1px dashed var(--border); font-size:12.5px; color:var(--text-muted);">No custom batches found yet. Type a batch name above or create a batch in <strong>Users &amp; Roles</strong>, then attach Monthly / Quarterly / Annual fees. (<strong>RP-Trail</strong> is always Free ₹0.)</div>`;
       } else {
-        bpMount.innerHTML = allBatches.map((bName) => {
+        bpMount.innerHTML = addCustomBatchBar + allAvailableBatches.map((bName, bIdx) => {
           const plans = _adminFeeBuilderState.batchPlans[bName] || [];
-          const safeB = escapeHtml(bName).replace(/'/g, "\\'");
+          const isFocused = _adminEditingFocusKey === `batch:${bName}`;
           return `
-            <div style="padding:12px 14px; border-radius:10px; border:1px solid var(--border); background:var(--background); margin-bottom:10px;">
+            <div data-batch-card-idx="${bIdx}" class="rp-fee-plan-editor-box ${isFocused ? 'is-editing-focus' : ''}" style="margin-bottom:10px;">
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-                <strong style="font-size:13.5px; color:var(--secondary);"><i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> ${escapeHtml(bName)} <span style="font-size:11px; color:var(--text-muted); font-weight:600;">(${plans.length} plan${plans.length === 1 ? '' : 's'})</span></strong>
+                <div>
+                  <strong style="font-size:13.5px; color:var(--secondary);"><i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> ${escapeHtml(bName)} <span style="font-size:11px; color:var(--text-muted); font-weight:600;">(${plans.length} billing cycle${plans.length === 1 ? '' : 's'})</span></strong>
+                  <div style="font-size:11px; color:var(--text-muted);">Includes batch: <strong style="color:var(--secondary);">${escapeHtml(bName)}</strong> + RP-Trail (Free)</div>
+                </div>
                 <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 9px; font-size:11px; min-height:28px;" onclick="window.addAdminBatchStandardTierPresets('${safeB}')" title="Quickly add Monthly (30d), Quarterly (90d), and Annual (365d) tiers"><i class="fa-solid fa-wand-magic-sparkles"></i> + Monthly / Quarterly / Annual</button>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 10px; font-size:11.5px; min-height:28px;" onclick="window.addAdminBatchPlanRow('${safeB}')"><i class="fa-solid fa-plus"></i> Add Custom Plan</button>
+                  <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 9px; font-size:11px; min-height:28px;" onclick="window.addAdminBatchStandardTierPresetsByIdx(${bIdx})" title="Attach Monthly (30d), Quarterly (90d), and Annual (365d) cycles"><i class="fa-solid fa-wand-magic-sparkles"></i> + Monthly / Quarterly / Annual</button>
+                  <button type="button" class="btn btn-secondary btn-sm" style="padding:4px 10px; font-size:11.5px; min-height:28px;" onclick="window.addAdminBatchPlanRowByIdx(${bIdx})"><i class="fa-solid fa-plus"></i> Add Cycle</button>
                 </div>
               </div>
-              ${plans.length > 0 ? plans.map((pl, idx) => `
-                <div data-bp-batch="${escapeHtml(bName)}" data-bp-idx="${idx}" style="display:grid; grid-template-columns:1.1fr 95px 85px 1.2fr auto 74px auto; gap:7px; align-items:center; margin-bottom:6px;">
-                  <input type="text" class="form-control adm-bp-name" value="${escapeHtml(pl.name)}" placeholder="e.g. Monthly / Full Batch" style="min-height:32px; margin:0; font-size:12px;">
-                  <input type="number" min="0" class="form-control mono-num adm-bp-amt" value="${pl.amount}" placeholder="₹ Fee" style="min-height:32px; margin:0; font-size:12px;">
-                  <input type="number" min="1" class="form-control mono-num adm-bp-days" value="${pl.validityDays}" placeholder="Days" style="min-height:32px; margin:0; font-size:12px;">
-                  <input type="text" class="form-control adm-bp-note" value="${escapeHtml(pl.note || '')}" placeholder="Plan note (optional)" style="min-height:32px; margin:0; font-size:12px;">
-                  <label style="display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; white-space:nowrap; margin:0; cursor:pointer;" title="Allow student to split fee into 2 installments">
-                    <input type="checkbox" class="adm-bp-inst" ${pl.allowInstallments ? 'checked' : ''}> 2-Part Split
-                  </label>
-                  <input type="number" min="20" max="80" class="form-control mono-num adm-bp-inst-pct" value="${pl.firstInstallmentPercent || 50}" placeholder="1st %" title="Installment 1 percentage (20-80%)" style="min-height:32px; margin:0; font-size:11.5px;">
-                  <button type="button" class="btn btn-danger btn-sm" style="padding:4px 8px; min-height:30px;" onclick="window.removeAdminBatchPlanRow('${safeB}', ${idx})" title="Delete Plan"><i class="fa-solid fa-trash"></i></button>
+              ${plans.length > 0 ? `
+                <div class="rp-billing-cycle-grid-head">
+                  <span>Billing Cycle</span>
+                  <span>Plan Label</span>
+                  <span>Fee (₹)</span>
+                  <span>Days</span>
+                  <span>Plan Note</span>
+                  <span>2-Split</span>
+                  <span>1st %</span>
+                  <span></span>
                 </div>
-              `).join('') : `<div style="font-size:11.5px; color:var(--text-muted);">No pricing plan added for ${escapeHtml(bName)} yet.</div>`}
+                ${plans.map((pl, idx) => `
+                  <div data-bp-batch="${escapeHtml(bName)}" data-bp-batch-idx="${bIdx}" data-bp-idx="${idx}" class="rp-billing-cycle-grid-row">
+                    <select class="form-control adm-bp-cycle" onchange="window.onAdminCyclePresetSelectChange(this)" style="min-height:32px; margin:0; font-size:12px;">
+                      ${cycleOptionsHtml(pl.cycle || inferBillingCycle('', pl.name, pl.validityDays))}
+                    </select>
+                    <input type="text" class="form-control adm-bp-name" value="${escapeHtml(pl.name)}" placeholder="e.g. Monthly Plan" style="min-height:32px; margin:0; font-size:12px;">
+                    <input type="number" min="0" class="form-control mono-num adm-bp-amt" value="${pl.amount}" placeholder="₹ Fee" style="min-height:32px; margin:0; font-size:12px;">
+                    <input type="number" min="1" class="form-control mono-num adm-bp-days" value="${pl.validityDays}" placeholder="Days" style="min-height:32px; margin:0; font-size:12px;">
+                    <input type="text" class="form-control adm-bp-note" value="${escapeHtml(pl.note || '')}" placeholder="Plan note (optional)" style="min-height:32px; margin:0; font-size:12px;">
+                    <label style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; white-space:nowrap; margin:0; cursor:pointer;" title="Allow student to split fee into 2 installments">
+                      <input type="checkbox" class="adm-bp-inst" ${pl.allowInstallments ? 'checked' : ''}> Split
+                    </label>
+                    <input type="number" min="20" max="80" class="form-control mono-num adm-bp-inst-pct" value="${pl.firstInstallmentPercent || 50}" placeholder="1st %" title="Installment 1 percentage (20-80%)" style="min-height:32px; margin:0; font-size:11.5px;">
+                    <button type="button" class="btn btn-danger btn-sm" style="padding:4px 8px; min-height:30px;" onclick="window.removeAdminBatchPlanRowByIdx(${bIdx}, ${idx})" title="Delete Cycle"><i class="fa-solid fa-trash"></i></button>
+                  </div>
+                `).join('')}
+              ` : `<div style="font-size:11.5px; color:var(--text-muted);">No pricing cycle attached to ${escapeHtml(bName)} yet. Click <strong>+ Monthly / Quarterly / Annual</strong> to add cycles.</div>`}
             </div>
           `;
         }).join('');
@@ -2098,18 +2822,45 @@ window.streamAdminFeeLedgerOneByOne = async function () {
 window.renderAdminFeesManager = async function (forceFetch = false) {
     const mount = document.getElementById('admin-fees-manager-mount');
     if (!mount) return;
-    if (forceFetch && typeof apiCall === 'function') {
-      const [cfgRes, ledRes] = await Promise.all([
-        apiCall('getFeeConfig', {}, true),
-        apiCall('getFeeLedger', {}, true)
-      ]);
-      portalState.adminData = portalState.adminData || {};
-      if (cfgRes && cfgRes.success && cfgRes.feeConfig) {
-        portalState.adminData.feeConfig = cfgRes.feeConfig;
-        if (portalState.globalData) portalState.globalData.feeConfig = cfgRes.feeConfig;
+    const needsAutoFetch = Boolean(
+      forceFetch
+      || !portalState.adminData?.feeConfig
+      || !Array.isArray(portalState.adminData?.feeLedger)
+      || !Array.isArray(portalState.adminData?.instituteBatches)
+    );
+    if (needsAutoFetch && typeof apiCall === 'function') {
+      if (!mount.innerHTML.trim()) {
+        mount.innerHTML = `<div class="card" style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: 700;"><i class="fa-solid fa-spinner fa-spin" style="color: var(--primary); margin-right: 6px;"></i> Loading Batch &amp; Member Fee Settings &amp; Ledger from Google Sheet...</div>`;
       }
-      if (ledRes && ledRes.success && Array.isArray(ledRes.ledger || ledRes.rows)) {
-        portalState.adminData.feeLedger = ledRes.ledger || ledRes.rows;
+      try {
+        const [cfgRes, ledRes] = await Promise.all([
+          apiCall('getFeeConfig', {}, true),
+          apiCall('getFeeLedger', {}, true)
+        ]);
+        portalState.adminData = portalState.adminData || {};
+        portalState.globalData = portalState.globalData || {};
+        if (cfgRes && cfgRes.success) {
+          if (cfgRes.feeConfig) {
+            portalState.adminData.feeConfig = cfgRes.feeConfig;
+            portalState.globalData.feeConfig = cfgRes.feeConfig;
+          }
+          if (Array.isArray(cfgRes.instituteBatches)) {
+            portalState.adminData.instituteBatches = cfgRes.instituteBatches;
+            portalState.globalData.instituteBatches = cfgRes.instituteBatches;
+          }
+          if (cfgRes.batchMetaMap && typeof cfgRes.batchMetaMap === 'object') {
+            portalState.adminData.batchMetaMap = cfgRes.batchMetaMap;
+            portalState.globalData.batchMetaMap = cfgRes.batchMetaMap;
+          }
+        }
+        if (ledRes && ledRes.success && Array.isArray(ledRes.ledger || ledRes.rows)) {
+          portalState.adminData.feeLedger = ledRes.ledger || ledRes.rows;
+        } else if (!Array.isArray(portalState.adminData.feeLedger)) {
+          portalState.adminData.feeLedger = [];
+        }
+      } catch (_feeErr) {
+        portalState.adminData = portalState.adminData || {};
+        if (!Array.isArray(portalState.adminData.feeLedger)) portalState.adminData.feeLedger = [];
       }
     }
 
@@ -2127,6 +2878,10 @@ window.renderAdminFeesManager = async function (forceFetch = false) {
     const pendingRows = ledger.filter((r) => normalizeFeeStatusDisplay(r.Status) === 'Pending');
     const activeMembersCount = ((portalState.adminData && Array.isArray(portalState.adminData.users)) ? portalState.adminData.users : [])
       .filter((u) => String(u.Role || u.role || '').toLowerCase() === 'member' || Boolean(u.IsMemberAllAccess || u.isMemberAllAccess)).length;
+    const publishedBatchPlansCount = Object.keys(_adminFeeBuilderState.batchPlans || {}).filter((b) =>
+      b.toLowerCase() !== 'rp-trail' && Array.isArray(_adminFeeBuilderState.batchPlans[b]) && _adminFeeBuilderState.batchPlans[b].length > 0
+    ).length;
+    const initialPublishedPlansCount = (_adminFeeBuilderState.memberPlans || []).length + publishedBatchPlansCount;
 
     const pendingQueueHtml = pendingRows.length > 0
       ? pendingRows.map((r, pIdx) => {
@@ -2188,29 +2943,41 @@ window.renderAdminFeesManager = async function (forceFetch = false) {
       <div id="admin-fee-management-card" style="display:flex; flex-direction:column; gap:18px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
           <div>
-            <h3 style="margin:0; font-size:18px; color:var(--secondary);"><i class="fa-solid fa-indian-rupee-sign" style="color:var(--primary);"></i> Admin Fee Management — UPI/QR, Plans, Coupons &amp; Approvals</h3>
-            <p style="margin:3px 0 0 0; font-size:12.5px; color:var(--text-muted);">Configure UPI/QR links, multi-plan pricing with 2-part installments, discount coupons, and approve or reject student payment submissions.</p>
+            <h3 style="margin:0; font-size:18px; color:var(--secondary);"><i class="fa-solid fa-indian-rupee-sign" style="color:var(--primary);"></i> Batch &amp; Member Fee Management</h3>
+            <p style="margin:3px 0 0 0; font-size:12.5px; color:var(--text-muted);">View and edit published plans, attach Monthly / Quarterly / Annual billing cycles, map included batches per plan, configure UPI/QR &amp; coupons, and verify payments.</p>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="window.renderAdminFeesManager(true)"><i class="fa-solid fa-arrows-rotate"></i> Refresh Fee Data</button>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="window.renderAdminFeesManager(true)"><i class="fa-solid fa-arrows-rotate"></i> Refresh Fee Data</button>
+            <button type="button" id="adm-save-fee-config-btn-top" class="btn btn-primary btn-sm" onclick="window.saveAdminFeeConfiguration()"><i class="fa-solid fa-floppy-disk"></i> Save All Plans &amp; Fees</button>
+          </div>
         </div>
 
         <div class="rp-saas-kpi-grid" style="margin:0;">
           <div class="rp-saas-kpi-card">
+            <span class="rp-saas-kpi-label">Published Plans</span>
+            <span id="adm-kpi-published-plans-count" class="rp-saas-kpi-val mono-num" style="color:var(--primary);">${initialPublishedPlansCount}</span>
+          </div>
+          <div class="rp-saas-kpi-card">
             <span class="rp-saas-kpi-label">Approved Revenue</span>
-            <span class="rp-saas-kpi-value mono-num" style="color:#059669;">₹${approvedTotal.toLocaleString('en-IN')}</span>
+            <span class="rp-saas-kpi-val mono-num" style="color:#059669;">₹${approvedTotal.toLocaleString('en-IN')}</span>
           </div>
           <div class="rp-saas-kpi-card">
             <span class="rp-saas-kpi-label">Pending Approvals</span>
-            <span class="rp-saas-kpi-value mono-num" style="color:${pendingRows.length > 0 ? '#d97706' : 'var(--secondary)'};">${pendingRows.length}</span>
+            <span class="rp-saas-kpi-val mono-num" style="color:${pendingRows.length > 0 ? '#d97706' : 'var(--secondary)'};">${pendingRows.length}</span>
           </div>
           <div class="rp-saas-kpi-card">
             <span class="rp-saas-kpi-label">Active Members</span>
-            <span class="rp-saas-kpi-value mono-num" style="color:#7c3aed;">${activeMembersCount}</span>
+            <span class="rp-saas-kpi-val mono-num" style="color:#7c3aed;">${activeMembersCount}</span>
           </div>
           <div class="rp-saas-kpi-card">
             <span class="rp-saas-kpi-label">Active Coupons</span>
-            <span class="rp-saas-kpi-value mono-num" style="color:#0369a1;">${(cfg.coupons || []).filter(c => c.active).length}</span>
+            <span class="rp-saas-kpi-val mono-num" style="color:#0369a1;">${(cfg.coupons || []).filter(c => c.active).length}</span>
           </div>
+        </div>
+
+        <!-- Uploaded / Published Plans Directory (Edit / Delete / Included Batches / Attached Cycles) -->
+        <div class="card" style="margin:0; border-top:3px solid #7c3aed;">
+          <div id="adm-published-plans-directory-mount"></div>
         </div>
 
         <!-- Admin Fee Management Configuration Card -->
@@ -2241,23 +3008,23 @@ window.renderAdminFeesManager = async function (forceFetch = false) {
             </div>
           </div>
 
-          <!-- Multi-Plan Member Tiers Builder -->
+          <!-- Multi-Plan Member Tiers Builder with Attached Monthly / Quarterly / Annual Cycles & Included Batches -->
           <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--border);">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
               <div>
-                <div style="font-size:13.5px; font-weight:800; color:#7c3aed;"><i class="fa-solid fa-crown"></i> Member Tier Plans (Multiple Plans Supported)</div>
-                <div style="font-size:11.5px; color:var(--text-muted);">Define multiple membership plans with custom batch access scopes (All Past+Current+Upcoming, Existing Only, Current+Upcoming, or Specific Batches).</div>
+                <div style="font-size:13.5px; font-weight:800; color:#7c3aed;"><i class="fa-solid fa-crown"></i> Member Main Plans (Attached Monthly / Quarterly / Annual Cycles &amp; Included Batches)</div>
+                <div style="font-size:11.5px; color:var(--text-muted);">Each Main Member Plan can attach multiple billing cycles (Monthly, Quarterly, Half-Yearly, Annual) and explicitly map which batches it unlocks.</div>
               </div>
               <button type="button" class="btn btn-primary btn-sm" onclick="window.addAdminMemberPlanRow()"><i class="fa-solid fa-plus"></i> Add Member Plan</button>
             </div>
             <div id="adm-member-plans-list" style="display:flex; flex-direction:column; gap:10px;"></div>
           </div>
 
-          <!-- Multi-Plan Per-Batch Pricing Builder (with Installments Toggle) -->
+          <!-- Multi-Plan Per-Batch Pricing Builder (with Monthly/Quarterly/Annual Presets & Installments Toggle) -->
           <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--border);">
             <div style="margin-bottom:10px;">
-              <div style="font-size:13.5px; font-weight:800; color:var(--secondary);"><i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> Per-Batch Pricing Plans &amp; Installments (RP-Trail is always Free ₹0)</div>
-              <div style="font-size:11.5px; color:var(--text-muted);">Add one or more plans per batch and optionally enable <strong>2-Part Split Installments</strong> with a custom first-installment percentage.</div>
+              <div style="font-size:13.5px; font-weight:800; color:var(--secondary);"><i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> Per-Batch Pricing Plans (Monthly / Quarterly / Annual Tiers &amp; 2-Part Installments)</div>
+              <div style="font-size:11.5px; color:var(--text-muted);">Configure one or more billing cycles per batch (or set ₹0 for Free batches). Each batch plan automatically unlocks its own batch plus RP-Trail.</div>
             </div>
             <div style="padding:10px 14px; border-radius:8px; background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.28); font-size:12px; margin-bottom:10px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px;">
               <span><strong style="color:#047857;">RP-Trail</strong> (Permanent Free Batch)</span>
@@ -2341,17 +3108,67 @@ window.renderAdminFeesManager = async function (forceFetch = false) {
 window.saveAdminFeeConfiguration = async function () {
     readAdminFeeBuilderInputsIntoState();
     const btn = document.getElementById('adm-save-fee-config-btn');
+    const topBtn = document.getElementById('adm-save-fee-config-btn-top');
     const upiId = String(document.getElementById('adm-fee-upi-id')?.value || '').trim();
     const payeeName = String(document.getElementById('adm-fee-payee-name')?.value || 'Ranjan Pathshala').trim();
     const qrImageUrl = String(document.getElementById('adm-fee-qr-url')?.value || '').trim();
     const paymentInstructions = String(document.getElementById('adm-fee-instructions')?.value || '').trim();
 
-    const memberPlans = (_adminFeeBuilderState && Array.isArray(_adminFeeBuilderState.memberPlans))
-      ? _adminFeeBuilderState.memberPlans.filter(p => p.name)
+    const rawMemberPlans = (_adminFeeBuilderState && Array.isArray(_adminFeeBuilderState.memberPlans))
+      ? _adminFeeBuilderState.memberPlans.filter((p) => String(p.name || '').trim())
       : [];
-    const batchPlans = (_adminFeeBuilderState && _adminFeeBuilderState.batchPlans) ? _adminFeeBuilderState.batchPlans : {};
+    const memberPlans = rawMemberPlans.map((p, idx) => {
+      const billingOptions = normalizeMemberBillingOptionsClient(p, idx);
+      const primary = billingOptions[0] || {
+        amount: Math.max(0, Number(p.amount) || 0),
+        validityDays: Math.max(1, Number(p.validityDays) || 365),
+        allowInstallments: Boolean(p.allowInstallments),
+        firstInstallmentPct: Math.max(20, Math.min(80, Number(p.firstInstallmentPct) || 50))
+      };
+      const incList = normalizeIncludedBatchesArray(p.includedBatchesList || p.includedBatches);
+      return {
+        id: String(p.id || `member_plan_${idx + 1}`).trim(),
+        name: String(p.name || '').trim(),
+        amount: primary.amount,
+        validityDays: primary.validityDays,
+        description: String(p.description || '').trim(),
+        accessScope: String(p.accessScope || 'ALL_PAST_CURRENT_UPCOMING').trim(),
+        includedBatches: incList.join(', '),
+        includedBatchesList: incList,
+        includeUpcoming: p.accessScope === 'ALL_PAST_CURRENT_UPCOMING' || p.accessScope === 'CURRENT_AND_UPCOMING',
+        allowInstallments: Boolean(primary.allowInstallments),
+        firstInstallmentPct: primary.firstInstallmentPct,
+        billingOptions
+      };
+    });
+
+    const rawBatchPlans = (_adminFeeBuilderState && _adminFeeBuilderState.batchPlans) ? _adminFeeBuilderState.batchPlans : {};
+    const batchPlans = {};
+    Object.keys(rawBatchPlans).forEach((bName) => {
+      const cleanBatch = String(bName || '').trim();
+      if (!cleanBatch || cleanBatch.toLowerCase() === 'rp-trail') return;
+      const tiers = Array.isArray(rawBatchPlans[bName]) ? rawBatchPlans[bName] : [];
+      const cleanedTiers = tiers
+        .filter((t) => t && (String(t.name || '').trim() || Number(t.amount) >= 0))
+        .map((t, tIdx) => {
+          const vDays = Math.max(1, Number(t.validityDays) || 90);
+          const cycle = String(t.cycle || inferBillingCycle(t.name, vDays)).trim();
+          return {
+            id: String(t.id || `bp_${cleanBatch.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${tIdx + 1}`),
+            name: String(t.name || `${cycle} Plan`).trim(),
+            cycle,
+            amount: Math.max(0, Number(t.amount) || 0),
+            validityDays: vDays,
+            allowInstallments: Boolean(t.allowInstallments),
+            firstInstallmentPct: Math.max(20, Math.min(80, Number(t.firstInstallmentPct) || 50)),
+            note: String(t.note || '').trim()
+          };
+        });
+      if (cleanedTiers.length > 0) batchPlans[cleanBatch] = cleanedTiers;
+    });
+
     const coupons = (_adminFeeBuilderState && Array.isArray(_adminFeeBuilderState.coupons))
-      ? _adminFeeBuilderState.coupons.filter(c => c.code)
+      ? _adminFeeBuilderState.coupons.filter((c) => String(c.code || '').trim())
       : [];
     const legacyBatchFees = {};
     Object.keys(batchPlans).forEach((b) => {
@@ -2366,6 +3183,7 @@ window.saveAdminFeeConfiguration = async function () {
     });
 
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="mini-spin"></span> Saving...'; }
+    if (topBtn) { topBtn.disabled = true; topBtn.innerHTML = '<span class="mini-spin"></span> Saving...'; }
     try {
       const payload = {
         upiId,
@@ -2382,26 +3200,46 @@ window.saveAdminFeeConfiguration = async function () {
       };
       const res = await apiCall('saveFeeConfig', payload);
       if (res && res.success) {
+        _adminEditingFocusKey = '';
         portalState.adminData = portalState.adminData || {};
+        portalState.globalData = portalState.globalData || {};
         portalState.adminData.feeConfig = res.feeConfig || payload;
-        if (portalState.globalData) portalState.globalData.feeConfig = portalState.adminData.feeConfig;
-        safeNotify('✅ UPI/QR, Batch Plans, Member Plans & Coupons saved to Google Sheets!');
+        portalState.globalData.feeConfig = portalState.adminData.feeConfig;
+        if (Array.isArray(res.instituteBatches)) {
+          portalState.adminData.instituteBatches = res.instituteBatches;
+          portalState.globalData.instituteBatches = res.instituteBatches;
+        }
+        if (res.batchMetaMap && typeof res.batchMetaMap === 'object') {
+          portalState.adminData.batchMetaMap = res.batchMetaMap;
+          portalState.globalData.batchMetaMap = res.batchMetaMap;
+        }
+        safeNotify('✅ UPI/QR, Member Plans, Attached Billing Cycles, Batch Plans & Coupons saved to Google Sheets!');
         await window.renderAdminFeesManager(false);
       } else {
         safeNotify((res && res.message) || 'Failed to save fee settings.');
       }
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save UPI, Plans &amp; Coupons to Google Sheets'; }
+      if (topBtn) { topBtn.disabled = false; topBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save All Plans &amp; Fees'; }
     }
   };
 
 window.adminApproveMemberFeeWithScope = function (receiptNo, userId, studentName, planName, validityDays) {
     if (typeof window.openAdminMemberAccessModal === 'function') {
       const cfg = getResolvedFeeConfig();
-      const matched = (cfg.memberPlans || []).find(p => String(p.name || '').trim().toLowerCase() === String(planName || '').trim().toLowerCase());
+      const targetPlanLc = String(planName || '').trim().toLowerCase();
+      const matched = (cfg.memberPlans || []).find((p) => {
+        const nm = String(p.name || '').trim().toLowerCase();
+        if (!nm) return false;
+        return nm === targetPlanLc
+          || targetPlanLc.startsWith(nm + ' —')
+          || targetPlanLc.startsWith(nm + ' -')
+          || targetPlanLc.startsWith(nm + ' (');
+      });
       window.openAdminMemberAccessModal(userId, studentName, {
         pendingReceiptNo: receiptNo,
         planName: planName,
+        mainPlanName: matched ? matched.name : planName,
         validityDays: validityDays || (matched ? matched.validityDays : 365),
         accessScope: matched ? matched.accessScope : 'ALL_PAST_CURRENT_UPCOMING',
         includedBatches: matched ? matched.includedBatches : '',

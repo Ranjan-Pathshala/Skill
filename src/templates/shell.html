@@ -54,7 +54,7 @@
             <span>Menu</span>
           </button>
           <div class="brand" onclick="navigateTo('dashboard', true, true)" style="cursor: pointer;" title="Go to Dashboard">
-            <img id="app-logo" src="/api/media-proxy?driveId=1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_&kind=image" referrerPolicy="no-referrer" alt="Ranjan Pathshala Skill Logo" fetchpriority="high" decoding="async" onerror="this.style.display='none'">
+            <img id="app-logo" src="/api/media-proxy?driveId=1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_&kind=image" data-drive-id="1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_" referrerpolicy="no-referrer" alt="Ranjan Pathshala Skill Logo" fetchpriority="high" decoding="async" onerror="if(window.rpHandleImageError){window.rpHandleImageError(this);}else if(!this.dataset.fb){this.dataset.fb='1';this.src='https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_=s512';}">
             <span class="brand-title">Ranjan Pathshala Skill</span>
           </div>
         </div>
@@ -73,8 +73,7 @@
           </button>
 
           <div id="active-tab-header-badge" class="active-tab-pill-indicator" style="display: none;" onclick="toggleAllDeviceNavMenu(event)" title="Current Active Tab (Select tabs from Menu)">
-            <i class="fa-solid fa-location-dot"></i>
-            <span id="active-tab-header-label">🏡 Dashboard</span>
+            <span id="active-tab-header-label"><i class="fa-solid fa-compass" style="margin-right:4px;"></i> Dashboard</span>
             <i class="fa-solid fa-chevron-down" style="font-size: 10px; opacity: 0.75;"></i>
           </div>
         </div>
@@ -108,52 +107,60 @@
                     <span style="display: inline-flex; align-items: center; gap: 5px; flex-wrap: nowrap; min-width: 0;">
                       <span id="header-user-name" style="font-weight: 700; font-size: 13px; color: var(--secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">User</span>
                     </span>
-                    <span style="font-size: 10.5px; font-weight: 700; color: var(--primary); margin-top: 2px; line-height: 1.25; white-space: normal;">Click here to Manage Profile &amp; Buy Batches &rarr;</span>
+                    <span style="font-size: 10.5px; font-weight: 700; color: var(--primary); margin-top: 2px; line-height: 1.25; white-space: normal;">Manage Profile &amp; Buy Batches &rarr;</span>
                   </div>
                 </div>
                 <span id="header-user-role" class="role-badge" style="font-size: 10px; font-weight: 700; flex-shrink: 0;">User</span>
               </div>
             </div>
 
-            <button type="button" id="menu-logout-btn" class="btn btn-danger btn-sm" style="width: 100%; justify-content: center; padding: 9px 14px; font-weight: 800; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 3px 10px rgba(239, 68, 68, 0.25);" onclick="executeLogout()" title="Sign Out">
-              <i class="fa-solid fa-right-from-bracket"></i>
-              <span>Log Out</span>
-            </button>
+            <div style="display: flex; gap: 6px; width: 100%;">
+              <button type="button" id="menu-theme-toggle-btn" class="rp-menu-theme-btn" style="flex: 1;" onclick="toggleAppTheme()" title="Switch Light / Dark Mode" aria-label="Switch Light or Dark Mode">
+                <span class="rp-menu-theme-left">
+                  <i id="theme-toggle-icon" class="fa-solid fa-moon" aria-hidden="true"></i>
+                  <span id="theme-toggle-label">Dark Mode</span>
+                </span>
+                <span class="rp-menu-theme-pill" id="menu-theme-status-pill">Light</span>
+              </button>
+              <button type="button" id="menu-logout-btn" class="btn btn-danger btn-sm" style="padding: 8px 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;" onclick="executeLogout()" title="Sign Out">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Exit</span>
+              </button>
+            </div>
           </div>
-          <button type="button" id="menu-theme-toggle-btn" class="rp-menu-theme-btn" onclick="toggleAppTheme()" title="Switch Light / Dark Mode" aria-label="Switch Light or Dark Mode">
-            <span class="rp-menu-theme-left">
-              <i id="theme-toggle-icon" class="fa-solid fa-moon" aria-hidden="true"></i>
-              <span id="theme-toggle-label">Dark Mode</span>
-            </span>
-            <span class="rp-menu-theme-pill" id="menu-theme-status-pill">Light</span>
-          </button>
         </li>
 
-        <!-- Tab Navigation Links (Visible when logged in; clean categorized navigation) -->
-        <div id="menu-authenticated-tabs-list" style="display: none; flex-direction: column; gap: 3px;">
-          <li class="nav-category-divider"><i class="fa-solid fa-gauge-high"></i> 1. Command &amp; Performance</li>
-          <li><button type="button" class="nav-tab-btn active" data-tab="dashboard" onclick="navigateTo('dashboard', true, true)"><span>🏡 Command Deck (Dashboard)</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="livetests" onclick="navigateTo('livetests', true, true)"><span>🔴 Live Tests &amp; Contests</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="test" onclick="navigateTo('test', true, true)"><span>📊 Performance &amp; Evaluated History</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="batch-leaderboard" onclick="navigateTo('batch-leaderboard', true, true)"><span>🏆 Batch Leaderboard (30-Day)</span></button></li>
+        <!-- Well-Structured Workspace Navigation (6 Logical Tracks) -->
+        <div id="menu-authenticated-tabs-list" style="display: none; flex-direction: column; gap: 2px;">
+          <li class="nav-category-divider"><i class="fa-solid fa-compass"></i> 1. Overview &amp; Community</li>
+          <li><button type="button" class="nav-tab-btn active" data-tab="dashboard" onclick="navigateTo('dashboard', true, true)"><i class="fa-solid fa-house rp-nav-ico"></i><span>Dashboard</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="livetests" onclick="navigateTo('livetests', true, true)"><i class="fa-solid fa-tower-broadcast rp-nav-ico"></i><span>Live Tests &amp; Contests</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="batchhub" onclick="navigateTo('batchhub', true, true)"><i class="fa-solid fa-people-group rp-nav-ico"></i><span>Batch Monitor &amp; Comms</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="batch-leaderboard" onclick="navigateTo('batch-leaderboard', true, true)"><i class="fa-solid fa-trophy rp-nav-ico"></i><span>Batch Leaderboard</span></button></li>
 
           <li class="nav-category-divider"><i class="fa-solid fa-microphone-lines"></i> 2. Stenography Studio</li>
-          <li><button type="button" class="nav-tab-btn" data-tab="audio" onclick="navigateTo('audio', true, true)"><span>🎧 Dictation &amp; Transcribe Room</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="pitman" onclick="navigateTo('pitman', true, true)"><span>📖 Pitman Shorthand Book</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="words" onclick="navigateTo('words', true, true)"><span>🖋️ Steno Words &amp; Outlines</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="audio" onclick="navigateTo('audio', true, true)"><i class="fa-solid fa-headphones rp-nav-ico"></i><span>Audio Dictation Studio</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="pitman" onclick="navigateTo('pitman', true, true)"><i class="fa-solid fa-book-open rp-nav-ico"></i><span>Pitman Shorthand Book</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="words" onclick="navigateTo('words', true, true)"><i class="fa-solid fa-pen-nib rp-nav-ico"></i><span>Words &amp; Outlines</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="weak-vault" onclick="navigateTo('weak-vault', true, true)"><i class="fa-solid fa-vault rp-nav-ico"></i><span>My Weak Outlines Vault</span></button></li>
 
-          <li class="nav-category-divider"><i class="fa-solid fa-keyboard"></i> 3. Typing &amp; CBT Exam Suite</li>
-          <li><button type="button" class="nav-tab-btn" data-tab="learningtyping" onclick="navigateTo('learningtyping', true, true)"><span>🎓 Touch-Typing Studio</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="typingtest" onclick="navigateTo('typingtest', true, true)"><span>⌨️ Skill Typing Test</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="cbttest" onclick="navigateTo('cbttest', true, true)"><span>🖥️ CBT Mock Exam Portal</span></button></li>
+          <li class="nav-category-divider"><i class="fa-solid fa-keyboard"></i> 3. Typing &amp; CBT Exams</li>
+          <li><button type="button" class="nav-tab-btn" data-tab="learningtyping" onclick="navigateTo('learningtyping', true, true)"><i class="fa-solid fa-graduation-cap rp-nav-ico"></i><span>Touch-Typing Studio</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="typingtest" onclick="navigateTo('typingtest', true, true)"><i class="fa-solid fa-keyboard rp-nav-ico"></i><span>Skill Typing Test</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="cbttest" onclick="navigateTo('cbttest', true, true)"><i class="fa-solid fa-desktop rp-nav-ico"></i><span>CBT Mock Exam Portal</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="cbt-revision" onclick="navigateTo('cbt-revision', true, true)"><i class="fa-solid fa-bookmark rp-nav-ico"></i><span>Saved MCQs &amp; Logbook</span></button></li>
 
-          <li class="nav-category-divider"><i class="fa-solid fa-book-open-reader"></i> 4. Classes, Library &amp; Support</li>
-          <li><button type="button" class="nav-tab-btn" data-tab="videocourse" onclick="navigateTo('videocourse', true, true)"><span>🎬 Video Courses &amp; Lectures</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="pdf" onclick="navigateTo('pdf', true, true)"><span>📑 Editorial &amp; PDF Library</span></button></li>
-          <li><button type="button" class="nav-tab-btn" data-tab="feedback" onclick="navigateTo('feedback', true, true)"><span>🆘 Help Desk &amp; Contacts</span></button></li>
+          <li class="nav-category-divider"><i class="fa-solid fa-chart-line"></i> 4. Progress &amp; Consistency</li>
+          <li><button type="button" class="nav-tab-btn" data-tab="test" onclick="navigateTo('test', true, true)"><i class="fa-solid fa-award rp-nav-ico"></i><span>Scorecards &amp; History</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="attendance-matrix" onclick="navigateTo('attendance-matrix', true, true)"><i class="fa-solid fa-calendar-check rp-nav-ico"></i><span>Attendance &amp; Streak</span></button></li>
 
-          <li class="nav-category-divider" id="admin-nav-category-divider" style="display: none;"><i class="fa-solid fa-shield-halved"></i> 5. Administration</li>
-          <li id="admin-nav-item" style="display: none;"><button type="button" class="nav-tab-btn" data-tab="admin" onclick="navigateTo('admin', true, true)"><span>🛡️ Admin &amp; Control Center</span></button></li>
+          <li class="nav-category-divider"><i class="fa-solid fa-book-open-reader"></i> 5. Library &amp; Support</li>
+          <li><button type="button" class="nav-tab-btn" data-tab="videocourse" onclick="navigateTo('videocourse', true, true)"><i class="fa-solid fa-clapperboard rp-nav-ico"></i><span>Video Courses</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="pdf" onclick="navigateTo('pdf', true, true)"><i class="fa-solid fa-file-pdf rp-nav-ico"></i><span>Editorial &amp; PDF Library</span></button></li>
+          <li><button type="button" class="nav-tab-btn" data-tab="feedback" onclick="navigateTo('feedback', true, true)"><i class="fa-solid fa-headset rp-nav-ico"></i><span>Help Desk &amp; Contacts</span></button></li>
+
+          <li class="nav-category-divider" id="admin-nav-category-divider" style="display: none;"><i class="fa-solid fa-shield-halved"></i> 6. Administration</li>
+          <li id="admin-nav-item" style="display: none;"><button type="button" class="nav-tab-btn" data-tab="admin" onclick="navigateTo('admin', true, true)"><i class="fa-solid fa-shield-halved rp-nav-ico"></i><span>Admin Control Center</span></button></li>
         </div>
 
         <!-- Install App utility inside Workspace Menu Drawer -->

@@ -2259,47 +2259,65 @@ export function autoCalculateAudioWordsAndStrokes() {
     }
 
 export function activateAllSubtabs(type) {
+      const inputIdMap = {
+        pdf: 'pdf-search-input',
+        audio: 'audio-search-input',
+        pitman: 'pitman-search-input',
+        videocourse: 'videocourse-search-input',
+        word: 'words-search'
+      };
+      const searchEl = document.getElementById(inputIdMap[type] || '');
+      const hasQuery = Boolean(searchEl && String(searchEl.value || '').trim().length > 0);
+
       if (type === 'pdf' || type === 'audio') {
-        portalState.currentSubtabFilter[type] = 'ALL';
-        const container = document.getElementById(`${type}-subtabs`);
-        if (container) {
-          container.querySelectorAll('.subtab-btn').forEach((btn, idx) => {
-            if (idx === 0) btn.classList.add('active');
-            else btn.classList.remove('active');
-          });
+        if (hasQuery) {
+          portalState.currentSubtabFilter[type] = 'ALL';
+          const container = document.getElementById(`${type}-subtabs`);
+          if (container) {
+            container.querySelectorAll('.subtab-btn').forEach((btn, idx) => {
+              if (idx === 0) btn.classList.add('active');
+              else btn.classList.remove('active');
+            });
+          }
         }
-        renderMaterialsList(type, 'ALL');
+        renderMaterialsList(type, portalState.currentSubtabFilter[type] || 'ALL');
       } else if (type === 'pitman') {
-        portalState.currentSubtabFilter.pitman = 'ALL';
-        const container = document.getElementById('pitman-subtabs');
-        if (container) {
-          container.querySelectorAll('.subtab-btn').forEach((btn, idx) => {
-            if (idx === 0) btn.classList.add('active');
-            else btn.classList.remove('active');
-          });
+        if (hasQuery) {
+          portalState.currentSubtabFilter.pitman = 'ALL';
+          const container = document.getElementById('pitman-subtabs');
+          if (container) {
+            container.querySelectorAll('.subtab-btn').forEach((btn, idx) => {
+              if (idx === 0) btn.classList.add('active');
+              else btn.classList.remove('active');
+            });
+          }
         }
-        renderPitmanList('ALL');
+        renderPitmanList(portalState.currentSubtabFilter.pitman || 'ALL');
       } else if (type === 'videocourse') {
-        portalState.currentSubtabFilter.videocourse = 'ALL';
-        const container = document.getElementById('videocourse-subtabs');
-        if (container) {
-          container.querySelectorAll('.subtab-btn').forEach((btn, idx) => {
-            if (idx === 0) btn.classList.add('active');
-            else btn.classList.remove('active');
-          });
+        if (hasQuery) {
+          portalState.currentSubtabFilter.videocourse = 'ALL';
+          const container = document.getElementById('videocourse-subtabs');
+          if (container) {
+            container.querySelectorAll('.subtab-btn').forEach((btn, idx) => {
+              if (idx === 0) btn.classList.add('active');
+              else btn.classList.remove('active');
+            });
+          }
         }
-        renderVideoCourseList('ALL');
+        renderVideoCourseList(portalState.currentSubtabFilter.videocourse || 'ALL');
       } else if (type === 'word') {
-        portalState.selectedCategoryFilter = 'ALL';
-        portalState.selectedAlphabet = 'ALL'; 
-        const catSelect = document.getElementById('words-category-filter');
-        if (catSelect) catSelect.value = 'ALL';
-        const alphabetBar = document.getElementById('alphabet-bar');
-        if (alphabetBar) {
-          alphabetBar.querySelectorAll('.alpha-btn').forEach((btn, idx) => {
-            if (idx === 0) btn.classList.add('active');
-            else btn.classList.remove('active');
-          });
+        if (hasQuery) {
+          portalState.selectedCategoryFilter = 'ALL';
+          portalState.selectedAlphabet = 'ALL';
+          const catSelect = document.getElementById('words-category-filter');
+          if (catSelect) catSelect.value = 'ALL';
+          const alphabetBar = document.getElementById('alphabet-bar');
+          if (alphabetBar) {
+            alphabetBar.querySelectorAll('.alpha-btn').forEach((btn, idx) => {
+              if (idx === 0) btn.classList.add('active');
+              else btn.classList.remove('active');
+            });
+          }
         }
         renderWords();
       }
@@ -2988,6 +3006,8 @@ window.toggleActiveTestToolsBar = function(forceShow) {
         toggleBtn.innerHTML = showNext
           ? '<i class="fa-solid fa-chevron-up"></i> <span>Hide Tools</span>'
           : '<i class="fa-solid fa-sliders"></i> <span>Tools</span>';
+        toggleBtn.classList.toggle('btn-primary', showNext);
+        toggleBtn.classList.toggle('btn-secondary', !showNext);
       }
     };
 
@@ -5025,21 +5045,21 @@ window.__shorthandPadLightboxScale = 1;
 window.__serverShorthandPadsCache = [];
 
 export function compressCanvasToShorthandDataUrl(canvas) {
-        let quality = 0.76;
+        let quality = 0.80;
         let dataUrl = canvas.toDataURL('image/jpeg', quality);
-        while (dataUrl.length > 44000 && quality > 0.34) {
+        while (dataUrl.length > 180000 && quality > 0.42) {
             quality -= 0.08;
             dataUrl = canvas.toDataURL('image/jpeg', quality);
         }
-        if (dataUrl.length > 44000) {
+        if (dataUrl.length > 180000) {
             const smallCanvas = document.createElement('canvas');
             const scale = 0.72;
-            smallCanvas.width = Math.max(320, Math.round(canvas.width * scale));
-            smallCanvas.height = Math.max(240, Math.round(canvas.height * scale));
+            smallCanvas.width = Math.max(480, Math.round(canvas.width * scale));
+            smallCanvas.height = Math.max(360, Math.round(canvas.height * scale));
             const sctx = smallCanvas.getContext('2d');
             if (sctx) {
                 sctx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
-                dataUrl = smallCanvas.toDataURL('image/jpeg', 0.62);
+                dataUrl = smallCanvas.toDataURL('image/jpeg', 0.68);
             }
         }
         return dataUrl;
@@ -5241,22 +5261,34 @@ window.uploadShorthandPadToServer = async function() {
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
         }
         try {
+            const cleanDataUrl = String(dataUrl || '').trim();
+            const safeMatTitle = String(item.Title || portalState.currentExamName || 'Dictation Exercise');
+            const safeFileName = `ShorthandPad_${activeUserId}_${Date.now()}.jpg`;
             const res = await apiCall('uploadShorthandPad', {
                 userId: activeUserId,
                 userName: portalState.currentUser.name || portalState.currentUser.email || 'Student',
                 batch: portalState.currentUser.batch || 'General Batch',
                 materialId: String(item.ID || item.id || ''),
-                materialTitle: String(item.Title || portalState.currentExamName || 'Dictation Exercise'),
+                materialTitle: safeMatTitle,
                 diagnosisTag: diagEl ? diagEl.value : 'Pending Mentor Review',
                 notes: noteEl ? noteEl.value.trim() : '',
-                imageDataUrl: dataUrl
+                fileName: safeFileName,
+                mimeType: 'image/jpeg',
+                imageDataUrl: cleanDataUrl
             });
             if (res && res.success) {
+                const storedInDrive = Boolean(res.driveFileId || (res.photoUrl && String(res.photoUrl).includes('drive.google.com')));
                 if (statusBadge) {
-                    statusBadge.textContent = 'Submitted to Monitor & Admin';
+                    statusBadge.textContent = storedInDrive
+                      ? 'Saved to Google Drive & Sheet'
+                      : 'Submitted to Monitor & Admin';
                     statusBadge.style.color = '#059669';
                 }
-                if (typeof showToast === 'function') showToast('Shorthand pad photo uploaded! Your Batch Monitor, Admin & Superadmin can now inspect and review it.');
+                if (typeof showToast === 'function') {
+                    showToast(res.message || (storedInDrive
+                      ? 'Shorthand pad photo saved to Google Drive & Sheet! Your Batch Monitor & Admin can now inspect it.'
+                      : 'Shorthand pad photo uploaded! Your Batch Monitor & Admin can now inspect it.'));
+                }
                 if (typeof loadShorthandPadsFromServer === 'function') {
                     loadShorthandPadsFromServer('batchhub', false);
                     loadShorthandPadsFromServer('admin', false);
@@ -5265,7 +5297,11 @@ window.uploadShorthandPadToServer = async function() {
                 throw new Error((res && (res.message || res.error)) || 'Upload failed on server');
             }
         } catch (err) {
-            if (typeof showToast === 'function') showToast('Could not upload shorthand pad: ' + (err.message || err));
+            if (statusBadge) {
+                statusBadge.textContent = 'Upload failed — retry';
+                statusBadge.style.color = '#dc2626';
+            }
+            if (typeof showToast === 'function') showToast('Could not upload shorthand pad: ' + (err.message || err), true);
         } finally {
             if (btn) {
                 btn.disabled = false;
@@ -5700,9 +5736,9 @@ window.openTranscribeExamSelector = function(sourceType = 'audio') {
                   <span>${bsShort}</span>
                 </div>
                 <div style="margin-top:7px; display:flex; align-items:center; justify-content:space-between; gap:6px; flex-wrap:wrap;">
-                  <span style="font-size:11px; font-weight:700; color:var(--primary);">
-                    ${isSel && showCompleteRuleDetails ? 'Hide full parameters' : 'View 12 parameters'}
-                  </span>
+                  <button type="button" class="btn btn-sm btn-secondary rp-card-toggle-params-btn" data-param-rule-key="${escapeHtml(k)}" style="padding:3px 9px; min-height:24px; font-size:10.5px; font-weight:700;">
+                    <i class="fa-solid ${isSel && showCompleteRuleDetails ? 'fa-eye-slash' : 'fa-eye'}"></i> ${isSel && showCompleteRuleDetails ? 'Hide Full Parameters' : 'Show Full Parameters'}
+                  </button>
                   ${isSel ? `<button type="button" class="btn btn-success btn-sm" style="padding:4px 10px; min-height:26px; font-size:11px; font-weight:800;" onclick="event.stopPropagation(); confirmExamAndStartTranscription();"><i class="fa-solid fa-keyboard"></i> Transcribe Now &rarr;</button>` : ''}
                 </div>
               </div>
@@ -5720,17 +5756,29 @@ window.openTranscribeExamSelector = function(sourceType = 'audio') {
             };
           });
 
+          grid.querySelectorAll('.rp-card-toggle-params-btn').forEach(paramBtn => {
+            paramBtn.onclick = (ev) => {
+              ev.stopPropagation();
+              const rk = paramBtn.getAttribute('data-param-rule-key');
+              if (!rk) return;
+              if (activeKey === rk) {
+                showCompleteRuleDetails = !showCompleteRuleDetails;
+              } else {
+                activeKey = rk;
+                select.value = rk;
+                showCompleteRuleDetails = true;
+              }
+              renderCardsAndDetails();
+            };
+          });
+
           grid.querySelectorAll('.eval-rule-select-card').forEach(card => {
             card.onclick = () => {
               const k = card.getAttribute('data-rule-key');
               if (k) {
-                if (activeKey === k) {
-                  showCompleteRuleDetails = !showCompleteRuleDetails;
-                } else {
-                  activeKey = k;
-                  select.value = k;
-                  showCompleteRuleDetails = true;
-                }
+                activeKey = k;
+                select.value = k;
+                showCompleteRuleDetails = false;
                 renderCardsAndDetails();
               }
             };
@@ -5747,7 +5795,7 @@ window.openTranscribeExamSelector = function(sourceType = 'audio') {
               <span style="font-size:12px; color:var(--text-muted); font-weight:600;">Selected Rule: <strong style="color:var(--secondary);">${escapeHtml((r && (r.examDisplayName || r.examTitle)) || activeKey || 'None')}</strong></span>
               <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                 <button type="button" class="btn btn-sm btn-secondary" style="font-size:11.5px; font-weight:700; padding:4px 10px;" onclick="window.previewSelectedTranscribeExamRule(true)">
-                  Inspect Parameters
+                  <i class="fa-solid fa-eye"></i> Show Full Parameters
                 </button>
                 <button type="button" class="btn btn-sm btn-success" style="font-size:11.5px; font-weight:800; padding:4px 12px;" onclick="confirmExamAndStartTranscription()">
                   <i class="fa-solid fa-keyboard"></i> Transcribe Now &rarr;
@@ -5756,8 +5804,23 @@ window.openTranscribeExamSelector = function(sourceType = 'audio') {
             </div>
           `;
         } else {
-          preview.style.display = 'grid';
-          preview.innerHTML = buildCompleteRuleDetailsGridHtml(activeKey, r);
+          preview.style.display = 'block';
+          preview.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border);">
+              <strong style="font-size:12px; color:var(--secondary);">${escapeHtml((r && (r.examDisplayName || r.examTitle)) || activeKey || 'Rule Parameters')}</strong>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-sm btn-secondary" style="font-size:11px; font-weight:700; padding:3px 9px;" onclick="window.previewSelectedTranscribeExamRule(false)">
+                  <i class="fa-solid fa-eye-slash"></i> Hide Full Parameters
+                </button>
+                <button type="button" class="btn btn-sm btn-success" style="font-size:11px; font-weight:800; padding:3px 11px;" onclick="confirmExamAndStartTranscription()">
+                  <i class="fa-solid fa-keyboard"></i> Transcribe Now &rarr;
+                </button>
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:6px 10px;">
+              ${buildCompleteRuleDetailsGridHtml(activeKey, r)}
+            </div>
+          `;
         }
       }
     };
@@ -5776,10 +5839,18 @@ window.openTranscribeExamSelector = function(sourceType = 'audio') {
     if (filterSelect) filterSelect.onchange = renderCardsAndDetails;
     if (sortSelect) sortSelect.onchange = renderCardsAndDetails;
 
+    window.__toggleTranscribeRuleFullParams = (openFlag) => {
+      showCompleteRuleDetails = Boolean(openFlag);
+      renderCardsAndDetails();
+    };
     renderCardsAndDetails();
   };
 
 window.previewSelectedTranscribeExamRule = function(forceExpand = true) {
+    if (typeof window.__toggleTranscribeRuleFullParams === 'function') {
+      window.__toggleTranscribeRuleFullParams(Boolean(forceExpand));
+      return;
+    }
     const select = document.getElementById('transcribe-exam-dropdown') || document.getElementById('transcribe-exam-rule-dropdown');
     const preview = document.getElementById('transcribe-exam-rule-preview');
     if (!select || !preview) return;

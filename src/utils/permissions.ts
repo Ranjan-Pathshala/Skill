@@ -169,10 +169,10 @@ export function resolveAllowedStudentPortalTabs(
   allowed.add('buy-plans');
 
   // Keep companion dedicated views accessible when their parent feature tab is allowed
-  if (allowed.has('attendance-matrix')) allowed.add('planner-goals');
   if (allowed.has('words')) allowed.add('weak-vault');
   if (allowed.has('cbttest')) allowed.add('cbt-revision');
   if (allowed.has('batch-leaderboard')) allowed.add('batchhub');
+  if (allowed.has('test') || allowed.has('dashboard')) allowed.add('attendance-matrix');
 
   return Array.from(allowed);
 }

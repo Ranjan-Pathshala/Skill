@@ -375,12 +375,12 @@ export function renderLearningUploadedExercisesGrid() {
         const wordsCount = countMasterPassageWords(text);
         const strokesCount = countMasterPassageStrokes(text);
         const rawThumb = getThumbnailUrl(ex);
-        const thumbUrl = (rawThumb && String(rawThumb).startsWith('http')) ? rawThumb : DEFAULT_LOGO_URL;
+        const thumbUrl = (rawThumb && (String(rawThumb).startsWith('http') || String(rawThumb).startsWith('/') || String(rawThumb).startsWith('data:'))) ? rawThumb : DEFAULT_LOGO_URL;
         return `
           <div class="card" style="display:flex; flex-direction:column; justify-content:space-between; gap:6px; border-left: 3px solid #10b981;">
             <div>
               <div class="rp-thumb-frame">
-                <img src="${thumbUrl}" class="card-thumb" alt="Learning Typing Thumbnail" loading="lazy" decoding="async" onerror="this.onerror=null; this.src='${DEFAULT_LOGO_URL}'">
+                <img src="${thumbUrl}" class="card-thumb" alt="Learning Typing Thumbnail" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="window.rpHandleImageError && window.rpHandleImageError(this)">
                 <span style="position:absolute; top:4px; left:4px; background:rgba(15,23,42,0.85); color:#fff; padding:2px 6px; border-radius:999px; font-size:9.5px; font-weight:800;">
                   #${idx + 1} • ${ex.Medium || 'EN'}
                 </span>
@@ -1654,20 +1654,21 @@ window.addCustomWordToWeakVault = async function() {
       showToast('Please type a word or phrase (at least 2 letters) to add to your Weak Outlines Vault.');
       return;
     }
-    const existingWord = typeof window.findExistingWordInWordsTabData === 'function'
-      ? window.findExistingWordInWordsTabData(raw)
-      : null;
+    const wordStatus = typeof window.getWeakVaultWordTabStatus === 'function'
+      ? window.getWeakVaultWordTabStatus(raw)
+      : { exists: Boolean(typeof window.findExistingWordInWordsTabData === 'function' && window.findExistingWordInWordsTabData(raw)), unlocked: true, requiredRoleLabel: '' };
 
     if (typeof window.recordWordsIntoWeakOutlinesVault === 'function') {
       window.recordWordsIntoWeakOutlinesVault([{ word: raw, typed: 'Manual Lookup', category: 'Custom Outline' }], 'Custom');
     }
     if (input) input.value = '';
-    if (typeof window.inspectPitmanWordInVault === 'function') window.inspectPitmanWordInVault(raw, true);
     if (typeof window.renderDashboardWeakOutlinesVault === 'function') window.renderDashboardWeakOutlinesVault(true);
     if (typeof window.renderWeakOutlinesVaultModalList === 'function') window.renderWeakOutlinesVaultModalList();
 
-    if (existingWord) {
-      showToast(`Showing "${raw}" in your Weak Outlines Vault.`);
+    if (wordStatus.exists && !wordStatus.unlocked) {
+      showToast(`"${raw}" is available in the Words tab (${wordStatus.requiredRoleLabel || 'locked for your current plan/batch'}).`);
+    } else if (wordStatus.exists) {
+      showToast(`Added "${raw}" to your Weak Outlines Vault.`);
     } else if (typeof window.checkAndSubmitWordOutlineRequest === 'function') {
       await window.checkAndSubmitWordOutlineRequest(raw, 'My Weak Outlines Vault');
     } else {

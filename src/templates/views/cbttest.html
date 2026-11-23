@@ -57,22 +57,19 @@
 
       <!-- Active Testbook-Style CBT Exam Interface (Maximized Question & Options Viewport) -->
       <div id="cbt-active-interface" style="display: none; flex-direction: column; background: var(--surface); border: none; border-radius: 0; overflow: hidden; width: 100%; max-width: 100%;">
-        <!-- Compact Single-Row Top Header -->
-        <div style="background: #0f172a; color: #ffffff; padding: 5px 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 6px; width: 100%; flex-shrink: 0;">
-          <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;">
-            <span style="background: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 10px; flex-shrink: 0;">CBT</span>
-            <strong id="cbt-exam-header-title" style="font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0;">Active CBT Examination</strong>
+        <!-- Compact Single-Row Top Header (Zero-Overflow Layout) -->
+        <div class="rp-cbt-top-header" style="background: #0f172a; color: #ffffff; padding: 6px 10px; min-height: 40px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 8px; width: 100%; box-sizing: border-box; flex-shrink: 0; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; overflow: hidden;">
+            <span style="background: #2563eb; padding: 2px 6px; border-radius: 4px; font-weight: 800; font-size: 10px; flex-shrink: 0; letter-spacing: 0.03em;">CBT</span>
+            <strong id="cbt-exam-header-title" style="font-size: 12.5px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0; color: #f8fafc;">Active CBT Examination</strong>
           </div>
-          <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-            <div style="background: #1e293b; padding: 3px 9px; border-radius: 14px; font-weight: 800; font-size: 12px; border: 1px solid #334155; white-space: nowrap;">
-              ⏳ <span id="cbt-timer-display" style="color: #38bdf8;">00:00</span>
+          <div class="rp-cbt-header-actions" style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+            <div style="background: #1e293b; padding: 3px 9px; border-radius: 14px; font-weight: 800; font-size: 12px; border: 1px solid #334155; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+              <i class="fa-regular fa-clock" style="color: #38bdf8; font-size: 11px;"></i>
+              <span id="cbt-timer-display" class="mono-num" style="color: #38bdf8;">00:00</span>
             </div>
-            <div class="rp-mobile-hide-label" style="display: inline-flex; align-items: center; gap: 3px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 1px 3px;">
-              <button type="button" class="btn btn-secondary btn-sm" style="background: transparent; color: #e2e8f0; border: none; padding: 2px 6px; min-height: 22px; font-size: 11px; font-weight: 800;" onclick="window.adjustMobileActiveTestFontSize && window.adjustMobileActiveTestFontSize(-1.5)" title="Decrease Question Text Size">A-</button>
-              <button type="button" class="btn btn-secondary btn-sm" style="background: transparent; color: #e2e8f0; border: none; padding: 2px 6px; min-height: 22px; font-size: 11px; font-weight: 800;" onclick="window.adjustMobileActiveTestFontSize && window.adjustMobileActiveTestFontSize(1.5)" title="Increase Question Text Size">A+</button>
-            </div>
-            <button type="button" id="cbt-header-tools-toggle-btn" class="btn btn-secondary btn-sm" onclick="window.toggleCbtHeaderToolsBar()" style="background: #1e293b; color: #e2e8f0; border: 1px solid #475569; font-size: 11px; font-weight: 700; padding: 3px 8px; min-height: 26px;" title="Toggle Hall Noise, Language, Sectional Lock &amp; Full Screen">
-              <i class="fa-solid fa-sliders"></i> <span class="rp-mobile-hide-label">Tools</span>
+            <button type="button" id="cbt-header-tools-toggle-btn" class="btn btn-secondary btn-sm" onclick="window.toggleCbtHeaderToolsBar()" style="background: #1e293b; color: #e2e8f0; border: 1px solid #475569; font-size: 11px; font-weight: 700; padding: 3px 9px; min-height: 26px; white-space: nowrap;" title="Show / Hide Text Zoom, Hall Noise, Language &amp; Full Screen">
+              <i class="fa-solid fa-sliders"></i> <span>Tools</span>
             </button>
             <button type="button" id="cbt-palette-toggle-btn" class="btn btn-secondary btn-sm" onclick="window.toggleCbtPaletteDrawer()" style="background: #2563eb; color: #ffffff; border: 1px solid #3b82f6; font-size: 11px; font-weight: 700; padding: 3px 9px; min-height: 26px; white-space: nowrap;" title="Show / Hide Question Palette (Works on Laptop &amp; Mobile)">
               <i class="fa-solid fa-eye-slash"></i> <span id="cbt-palette-toggle-label">Hide Palette</span>
@@ -81,13 +78,15 @@
           </div>
         </div>
 
-        <!-- Collapsible CBT Tools Strip (Hidden by default to preserve question space) -->
-        <div id="cbt-header-tools-drawer" style="display: none; background: #1e293b; color: #f8fafc; padding: 5px 10px; border-bottom: 1px solid #334155; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; flex-shrink: 0;">
-          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <span style="background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.4); padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 800;">
-              <i class="fa-solid fa-lock"></i> Tab Switch Locked
-            </span>
-            <button type="button" id="cbt-sectional-lock-sim-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtStrictSectionalLockSimulation()" style="background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); font-size: 10.5px; font-weight: 800; padding: 3px 8px; min-height: 24px;" title="Toggle Strict Sectional Timer (15m/Sec) &amp; Auto-Switch Simulation">
+        <!-- Collapsible CBT Tools Strip (Hidden by default; single-row scrollable with explicit Hide Tools button) -->
+        <div id="cbt-header-tools-drawer" class="rp-exam-tools-drawer" style="display: none; background: #1e293b; color: #f8fafc; padding: 5px 10px; border-bottom: 1px solid #334155; align-items: center; justify-content: space-between; flex-wrap: nowrap; overflow-x: auto; gap: 8px; flex-shrink: 0; white-space: nowrap;">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; flex-shrink: 0;">
+            <div style="display: inline-flex; align-items: center; gap: 2px; background: #0f172a; border: 1px solid #475569; border-radius: 6px; padding: 1px 4px;">
+              <span style="font-size: 10px; color: #94a3b8; font-weight: 700; padding: 0 3px;">Text:</span>
+              <button type="button" class="btn btn-secondary btn-sm" style="background: transparent; color: #e2e8f0; border: none; padding: 1px 6px; min-height: 22px; font-size: 11px; font-weight: 800;" onclick="window.adjustMobileActiveTestFontSize && window.adjustMobileActiveTestFontSize(-1.5)" title="Decrease Question Text Size">A-</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="background: transparent; color: #e2e8f0; border: none; padding: 1px 6px; min-height: 22px; font-size: 11px; font-weight: 800;" onclick="window.adjustMobileActiveTestFontSize && window.adjustMobileActiveTestFontSize(1.5)" title="Increase Question Text Size">A+</button>
+            </div>
+            <button type="button" id="cbt-sectional-lock-sim-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtStrictSectionalLockSimulation()" style="background: rgba(16,185,129,0.18); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.4); font-size: 10.5px; font-weight: 800; padding: 2px 8px; min-height: 24px;" title="Toggle Strict Sectional Timer (15m/Sec) &amp; Auto-Switch Simulation">
               <i class="fa-solid fa-stopwatch"></i> <span id="cbt-sectional-lock-sim-label">Sectional Lock: AUTO</span>
             </button>
             <div id="cbt-hall-noise-toggle-wrap" style="display: inline-flex; align-items: center; gap: 5px; background: rgba(245,158,11,0.16); border: 1px solid rgba(245,158,11,0.42); padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 800; color: #fde68a;">
@@ -102,18 +101,19 @@
                 <option value="cough_rustle">Footsteps</option>
               </select>
             </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <div style="font-size: 11px; display: flex; align-items: center; gap: 4px;">Lang:
+            <div style="font-size: 11px; display: inline-flex; align-items: center; gap: 4px;">Lang:
               <select id="cbt-lang-select" onchange="window.cbtPerQuestionLangOverride={}; renderCurrentCbtQuestion();" style="background: #0f172a; color: #fff; border: 1px solid #475569; padding: 2px 6px; border-radius: 5px; font-weight: 700; font-size: 11px;">
                 <option value="en">English</option>
                 <option value="hi">Hindi / हिंदी</option>
               </select>
             </div>
-            <button type="button" id="cbt-fullscreen-toggle-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtFullScreen()" style="background: #0f172a; color: #f8fafc; border: 1px solid #475569; font-size: 10.5px; font-weight: 700; padding: 3px 8px; min-height: 24px;">
+            <button type="button" id="cbt-fullscreen-toggle-btn" class="btn btn-secondary btn-sm" onclick="toggleCbtFullScreen()" style="background: #0f172a; color: #f8fafc; border: 1px solid #475569; font-size: 10.5px; font-weight: 700; padding: 2px 8px; min-height: 24px;">
               <i class="fa-solid fa-expand"></i> Full Screen
             </button>
           </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.toggleCbtHeaderToolsBar(false)" style="background: rgba(239,68,68,0.18); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); font-size: 10.5px; font-weight: 800; padding: 2px 8px; min-height: 24px; flex-shrink: 0;" title="Hide Tools Bar">
+            <i class="fa-solid fa-chevron-up"></i> Hide Tools
+          </button>
         </div>
 
         <!-- Compact Section Bar -->

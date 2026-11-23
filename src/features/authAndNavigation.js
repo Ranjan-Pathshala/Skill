@@ -26,7 +26,6 @@ export const TAB_DISPLAY_META = {
   'buy-plans': { icon: 'fa-solid fa-cart-shopping', label: 'Buy Batches & Plans' },
   'batch-leaderboard': { icon: 'fa-solid fa-trophy', label: 'Batch Leaderboard' },
   'attendance-matrix': { icon: 'fa-solid fa-calendar-check', label: 'Attendance & Streak' },
-  'planner-goals': { icon: 'fa-solid fa-calendar-days', label: '7-Day Planner & Goals' },
   'batchhub': { icon: 'fa-solid fa-people-group', label: 'Batch Monitor & Polls' },
   'weak-vault': { icon: 'fa-solid fa-vault', label: 'My Weak Outlines Vault' },
   'cbt-revision': { icon: 'fa-solid fa-bookmark', label: 'Saved MCQs & Error Logbook' },
@@ -41,7 +40,6 @@ export const TAB_DISPLAY_META = {
   'cbttest': { icon: 'fa-solid fa-desktop', label: 'CBT Mock Exam Suite' },
   'test': { icon: 'fa-solid fa-award', label: 'Scorecards & Transcripts' },
   'feedback': { icon: 'fa-solid fa-headset', label: 'Student Helpdesk' },
-  'analytics': { icon: 'fa-solid fa-chart-pie', label: 'Executive Telemetry' },
   'admin': { icon: 'fa-solid fa-shield-halved', label: 'Admin Control Center' }
 };
 
@@ -231,7 +229,7 @@ export const MAINTENANCE_STORAGE_KEY = 'rp_skill_maintenance_config_v1';
 
 export const ALL_STUDENT_PORTAL_TABS = [
   'auth', 'dashboard', 'profile', 'buy-plans', 'batch-leaderboard', 'attendance-matrix',
-  'planner-goals', 'batchhub', 'weak-vault', 'cbt-revision',
+  'batchhub', 'weak-vault', 'cbt-revision',
   'livetests', 'videocourse', 'words', 'pdf', 'audio',
   'pitman', 'learningtyping', 'typingtest', 'cbttest', 'test', 'feedback'
 ];
@@ -579,14 +577,15 @@ export function navigateTo(tabName, pushHistory = true, fromMenu = false) {
     if (typeof window.switchProfileSubtab === 'function') window.switchProfileSubtab('buy-plans');
     return;
   }
+  if (tabName === 'planner-goals' || tabName === 'analytics') {
+    navigateTo('dashboard', pushHistory, fromMenu);
+    return;
+  }
   if (tabName === 'attendance-matrix') {
-    navigateTo('planner-goals', pushHistory, fromMenu);
     setTimeout(() => {
-      if (typeof window.switchPlannerGoalsSubtab === 'function') window.switchPlannerGoalsSubtab('heatmap');
       if (typeof window.switchAttendanceHeatmapMode === 'function') window.switchAttendanceHeatmapMode('all');
       if (typeof window.renderStudentAttendanceMatrixView === 'function') window.renderStudentAttendanceMatrixView();
     }, 30);
-    return;
   }
   if (!portalState.currentUser) {
     switchAuthTab('login');
@@ -662,6 +661,9 @@ export function navigateTo(tabName, pushHistory = true, fromMenu = false) {
   const isAdminOrSuper = (roleStr === 'admin' || roleStr === 'superadmin');
   const isBlockedForStudent = isTabUnderMaintenance(tabName);
 
+  const previousTab = portalState.activeTab;
+  const shouldResetViewState = (previousTab !== tabName) || Boolean(fromMenu);
+
   portalState.activeTab = tabName;
   window.currentActiveViewName = tabName;
   try {
@@ -679,6 +681,11 @@ export function navigateTo(tabName, pushHistory = true, fromMenu = false) {
   });
 
   updateActiveTabHeaderBadge(tabName);
+
+  // Cleanly reset previous transient UI state (open viewers, filters, wizard steps, results, forms) when switching tabs
+  if (shouldResetViewState) {
+    resetTransientViewStateOnTabSwitch(previousTab, tabName);
+  }
 
   document.querySelectorAll('.app-view').forEach(view => {
     view.style.display = 'none';
@@ -716,6 +723,8 @@ export function navigateTo(tabName, pushHistory = true, fromMenu = false) {
       adminMaintNotice.remove();
     }
   }
+
+  try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) {}
 
   // Requirement #7: Non-blocking tab switch — let the browser paint the switched tab first, then stream cards progressively
   const navSwitchToken = (window._activeNavSwitchToken = (window._activeNavSwitchToken || 0) + 1);
@@ -779,53 +788,154 @@ export function navigateTo(tabName, pushHistory = true, fromMenu = false) {
 
       } else if (tabName === 'admin') {
         if (typeof applyAdminTabPermissions === 'function') applyAdminTabPermissions();
-        const activeSubtabId = document.querySelector('#view-admin .admin-subtab-content.active')?.id || 'admin-subtab-analytics';
-        const immediateAdminTasks = [];
-        const deferredAdminTasks = [];
-        const routeAdminTask = (subtabId, fn) => {
-          if (typeof fn !== 'function') return;
-          if (activeSubtabId === subtabId) immediateAdminTasks.push(fn);
-          else deferredAdminTasks.push(fn);
-        };
-
-        routeAdminTask('admin-subtab-analytics', () => {
-          if (typeof renderAdminPerformanceDashboard === 'function') renderAdminPerformanceDashboard();
-          if (typeof renderAdminRealtimeNotifications === 'function') renderAdminRealtimeNotifications();
-        });
-        routeAdminTask('admin-subtab-content', () => {
-          renderAdminMaterialsTable();
-          adjustAdminUploadForm();
-        });
-        routeAdminTask('admin-subtab-users', () => renderAdminUsers());
-        routeAdminTask('admin-subtab-subtabs', () => renderAdminSubtabsTable());
-        routeAdminTask('admin-subtab-feedback-admin', () => renderAdminFeedback());
-        routeAdminTask('admin-subtab-banner', () => {
-          renderAdminBannersTable();
-          if (typeof renderAdminDateBannersTable === 'function') renderAdminDateBannersTable();
-          if (typeof loadDashboardBannerIntoAdminForm === 'function') loadDashboardBannerIntoAdminForm();
-          if (typeof loadMaintenanceSettingsIntoAdminForm === 'function') loadMaintenanceSettingsIntoAdminForm();
-        });
-        routeAdminTask('admin-subtab-livetests', () => {
-          if (typeof populateAdminLiveTestRankSelector === 'function') populateAdminLiveTestRankSelector();
-          if (typeof populateLiveTestMaterialOptions === 'function') populateLiveTestMaterialOptions();
-          if (typeof renderAdminLiveTestsTable === 'function') renderAdminLiveTestsTable();
-        });
-        routeAdminTask('admin-subtab-leaderboard', () => renderAdminLeaderboard());
-        routeAdminTask('admin-subtab-logs', () => renderAdminLogs());
-        routeAdminTask('admin-subtab-evaluation', () => {
-          populateEvalCategoryDropdown();
-          if (typeof populateSavedRulesQuickDropdown === 'function') populateSavedRulesQuickDropdown();
-          loadSelectedEvaluationRulesIntoForm();
-        });
-
-        immediateAdminTasks.forEach(fn => { try { fn(); } catch (e) {} });
-        scheduleFrameTasks('admin-open-render', deferredAdminTasks, 8);
+        const activeSubBtn = document.querySelector('#admin-main-subtab-bar .subtab-btn.active');
+        const activeSubKey = activeSubBtn?.getAttribute('data-admin-subtab') || 'content';
+        // Render ONLY the currently visible admin subtab (lazy-render other subtabs on click to prevent UI hang)
+        try {
+          if (activeSubKey === 'content') {
+            renderAdminMaterialsTable();
+            adjustAdminUploadForm();
+          } else if (typeof window.triggerAdminRenderer === 'function') {
+            window.triggerAdminRenderer(activeSubKey);
+          } else if (activeSubKey === 'users') {
+            renderAdminUsers();
+          } else if (activeSubKey === 'fees' && typeof window.renderAdminFeesManager === 'function') {
+            window.renderAdminFeesManager(true);
+          }
+        } catch (e) {}
         loadAdminData(true);
       }
     }, 0);
   });
 
   try { portalHooks.emit('afterNavigate', tabName); } catch (_hk) {}
+}
+
+function resetTransientViewStateOnTabSwitch(previousTab, nextTab) {
+  try {
+    // 1. Close non-exam overlays/drawers so navigating away never leaves stale popups behind
+    const notifDrawer = document.getElementById('notification-center-drawer');
+    if (notifDrawer && notifDrawer.style.display !== 'none') notifDrawer.style.display = 'none';
+
+    [
+      'reader-modal',
+      'embedded-image-modal',
+      'reference-video-modal',
+      'audio-player-modal',
+      'transcribe-exam-selector-modal'
+    ].forEach((modalId) => {
+      const m = document.getElementById(modalId);
+      if (m && m.style.display && m.style.display !== 'none') {
+        m.style.display = 'none';
+      }
+    });
+
+    // Pause stray inline media playing in the previous tab
+    if (previousTab && previousTab !== nextTab) {
+      const prevEl = document.getElementById(`view-${previousTab}`);
+      if (prevEl) {
+        prevEl.querySelectorAll('audio, video').forEach((media) => {
+          try { if (!media.paused) media.pause(); } catch (_) {}
+        });
+      }
+    }
+
+    // 2. Reset transient search queries, subtabs, wizard steps, and open result screens on the destination tab
+    const clearInput = (id, val = '') => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    };
+
+    if (nextTab === 'audio') {
+      clearInput('audio-search-input');
+      if (portalState.currentSubtabFilter) portalState.currentSubtabFilter.audio = 'ALL';
+    } else if (nextTab === 'pitman') {
+      clearInput('pitman-search-input');
+      if (portalState.currentSubtabFilter) portalState.currentSubtabFilter.pitman = 'ALL';
+    } else if (nextTab === 'pdf') {
+      clearInput('pdf-search-input');
+      if (portalState.currentSubtabFilter) portalState.currentSubtabFilter.pdf = 'ALL';
+    } else if (nextTab === 'videocourse') {
+      clearInput('videocourse-search-input');
+      if (portalState.currentSubtabFilter) portalState.currentSubtabFilter.videocourse = 'ALL';
+    } else if (nextTab === 'words') {
+      clearInput('words-search');
+      clearInput('words-category-filter', 'ALL');
+      clearInput('words-tab-outline-request-input');
+      portalState.currentAlphaFilter = 'ALL';
+      const reqStatus = document.getElementById('words-tab-outline-request-status');
+      if (reqStatus) { reqStatus.style.display = 'none'; reqStatus.textContent = ''; }
+      if (typeof window.switchWordsSubtab === 'function') window.switchWordsSubtab('dictionary');
+    } else if (nextTab === 'typingtest') {
+      clearInput('typing-passage-quick-search');
+      if (typeof window.resetTypingWizard === 'function') window.resetTypingWizard();
+    } else if (nextTab === 'learningtyping') {
+      clearInput('learning-custom-text-input');
+      if (typeof window.openLearningStudioSetupScreen === 'function') {
+        try { window.openLearningStudioSetupScreen(); } catch (_) {}
+      }
+      if (typeof switchLearningTypingSection === 'function') {
+        switchLearningTypingSection('none', null);
+      }
+    } else if (nextTab === 'cbttest') {
+      if (!window.isCbtExamActive) {
+        clearInput('cbttest-search-input');
+        if (portalState.currentSubtabFilter) portalState.currentSubtabFilter.cbttest = 'ALL';
+        const cbtRes = document.getElementById('cbt-result-container');
+        if (cbtRes) { cbtRes.style.display = 'none'; cbtRes.innerHTML = ''; }
+        const cbtActive = document.getElementById('cbt-active-interface');
+        if (cbtActive) cbtActive.style.display = 'none';
+        const cbtCatalog = document.getElementById('cbt-catalog-container');
+        if (cbtCatalog) cbtCatalog.style.display = 'block';
+        if (typeof window.switchCbtWorkspaceSubView === 'function') {
+          window.switchCbtWorkspaceSubView('catalog');
+        }
+      }
+    } else if (nextTab === 'test') {
+      clearInput('history-search-input');
+      clearInput('history-type-filter', 'ALL');
+      clearInput('history-start-date');
+      clearInput('history-end-date');
+      const timeUsedChk = document.getElementById('toggle-time-used');
+      if (timeUsedChk) timeUsedChk.checked = false;
+      portalState.currentHistoryPage = 1;
+      window.currentHistoryPage = 1;
+    } else if (nextTab === 'batch-leaderboard') {
+      clearInput('batch-lb-search-input');
+    } else if (nextTab === 'weak-vault') {
+      clearInput('weak-vault-search-input');
+      clearInput('weak-vault-custom-word-input');
+      const vaultView = document.getElementById('view-weak-vault');
+      if (vaultView) {
+        vaultView.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+      }
+    } else if (nextTab === 'cbt-revision') {
+      const revView = document.getElementById('view-cbt-revision');
+      if (revView) {
+        revView.querySelectorAll('input[type="text"], input[type="search"]').forEach((inp) => { inp.value = ''; });
+        revView.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+      }
+    } else if (nextTab === 'profile') {
+      ['buy-plans-upi-checkout-panel', 'profile-upi-checkout-panel'].forEach((pid) => {
+        const panel = document.getElementById(pid);
+        if (panel) panel.style.display = 'none';
+      });
+      if (typeof window.switchProfileSubtab === 'function') {
+        window.switchProfileSubtab('details');
+      }
+    } else if (nextTab === 'feedback') {
+      clearInput('fb-subject');
+      clearInput('fb-message');
+      const fbStatus = document.getElementById('fb-status-msg');
+      if (fbStatus) { fbStatus.style.display = 'none'; fbStatus.textContent = ''; }
+    } else if (nextTab === 'admin') {
+      if (typeof window.cancelEditingMaterial === 'function') {
+        try { window.cancelEditingMaterial(); } catch (_) {}
+      }
+      clearInput('adm-mat-search');
+      clearInput('adm-user-search');
+    }
+  } catch (e) {}
 }
 
 export function renderAuthView() {

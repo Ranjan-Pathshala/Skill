@@ -14,11 +14,7 @@
       <div class="rp-admin-bar-title-group">
         <span class="rp-admin-bar-title-ico" aria-hidden="true"><i class="fa-solid fa-table-cells-large"></i></span>
         <span class="rp-admin-bar-kicker">Admin Workspace Modules</span>
-        <span class="rp-admin-bar-count" id="admin-main-subtab-count">15 Modules</span>
-      </div>
-      <div class="rp-admin-search-wrap">
-        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        <input type="search" id="admin-subtab-quick-filter" class="rp-admin-search-input" placeholder="Quick find module..." oninput="if(typeof filterAdminMainSubtabs==='function') filterAdminMainSubtabs(this.value)" aria-label="Filter admin modules">
+        <span class="rp-admin-bar-count" id="admin-main-subtab-count">14 Modules</span>
       </div>
     </div>
     <div class="rp-admin-scroll-shell">
@@ -26,31 +22,37 @@
         <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
       </button>
       <div class="rp-admin-tabs-grid" id="admin-main-subtabs-track">
+        <!-- 1. Content & Exams -->
         <button type="button" class="subtab-btn active" data-admin-subtab="content" onclick="switchAdminTab('content', this)">
           <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-book-open"></i></span>
           <span class="rp-atab-label">Content Uploaded</span>
         </button>
+        <button type="button" class="subtab-btn" data-admin-subtab="livetests" onclick="switchAdminTab('livetests', this)">
+          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-tower-broadcast"></i></span>
+          <span class="rp-atab-label">Live Scheduled Tests</span>
+        </button>
+        <button type="button" class="subtab-btn" data-admin-subtab="evaluation" onclick="switchAdminTab('evaluation', this)">
+          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></span>
+          <span class="rp-atab-label">Evaluation Rules</span>
+        </button>
+        <!-- 2. Users, Fees & Tracking -->
         <button type="button" class="subtab-btn" data-admin-subtab="users" onclick="switchAdminTab('users', this)">
           <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-users-gear"></i></span>
           <span class="rp-atab-label">User &amp; Tab Permissions</span>
+        </button>
+        <button type="button" class="subtab-btn" data-admin-subtab="fees" onclick="switchAdminTab('fees', this)">
+          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-indian-rupee-sign"></i></span>
+          <span class="rp-atab-label">Batch &amp; Member Fees</span>
         </button>
         <button type="button" class="subtab-btn" data-admin-subtab="attendance-matrix" onclick="switchAdminTab('attendance-matrix', this)">
           <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-calendar-check"></i></span>
           <span class="rp-atab-label">Attendance &amp; Streak</span>
         </button>
-        <button type="button" class="subtab-btn" data-admin-subtab="livetests" onclick="switchAdminTab('livetests', this)">
-          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-tower-broadcast"></i></span>
-          <span class="rp-atab-label">Live Scheduled Tests</span>
-          <span class="rp-atab-live-dot" aria-hidden="true"></span>
-        </button>
-        <button type="button" class="subtab-btn" data-admin-subtab="analytics" onclick="switchAdminTab('analytics', this)">
-          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
-          <span class="rp-atab-label">Performance Analytics</span>
-        </button>
         <button type="button" class="subtab-btn" data-admin-subtab="leaderboard" onclick="switchAdminTab('leaderboard', this)">
           <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-trophy"></i></span>
           <span class="rp-atab-label">Leaderboard</span>
         </button>
+        <!-- 3. Communication & Support -->
         <button type="button" class="subtab-btn" data-admin-subtab="batch-discussion" onclick="switchAdminTab('batch-discussion', this)">
           <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-comments"></i></span>
           <span class="rp-atab-label">Batch Discussion Board</span>
@@ -59,21 +61,14 @@
           <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-pen-nib"></i></span>
           <span class="rp-atab-label">Outline Replies Desk</span>
         </button>
-        <button type="button" class="subtab-btn" data-admin-subtab="banner" onclick="switchAdminTab('banner', this)">
-          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></span>
-          <span class="rp-atab-label">Banner, Promo &amp; Maintenance</span>
-        </button>
         <button type="button" class="subtab-btn" data-admin-subtab="feedback-admin" onclick="switchAdminTab('feedback-admin', this)">
           <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-headset"></i></span>
           <span class="rp-atab-label">Feedbacks</span>
         </button>
-        <button type="button" class="subtab-btn" data-admin-subtab="fees" onclick="switchAdminTab('fees', this)">
-          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-indian-rupee-sign"></i></span>
-          <span class="rp-atab-label">Batch &amp; Member Fees</span>
-        </button>
-        <button type="button" class="subtab-btn" data-admin-subtab="evaluation" onclick="switchAdminTab('evaluation', this)">
-          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></span>
-          <span class="rp-atab-label">Evaluation Rules</span>
+        <!-- 4. Portal Configuration & Governance -->
+        <button type="button" class="subtab-btn" data-admin-subtab="banner" onclick="switchAdminTab('banner', this)">
+          <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></span>
+          <span class="rp-atab-label">Banner, Promo &amp; Maintenance</span>
         </button>
         <button type="button" class="subtab-btn" data-admin-subtab="subtabs" onclick="switchAdminTab('subtabs', this)">
           <span class="rp-atab-ico" aria-hidden="true"><i class="fa-solid fa-sliders"></i></span>
@@ -97,178 +92,6 @@
   <!-- DEDICATED ADMIN SUBTAB: BATCH FEE, MEMBER ALL-ACCESS PASS FEE & UPI LEDGER -->
   <div id="admin-sub-fees" class="admin-tab-body" style="display: none;">
     <div id="admin-fees-manager-mount" style="display: flex; flex-direction: column; gap: 16px;"></div>
-  </div>
-
-  <!-- Dedicated Batch & Performance Analytics Subtab -->
-  <div id="admin-sub-analytics" class="admin-tab-body" style="display: none;">
-    <!-- Header & Batch Scope Filter -->
-    <div class="card" style="margin-bottom: 14px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-      <div>
-        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary);">Batch Telemetry &amp; Performance Intelligence</div>
-        <h4 style="margin: 2px 0 0 0; font-size: 16px; font-weight: 800; color: var(--secondary);">Batch Analytics &amp; Student Progress Overview</h4>
-      </div>
-      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <label for="admin-analytics-batch-filter" style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin: 0;">Filter Batch:</label>
-        <select id="admin-analytics-batch-filter" class="form-control" style="width: auto; min-width: 185px; min-height: 34px; font-size: 12px; font-weight: 700; padding: 5px 10px;" onchange="renderAdminPerformanceDashboard()">
-          <option value="ALL">All Batches (Institute-Wide)</option>
-        </select>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="renderAdminPerformanceDashboard()">
-          <i class="fa-solid fa-rotate"></i> Refresh Analytics
-        </button>
-      </div>
-    </div>
-
-    <!-- Clean Single-Elevation SaaS KPI Strip -->
-    <div id="admin-telemetry-kpi-strip" class="rp-saas-kpi-grid">
-      <div class="rp-saas-kpi-card">
-        <div>
-          <div class="rp-saas-kpi-label">Active Sessions</div>
-          <div id="an-kpi-total-active-sessions" class="rp-saas-kpi-val">0</div>
-          <div id="an-kpi-sessions-subtext" class="rp-saas-kpi-sub">Login &amp; practice telemetry</div>
-        </div>
-        <div class="rp-saas-kpi-icon" style="background: rgba(37, 99, 235, 0.1); color: #2563eb;">
-          <i class="fa-solid fa-satellite-dish"></i>
-        </div>
-      </div>
-      <div class="rp-saas-kpi-card">
-        <div>
-          <div class="rp-saas-kpi-label">Avg. Typing Accuracy</div>
-          <div id="an-kpi-avg-daily-accuracy" class="rp-saas-kpi-val">0.0%</div>
-          <div id="an-kpi-accuracy-subtext" class="rp-saas-kpi-sub">Across typing &amp; steno exams</div>
-        </div>
-        <div class="rp-saas-kpi-icon" style="background: rgba(16, 185, 129, 0.1); color: #059669;">
-          <i class="fa-solid fa-bullseye"></i>
-        </div>
-      </div>
-      <div class="rp-saas-kpi-card">
-        <div>
-          <div class="rp-saas-kpi-label">Engagement Index</div>
-          <div id="an-kpi-user-engagement-index" class="rp-saas-kpi-val">0.0 / 100</div>
-          <div id="an-kpi-engagement-subtext" class="rp-saas-kpi-sub">Active ratio &amp; tests/student</div>
-        </div>
-        <div class="rp-saas-kpi-icon" style="background: rgba(124, 58, 237, 0.1); color: #7c3aed;">
-          <i class="fa-solid fa-fire-flame-curved"></i>
-        </div>
-      </div>
-      <div class="rp-saas-kpi-card">
-        <div>
-          <div class="rp-saas-kpi-label">Batches / Free Tier</div>
-          <div id="an-kpi-batches-summary" class="rp-saas-kpi-val">0 / 0</div>
-          <div id="an-kpi-batches-subtext" class="rp-saas-kpi-sub">Active batches &amp; Free Tier users</div>
-        </div>
-        <div class="rp-saas-kpi-icon" style="background: rgba(245, 158, 11, 0.12); color: #d97706;">
-          <i class="fa-solid fa-layer-group"></i>
-        </div>
-      </div>
-    </div>
-
-    <!-- Batch-Wise Performance Comparison Table -->
-    <div class="card" id="admin-batch-comparison-card" style="margin-bottom: 14px; padding: 14px 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
-        <div>
-          <h4 style="margin: 0; font-size: 14.5px; font-weight: 800; color: var(--secondary);">
-            <i class="fa-solid fa-ranking-star" style="color: var(--primary);"></i> Batch-Wise Performance Breakdown
-          </h4>
-          <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">Compare student enrollment, recent activity, tests attempted, average speed (WPM), accuracy, and top performer across every batch.</p>
-        </div>
-        <span id="admin-batch-comparison-meta" style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums;">0 Batches</span>
-      </div>
-      <div style="overflow-x: auto; border: 1px solid var(--border); border-radius: 10px;">
-        <table class="rp-admin-clean-table">
-          <thead>
-            <tr>
-              <th>Batch Name</th>
-              <th>Students</th>
-              <th>Active (7d)</th>
-              <th>Tests Taken</th>
-              <th>Avg Speed</th>
-              <th>Avg Accuracy</th>
-              <th>Top Performer</th>
-              <th>Quick Action</th>
-            </tr>
-          </thead>
-          <tbody id="admin-batch-comparison-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Live Telemetry Charts Panel -->
-    <div class="card" id="admin-lightweight-perf-dashboard" style="margin-bottom: 14px; padding: 14px 16px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
-        <div>
-          <h4 style="margin: 0; font-size: 14.5px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-chart-column" style="color: var(--primary);"></i> Live Telemetry Trends
-          </h4>
-          <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">7-Day Active Users (DAU), Average Speed Trends (WPM), and Material Usage breakdown.</p>
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
-        <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <strong style="font-size: 12px; color: var(--secondary);"><i class="fa-solid fa-users" style="color: #2563eb;"></i> Daily Active Users (7-Day DAU)</strong>
-            <span id="adm-perf-dau-badge" style="font-size: 11px; font-weight: 800; color: #2563eb; font-variant-numeric: tabular-nums;">0 Today</span>
-          </div>
-          <div id="adm-recharts-dau-container" style="width: 100%; height: 220px;"></div>
-        </div>
-
-        <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <strong style="font-size: 12px; color: var(--secondary);"><i class="fa-solid fa-gauge-high" style="color: #10b981;"></i> Average Typing Speed Trends (WPM)</strong>
-            <span id="adm-perf-speed-badge" style="font-size: 11px; font-weight: 800; color: #10b981; font-variant-numeric: tabular-nums;">0 WPM Avg</span>
-          </div>
-          <div id="adm-recharts-speed-container" style="width: 100%; height: 220px;"></div>
-        </div>
-
-        <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 14px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <strong style="font-size: 12px; color: var(--secondary);"><i class="fa-solid fa-folder-open" style="color: #8b5cf6;"></i> Materials Accessed &amp; Uploaded</strong>
-            <span id="adm-perf-materials-badge" style="font-size: 11px; font-weight: 800; color: #8b5cf6; font-variant-numeric: tabular-nums;">0 Accessed</span>
-          </div>
-          <div id="adm-recharts-materials-container" style="width: 100%; height: 220px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bottom Row: Cloud Snapshot Backup + Live Notification Feed -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px;">
-      <div class="card" style="margin: 0; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px;">
-        <div>
-          <strong style="font-size: 13.5px; color: var(--secondary);"><i class="fa-solid fa-cloud-arrow-up" style="color: var(--primary);"></i> Cloud Snapshot Backup &amp; Batch Digest</strong>
-          <p style="font-size: 12px; color: var(--text-muted); margin: 4px 0 0 0;">Create a timestamped Google Drive spreadsheet backup or send daily batch progress emails to Admins &amp; Batch Monitors.</p>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <button type="button" id="btn-gdrive-snapshot-backup" class="btn btn-primary btn-sm" style="background: #059669; border-color: #059669;" onclick="triggerOneClickGoogleDriveBackup()">
-            <i class="fa-brands fa-google-drive"></i> Drive Backup
-          </button>
-          <button type="button" class="btn btn-primary btn-sm" onclick="triggerAdminBatchDigestEmailNow('daily')">
-            <i class="fa-solid fa-paper-plane"></i> Send Daily Digest
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="configureAutomatedDailyDigestTrigger()">
-            <i class="fa-solid fa-clock"></i> Auto Trigger
-          </button>
-        </div>
-      </div>
-
-      <div class="card" id="admin-realtime-notifications-card" style="margin: 0; padding: 14px 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <strong style="font-size: 13.5px; color: var(--secondary);"><i class="fa-solid fa-bell" style="color: #d97706;"></i> Admin Activity Alerts</strong>
-            <span id="admin-notif-total-pill" style="font-size: 11px; font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums;">0 Alerts</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-            <select id="admin-notif-filter-select" class="form-control" style="width: auto; padding: 4px 8px; font-size: 11px; min-height: 28px;" onchange="renderAdminRealtimeNotifications()">
-              <option value="ALL">All Alerts</option>
-              <option value="NEW_USER">New Registrations</option>
-              <option value="HIGH_SCORE">High Scores</option>
-            </select>
-            <button type="button" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px;" onclick="markAllAdminNotificationsRead()">Mark Read</button>
-            <button type="button" class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size: 11px;" onclick="clearAllAdminRealtimeNotifications()">Clear</button>
-          </div>
-        </div>
-        <div id="admin-realtime-notifications-list" style="max-height: 170px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"></div>
-      </div>
-    </div>
   </div>
 
   <!-- Dedicated Batch Discussion Board & Shorthand Notebook Reviews Subtab -->
@@ -1316,6 +1139,16 @@
 
       <form id="admin-eval-rules-form" novalidate onsubmit="event.preventDefault(); saveEvaluationRulesSettings();" style="display: flex; flex-direction: column; gap: 14px;">
         
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 10px 14px; border-radius: 10px; background: var(--background); border: 1px dashed rgba(37,99,235,0.35);">
+          <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">
+            <i class="fa-solid fa-sliders" style="color: var(--primary);"></i> Evaluation parameters are collapsed by default for a clean view.
+          </div>
+          <button type="button" id="btn-admin-toggle-eval-full-params" class="btn btn-primary btn-sm" onclick="if(typeof window.toggleAdminEvalFullParameters==='function') window.toggleAdminEvalFullParameters()">
+            <i class="fa-solid fa-eye"></i> Show Full Parameters
+          </button>
+        </div>
+
+        <div id="admin-eval-full-params-wrapper" style="display: none; flex-direction: column; gap: 14px;">
         <!-- STEP 2: General Exam Limits, Total Marks & Passing Cutoff -->
         <div style="background: var(--background); padding: 14px; border-radius: 10px; border: 1px solid var(--border); border-left: 4px solid #2563eb;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
@@ -1648,6 +1481,7 @@
           <button type="submit" class="btn btn-primary" style="flex: 1.5; min-width: 210px;"><i class="fa-solid fa-floppy-disk"></i> Save / Upload Evaluation Rule</button>
           <button type="button" class="btn btn-danger" onclick="deleteSelectedEvaluationRules()"><i class="fa-solid fa-trash-can"></i> Delete / Reset Rule</button>
         </div>
+        </div>
       </form>
 
       <!-- Requirement #7: Merged Saved Evaluation Rules Directory inside the same unified Evaluation Rules Card -->
@@ -1900,17 +1734,29 @@
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 12px;">
         <div class="form-group" style="margin-bottom: 0; padding: 10px 12px; border-radius: 10px; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.28);">
-          <label id="banner-logged-in-label" style="display: block; margin-bottom: 5px; font-weight: 800; font-size: 12px; color: #047857;"><i class="fa-solid fa-user-check"></i> Logged-In Student Top Scrolling Banner Text <span class="required-star">*</span></label>
-          <textarea id="banner-text-input" class="form-control" rows="2" placeholder="Scrolling banner text shown to logged-in students (or both when Same Banner is checked)..."></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 5px; flex-wrap: wrap;">
+            <label id="banner-logged-in-label" style="margin: 0; font-weight: 800; font-size: 12px; color: #047857;"><i class="fa-solid fa-user-check"></i> Logged-In Student Scrolling Banners <span class="required-star">*</span></label>
+            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 22px;" onclick="if(typeof window.appendAnotherBannerLine==='function') window.appendAnotherBannerLine('banner-text-input')">
+              <i class="fa-solid fa-plus"></i> Add Another Banner
+            </button>
+          </div>
+          <textarea id="banner-text-input" class="form-control" rows="3" placeholder="Enter 1 or more scrolling banners (put each banner on a new line or separate with ||). All scroll on ONE single line with wide spacing..."></textarea>
+          <small style="display: block; margin-top: 4px; font-size: 10.5px; color: var(--text-muted);">Multiple banners: press Enter (new line) or type <code>||</code> between banners — they scroll on one single line with generous space between them.</small>
         </div>
         <div id="banner-logged-out-input-wrap" class="form-group" style="margin-bottom: 0; padding: 10px 12px; border-radius: 10px; background: rgba(67, 56, 202, 0.06); border: 1px solid rgba(67, 56, 202, 0.28);">
           <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 5px; flex-wrap: wrap;">
-            <label style="margin: 0; font-weight: 800; font-size: 12px; color: #4338ca;"><i class="fa-solid fa-right-from-bracket"></i> Logged-Out / Public Visitor Top Scrolling Banner Text</label>
-            <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 22px;" onclick="if(typeof window.copyLoggedInBannerToLoggedOut==='function') window.copyLoggedInBannerToLoggedOut()">
-              <i class="fa-regular fa-copy"></i> Copy Logged-In
-            </button>
+            <label style="margin: 0; font-weight: 800; font-size: 12px; color: #4338ca;"><i class="fa-solid fa-right-from-bracket"></i> Logged-Out / Public Visitor Scrolling Banners</label>
+            <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 22px;" onclick="if(typeof window.appendAnotherBannerLine==='function') window.appendAnotherBannerLine('banner-logged-out-text-input')">
+                <i class="fa-solid fa-plus"></i> Add Banner
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 7px; font-size: 10.5px; min-height: 22px;" onclick="if(typeof window.copyLoggedInBannerToLoggedOut==='function') window.copyLoggedInBannerToLoggedOut()">
+                <i class="fa-regular fa-copy"></i> Copy Logged-In
+              </button>
+            </div>
           </div>
-          <textarea id="banner-logged-out-text-input" class="form-control" rows="2" placeholder="Different scrolling banner text shown before login (or leave blank / check Same Banner above)..."></textarea>
+          <textarea id="banner-logged-out-text-input" class="form-control" rows="3" placeholder="Enter 1 or more scrolling banners for logged-out visitors (new line or || between banners)..."></textarea>
+          <small style="display: block; margin-top: 4px; font-size: 10.5px; color: var(--text-muted);">Leave blank or check "Use Same Banner for Both" above to reuse Logged-In banners.</small>
         </div>
       </div>
       <div style="display: flex; gap: 8px; margin-bottom: 18px;">

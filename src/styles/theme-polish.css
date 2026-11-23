@@ -1397,6 +1397,124 @@
     overflow-x: clip;
   }
 
+  /* Structured Workspace Menu alignment (icon + label grouped cleanly on the left) */
+  #menu-authenticated-tabs-list .nav-tab-btn {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start !important;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+  }
+
+  #menu-authenticated-tabs-list .nav-tab-btn .rp-nav-ico {
+    width: 18px;
+    text-align: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    opacity: 0.78;
+    transition: opacity 0.16s ease, color 0.16s ease;
+  }
+
+  #menu-authenticated-tabs-list .nav-tab-btn > span:first-of-type {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  #menu-authenticated-tabs-list .nav-tab-btn .nav-maint-badge {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  #menu-authenticated-tabs-list .nav-tab-btn:hover .rp-nav-ico,
+  #menu-authenticated-tabs-list .nav-tab-btn.active .rp-nav-ico {
+    opacity: 1;
+  }
+
+  /* Refined Hairline Stat Cards (zero thick border-left stripe, crisp tabular numerals) */
+  #dashboard-stats-carousel > .stat-card,
+  .stat-card.rp-stat-clickable {
+    border: 1px solid var(--border) !important;
+    border-left: 1px solid var(--border) !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+    cursor: pointer;
+    padding: 13px 15px;
+  }
+
+  #dashboard-stats-carousel > .stat-card:hover,
+  .stat-card.rp-stat-clickable:hover {
+    transform: translateY(-2px) !important;
+    border-color: rgba(37, 99, 235, 0.42) !important;
+    box-shadow: 0 8px 20px -10px rgba(15, 23, 42, 0.16) !important;
+  }
+
+  #dashboard-stats-carousel > .stat-card:focus-visible,
+  .stat-card.rp-stat-clickable:focus-visible {
+    transform: translateY(-1px) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
+    outline: none;
+  }
+
+  .rp-stat-label {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin-bottom: 3px;
+  }
+
+  .rp-stat-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--secondary);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  [data-theme="dark"] #dashboard-stats-carousel > .stat-card,
+  body.dark-mode #dashboard-stats-carousel > .stat-card,
+  [data-theme="dark"] .stat-card.rp-stat-clickable,
+  body.dark-mode .stat-card.rp-stat-clickable {
+    border-color: var(--border) !important;
+    background: var(--surface);
+  }
+
+  [data-theme="dark"] #dashboard-stats-carousel > .stat-card:hover,
+  body.dark-mode #dashboard-stats-carousel > .stat-card:hover,
+  [data-theme="dark"] .stat-card.rp-stat-clickable:hover,
+  body.dark-mode .stat-card.rp-stat-clickable:hover {
+    border-color: rgba(96, 165, 250, 0.5) !important;
+  }
+
+  /* Locked Word in Weak Outlines Vault ("Available in Words Tab") */
+  .rp-vault-locked-word-btn {
+    border: 1px solid rgba(217, 119, 6, 0.42) !important;
+    background: rgba(245, 158, 11, 0.09) !important;
+    color: #92400e !important;
+    font-weight: 700 !important;
+    white-space: nowrap;
+  }
+
+  .rp-vault-locked-word-btn:hover {
+    background: rgba(245, 158, 11, 0.16) !important;
+    border-color: rgba(217, 119, 6, 0.65) !important;
+  }
+
+  [data-theme="dark"] .rp-vault-locked-word-btn,
+  body.dark-mode .rp-vault-locked-word-btn {
+    border-color: rgba(251, 191, 36, 0.4) !important;
+    background: rgba(245, 158, 11, 0.14) !important;
+    color: #fcd34d !important;
+  }
+
   /* Reduced motion accessibility */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

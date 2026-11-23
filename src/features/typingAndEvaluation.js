@@ -891,18 +891,10 @@ export function renderPitmanList(filterSubtab = 'ALL') {
         card.className = 'card';
         
         const rawLogo = String(item.LogoUrl || '').trim();
-        const rawThumb = String(item.ThumbnailUrl || '').trim();
-        const rawContent = String(item.ContentOrUrl || '').trim();
         const isVideoLink = (u) => /\.(mp4|webm|mkv|mov|avi|m3u8)(\?.*)?$/i.test(u) || /youtube\.com|youtu\.be|vimeo\.com/i.test(u);
-        // Keep the Pitman card cover thumbnail distinct from the actual Pitman Shorthand Plate material (ThumbnailUrl) and video/content URL
-        const hasDistinctCoverLogo = Boolean(
-          rawLogo !== '' &&
-          rawLogo !== '-' &&
-          rawLogo.toLowerCase() !== rawThumb.toLowerCase() &&
-          rawLogo.toLowerCase() !== rawContent.toLowerCase() &&
-          !isVideoLink(rawLogo)
-        );
-        const logoTarget = hasDistinctCoverLogo ? rawLogo : DEFAULT_LOGO_URL;
+        const isImageUrlLike = (u) => Boolean(u && u !== '-' && (/^https?:\/\/|^data:image\/|^\/|^\./i.test(u)) && !isVideoLink(u));
+        // Pitman card thumbnail uses optional Book Cover / LogoUrl, defaulting to the official portal logo so it never duplicates the exercise plate (ThumbnailUrl)
+        const logoTarget = isImageUrlLike(rawLogo) ? rawLogo : DEFAULT_LOGO_URL;
         
         const thumbUrl = getUniversalUrl(logoTarget, 'image');
         const subtabStr = (item.Subtab !== undefined && item.Subtab !== null && String(item.Subtab).trim() !== '' && String(item.Subtab).trim() !== '-')
@@ -920,7 +912,7 @@ export function renderPitmanList(filterSubtab = 'ALL') {
 
         card.innerHTML = `
           <div class="rp-thumb-frame" style="${perms.canView ? '' : 'cursor:pointer; position:relative;'}" ${perms.canView ? '' : `onclick="showToast('Access Denied: Restricted to ${perms.requiredRoleLabel.replace(/'/g, "\\'")}')"`}>
-            <img src="${thumbUrl}" loading="lazy" decoding="async" class="card-thumb" style="${perms.canView ? '' : 'filter:blur(6px); opacity:0.65;'}" onerror="this.onerror=null;this.src='${DEFAULT_LOGO_URL}'">
+            <img src="${thumbUrl}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="card-thumb" style="${perms.canView ? '' : 'filter:blur(6px); opacity:0.65;'}" onerror="window.rpHandleImageError && window.rpHandleImageError(this)">
             ${perms.canView ? '' : `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(15,23,42,0.38);"><span style="color:#fff; font-weight:700; font-size:10.5px; background:rgba(220,38,38,0.92); padding:3px 8px; border-radius:6px;"><i class="fa-solid fa-lock"></i> ${perms.requiredRoleLabel}</span></div>`}
           </div>
           <strong style="margin: 2px 0; color: var(--secondary); font-size: 13px; line-height: 1.32; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${safeTitle}</strong>
@@ -1011,11 +1003,12 @@ export function startPitmanTest(item, overrideRuleKey) {
       const mainBody = document.getElementById('test-main-body-container');
       portalState.testPhotoZoom = 1;
 
-      const photoTarget = (item.ThumbnailUrl && item.ThumbnailUrl !== '-' && item.ThumbnailUrl.trim() !== '') 
-        ? item.ThumbnailUrl 
-        : ((item.LogoUrl && item.LogoUrl !== '-' && item.LogoUrl.trim() !== '') 
-            ? item.LogoUrl 
-            : ((item.ContentOrUrl && String(item.ContentOrUrl).startsWith('http')) ? item.ContentOrUrl : DEFAULT_LOGO_URL));
+      const isUrlStr = (v) => Boolean(v && v !== '-' && (/^https?:\/\/|^data:image\/|^\/|^\./i.test(String(v).trim())));
+      const photoTarget = isUrlStr(item.ThumbnailUrl)
+        ? String(item.ThumbnailUrl).trim()
+        : (isUrlStr(item.LogoUrl)
+            ? String(item.LogoUrl).trim()
+            : (isUrlStr(item.ContentOrUrl) ? String(item.ContentOrUrl).trim() : DEFAULT_LOGO_URL));
       
       const pitmanThumbUrl = getUniversalUrl(photoTarget, 'image');
 
@@ -1038,7 +1031,7 @@ export function startPitmanTest(item, overrideRuleKey) {
         <div id="test-photo-stage" style="flex: 1; width: 100%; overflow: auto; display: block; background: #ffffff; border-radius: 6px; padding: 6px; min-height: clamp(240px, 42vh, 520px); max-height: 76vh; position: relative; text-align: center; border: 1px solid var(--border);">
           <div class="global-watermark-layer" style="opacity: 0.16; z-index: 2; pointer-events: none;"></div>
           <div id="test-photo-zoom-wrapper" style="width: 100%; min-width: 100%; display: inline-block; position: relative; z-index: 1; text-align: center;">
-            <img id="test-pitman-img" src="${pitmanThumbUrl}" style="width: 100%; height: auto; max-width: 100%; max-height: 72vh; object-fit: contain; display: block; margin: 0 auto;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+            <img id="test-pitman-img" src="${pitmanThumbUrl}" referrerpolicy="no-referrer" style="width: 100%; height: auto; max-width: 100%; max-height: 72vh; object-fit: contain; display: block; margin: 0 auto;" onerror="window.rpHandleImageError && window.rpHandleImageError(this)">
           </div>
         </div>
       </div>
@@ -1169,11 +1162,12 @@ export function renderWords() {
       const rawWordLogo = String(w.LogoUrl || '').trim();
       const rawWordContent = String(w.ContentOrUrl || '').trim();
       const isVidUrl = (u) => /\.(mp4|webm|mkv|mov|avi|m3u8)(\?.*)?$/i.test(u) || /youtube\.com|youtu\.be|vimeo\.com/i.test(u);
-      const isValidDistinctThumb = (u) => Boolean(u && u !== '-' && u.toLowerCase() !== rawWordContent.toLowerCase() && !isVidUrl(u));
-      const thumbTarget = isValidDistinctThumb(rawWordThumb)
+      const isImgCandidate = (u) => Boolean(u && u !== '-' && (/^https?:\/\/|^data:image\/|^\/|^\./i.test(u)) && !isVidUrl(u));
+      // For Word outlines, display ThumbnailUrl, else LogoUrl, else the actual uploaded outline image (ContentOrUrl)
+      const thumbTarget = isImgCandidate(rawWordThumb)
         ? rawWordThumb
-        : (isValidDistinctThumb(rawWordLogo) ? rawWordLogo : DEFAULT_LOGO_URL);
-      const fullTarget = (rawWordContent && rawWordContent !== '-') ? rawWordContent : thumbTarget;
+        : (isImgCandidate(rawWordLogo) ? rawWordLogo : (isImgCandidate(rawWordContent) ? rawWordContent : DEFAULT_LOGO_URL));
+      const fullTarget = isImgCandidate(rawWordContent) ? rawWordContent : thumbTarget;
 
       const thumbUrl = getUniversalUrl(thumbTarget, 'image') || DEFAULT_LOGO_URL;
       const fullContentUrl = getUniversalUrl(fullTarget, 'image') || DEFAULT_LOGO_URL;
@@ -1183,7 +1177,7 @@ export function renderWords() {
       if (canView) {
         thumbHtml = `
           <div class="rp-thumb-frame" style="background: #fff !important;">
-            <img src="${thumbUrl}" loading="lazy" class="card-thumb" style="cursor: pointer;" onerror="this.onerror=null; this.src='${DEFAULT_LOGO_URL}';" onclick="openEmbeddedImageModal('${fullContentUrl}', 'Sl. No. ${index + 1} - ${safeTitle}')">
+            <img src="${thumbUrl}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="card-thumb" style="cursor: pointer;" onerror="window.rpHandleImageError && window.rpHandleImageError(this)" onclick="openEmbeddedImageModal('${fullContentUrl}', 'Sl. No. ${index + 1} - ${safeTitle}')">
           </div>
         `;
         actionBtnHtml = `
@@ -1197,7 +1191,7 @@ export function renderWords() {
       } else {
         thumbHtml = `
           <div class="rp-thumb-frame" style="cursor: pointer;" onclick="showToast('Access Denied: Restricted to ${perms.requiredRoleLabel.replace(/'/g, "\\'")}')">
-            <img src="${thumbUrl}" loading="lazy" class="card-thumb" style="filter: blur(6px); opacity: 0.7;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+            <img src="${thumbUrl}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="card-thumb" style="filter: blur(6px); opacity: 0.7;" onerror="window.rpHandleImageError && window.rpHandleImageError(this)">
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
               <span style="color: #fff; font-weight: 700; font-size: 10.5px; background: rgba(239,68,68,0.88); padding: 3px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
                 <i class="fa-solid fa-lock"></i> ${perms.requiredRoleLabel}
@@ -1372,7 +1366,7 @@ export function renderMaterialsList(type, filterSubtab) {
       if (canView) {
         thumbHtml = `
           <div class="rp-thumb-frame" style="background: #fff !important;">
-            <img src="${defaultThumb}" loading="lazy" class="card-thumb" onerror="this.onerror=null; this.src='${DEFAULT_LOGO_URL}'">
+            <img src="${defaultThumb}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="card-thumb" onerror="window.rpHandleImageError && window.rpHandleImageError(this)">
           </div>
         `;
         
@@ -1396,7 +1390,7 @@ export function renderMaterialsList(type, filterSubtab) {
       } else {
         thumbHtml = `
           <div class="rp-thumb-frame" style="cursor: pointer;" onclick="showToast('Access Denied: Restricted to ${perms.requiredRoleLabel.replace(/'/g, "\\'")}')">
-            <img src="${defaultThumb}" loading="lazy" class="card-thumb" style="filter: blur(6px); opacity: 0.7;" onerror="this.src='${DEFAULT_LOGO_URL}'">
+            <img src="${defaultThumb}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="card-thumb" style="filter: blur(6px); opacity: 0.7;" onerror="window.rpHandleImageError && window.rpHandleImageError(this)">
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3);">
               <span style="color: #fff; font-weight: 700; font-size: 10.5px; background: rgba(239,68,68,0.88); padding: 3px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
                 <i class="fa-solid fa-lock"></i> ${perms.requiredRoleLabel}
@@ -1626,7 +1620,7 @@ export function getUniversalUrl(url, type = 'default') {
     let processedUrl = rawStr;
 
     if (processedUrl.startsWith('/api/media-proxy')) {
-      return processedUrl;
+      return buildProtectedMediaProxyUrl(processedUrl, (type === 'image' || type === 'zoom') ? 'image' : 'file');
     }
 
     if (processedUrl.includes('youtube.com') || processedUrl.includes('youtu.be')) {
@@ -3953,14 +3947,32 @@ export function downloadOfficialEvaluatedAnswerSheetPdf() {
     .m-card { border-radius: 8px; padding: 8px 10px; font-size: 11px; border: 1px solid #cbd5e1; background: #fff; }
     .m-card-title { font-size: 10px; font-weight: 900; text-transform: uppercase; margin-bottom: 4px; display: block; }
     .m-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-    .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
-    .passage-box { border: 1.5px solid #94a3b8; border-radius: 8px; padding: 12px; font-size: 12.5px; line-height: 1.85; background: #fff; word-break: break-word; }
+    .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; align-items: start; }
+    .passage-box { border: 1.5px solid #94a3b8; border-radius: 8px; padding: 12px; font-size: 12.5px; line-height: 1.85; background: #fff; word-break: break-word; overflow: visible; max-height: none; height: auto; }
     .passage-box h4 { margin: 0 0 8px 0; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 13px; }
-    .plain-typed-box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.7; background: #f8fafc; white-space: pre-wrap; word-break: break-word; margin-bottom: 14px; }
+    .plain-typed-box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.7; background: #f8fafc; white-space: pre-wrap; word-break: break-word; margin-bottom: 14px; overflow: visible; max-height: none; height: auto; }
     @media print {
+      @page { size: A4 portrait; margin: 10mm; }
+      html, body { height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; }
       .no-print { display: none !important; }
-      body { margin: 8mm; }
-      .passage-box, .m-card, .sum-cell { break-inside: avoid; }
+      .summary-grid { grid-template-columns: repeat(4, 1fr) !important; }
+      .mistake-grid { grid-template-columns: repeat(4, 1fr) !important; }
+      .m-card, .sum-cell { break-inside: avoid; page-break-inside: avoid; }
+      .diff-grid { display: block !important; overflow: visible !important; }
+      .passage-box, .plain-typed-box {
+        display: block !important;
+        width: 100% !important;
+        margin-bottom: 14px !important;
+        overflow: visible !important;
+        max-height: none !important;
+        height: auto !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+      }
+      .passage-box *, .plain-typed-box * {
+        overflow: visible !important;
+        max-height: none !important;
+      }
     }
   </style>
 </head>
@@ -4511,8 +4523,8 @@ export function renderTypingStep2RuleCards() {
           <span style="font-size:12px; font-weight:800; color:var(--primary);">Evaluation Rules for Skill Typing Test (${filteredEntries.length} of ${typingRuleEntries.length})</span>
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
             <input type="text" id="typing-rule-search-input" class="form-control" value="${escapeHtml(typingRuleSearchQuery)}" placeholder="Search typing rule..." style="width: 190px; min-height: 32px; padding: 4px 10px; font-size: 12px; margin: 0;">
-            <button type="button" class="btn btn-sm btn-secondary" style="font-size:11px; font-weight:700;" onclick="const d=document.getElementById('typing-step2-selected-rule-all-details'); if(d){const open=d.style.display==='none'; d.style.display=open?'grid':'none'; this.innerHTML=open?'Hide Rule Details':'View Complete Rule';}">
-              ${showTypingCompleteRuleDetails ? 'Hide Rule Details' : 'View Complete Rule'}
+            <button type="button" id="typing-step2-toggle-params-btn" class="btn btn-sm btn-secondary" style="font-size:11px; font-weight:700;" onclick="const d=document.getElementById('typing-step2-selected-rule-all-details'); if(d){const open=d.style.display==='none'; d.style.display=open?'grid':'none'; this.innerHTML=open?'Hide Full Parameters':'Show Full Parameters';}">
+              ${showTypingCompleteRuleDetails ? 'Hide Full Parameters' : 'Show Full Parameters'}
             </button>
           </div>
         </div>
@@ -4583,13 +4595,9 @@ export function renderTypingStep2RuleCards() {
           const rk = card.getAttribute('data-typing-rule-key');
           const found = typingRuleEntries.find(x => x.key === rk);
           if (found) {
-            if (selectedEntry && selectedEntry.key === found.key) {
-              showTypingCompleteRuleDetails = !showTypingCompleteRuleDetails;
-            } else {
-              selectedEntry = found;
-              examSelect.value = found.name;
-              showTypingCompleteRuleDetails = true;
-            }
+            selectedEntry = found;
+            examSelect.value = found.name;
+            showTypingCompleteRuleDetails = false;
             if (typeof window.onTypingExamSelected === 'function') {
               window.onTypingExamSelected();
             }
@@ -4638,9 +4646,9 @@ window.populateEphemeralPresetRulesDropdown = function() {
       const activeRule = currentKey ? portalState.allEvaluationRules[currentKey] : null;
       cardWrap.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
-          <span style="font-size:11px; font-weight:800; color:var(--text-muted);">Select an Evaluation Rule card below (click card to toggle complete rule details):</span>
-          <button type="button" class="btn btn-sm btn-secondary" style="font-size:11px; font-weight:800; border-color:#6366f1; color:#4f46e5;" onclick="const el=document.getElementById('ephemeral-selected-rule-all-details'); if(el){const open=el.style.display==='none'; el.style.display=open?'grid':'none'; this.innerHTML=open?'🔼 Hide Complete Evaluation Rule':'⚖️ View Complete Evaluation Rule';}">
-            ${showEphemeralCompleteRuleDetails ? '🔼 Hide Complete Evaluation Rule' : '⚖️ View Complete Evaluation Rule'}
+          <span style="font-size:11px; font-weight:800; color:var(--text-muted);">Select an Evaluation Rule card below. Full parameters stay hidden until you click "Show Full Parameters".</span>
+          <button type="button" class="btn btn-sm btn-secondary" style="font-size:11px; font-weight:800; border-color:#6366f1; color:#4f46e5;" onclick="const el=document.getElementById('ephemeral-selected-rule-all-details'); if(el){const open=el.style.display==='none'; el.style.display=open?'grid':'none'; this.innerHTML=open?'Hide Full Parameters':'Show Full Parameters';}">
+            ${showEphemeralCompleteRuleDetails ? 'Hide Full Parameters' : 'Show Full Parameters'}
           </button>
         </div>
         <div class="eval-rule-cards-grid">
@@ -4657,7 +4665,7 @@ window.populateEphemeralPresetRulesDropdown = function() {
                   <span style="background:rgba(16,185,129,0.12); color:#059669; padding:2px 6px; border-radius:6px; font-weight:700;">🎯 ${r.passingAccuracy ?? 90}%</span>
                 </div>
                 <div style="margin-top:6px; font-size:10px; font-weight:800; color:#4f46e5;">
-                  ${isSel && showEphemeralCompleteRuleDetails ? '🔼 Complete Rule Shown Below' : '👉 Click to View Complete Rule'}
+                  ${isSel ? '✓ Selected' : 'Click to Select'}
                 </div>
               </div>
             `;
@@ -4674,13 +4682,9 @@ window.populateEphemeralPresetRulesDropdown = function() {
         card.onclick = () => {
           const k = card.getAttribute('data-eph-key');
           if (k) {
-            if (currentKey === k) {
-              showEphemeralCompleteRuleDetails = !showEphemeralCompleteRuleDetails;
-            } else {
-              currentKey = k;
-              loaderSel.value = k;
-              showEphemeralCompleteRuleDetails = true;
-            }
+            currentKey = k;
+            loaderSel.value = k;
+            showEphemeralCompleteRuleDetails = false;
             if (typeof window.loadEphemeralPresetRule === 'function') {
               window.loadEphemeralPresetRule(k);
             } else if (typeof applySavedRuleToEphemeralModal === 'function') {

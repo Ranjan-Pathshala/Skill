@@ -1,5 +1,5 @@
 <section id="view-test" class="app-view" style="display: none;">
-  <div class="card" style="border-top: 4px solid var(--primary); padding: 18px 20px;">
+  <div class="card" style="padding: 18px 20px;">
     <!-- Well-Arranged Executive Toolbar for My Test & Practice History -->
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border);">
       <div style="display: flex; align-items: center; gap: 10px;">
@@ -14,16 +14,16 @@
 
       <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex: 1; justify-content: flex-end; min-width: min(100%, 320px);">
         <div style="width: 220px; max-width: 100%; flex-shrink: 0;">
-          <input type="text" id="history-search-input" class="form-control" placeholder="🔍 Search exam or passage..." oninput="currentHistoryPage = 1; document.getElementById('history-type-filter').value='ALL'; renderTestHistoryTable();" style="width: 100%; min-height: 36px; padding: 6px 12px; font-size: 12.5px;">
+          <input type="text" id="history-search-input" class="form-control" placeholder="Search exam or passage..." oninput="currentHistoryPage = 1; document.getElementById('history-type-filter').value='ALL'; renderTestHistoryTable();" style="width: 100%; min-height: 36px; padding: 6px 12px; font-size: 12.5px;">
         </div>
 
         <select id="history-type-filter" class="form-control" onchange="currentHistoryPage = 1; renderTestHistoryTable()" style="width: 185px; max-width: 100%; min-height: 36px; padding: 6px 10px; font-size: 12.5px; font-weight: 700; flex-shrink: 0;">
-          <option value="ALL" selected>🌐 All History</option>
-          <option value="typing">⌨️ Typing Test Only</option>
-          <option value="learning">🎓 Learning Typing</option>
-          <option value="pitman">📖 Pitman Shorthand</option>
-          <option value="audio">🔉 Audio Transcription</option>
-          <option value="cbt">🖥️ CBT Exam</option>
+          <option value="ALL" selected>All History</option>
+          <option value="typing">Typing Test Only</option>
+          <option value="learning">Learning Typing</option>
+          <option value="pitman">Pitman Shorthand</option>
+          <option value="audio">Audio Transcription</option>
+          <option value="cbt">CBT Exam</option>
         </select>
 
         <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">

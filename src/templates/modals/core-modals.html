@@ -155,12 +155,12 @@
       </div>
 
       <!-- COLLAPSIBLE COMPACT TEST TOOLS & LIVE STATUS BAR (Zoom, Hall Noise, Live Stats, Full Screen) -->
-      <div id="live-typing-status-bar" style="background: var(--status-bar-bg); border-bottom: 1px solid var(--status-bar-border); padding: 5px 10px; display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--status-bar-text); flex-shrink: 0;">
-        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-          <span id="live-typing-indicator" style="display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 14px; background: #dbeafe; color: #1d4ed8; font-size: 11px;">
-            <i class="fa-solid fa-circle" style="font-size: 7px;"></i> Ready
+      <div id="live-typing-status-bar" class="rp-exam-tools-drawer" style="background: var(--status-bar-bg); border-bottom: 1px solid var(--status-bar-border); padding: 4px 10px; display: none; align-items: center; justify-content: space-between; flex-wrap: nowrap; overflow-x: auto; gap: 8px; font-size: 11px; font-weight: 700; color: var(--status-bar-text); flex-shrink: 0; white-space: nowrap;">
+        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; flex-shrink: 0;">
+          <span id="live-typing-indicator" style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 14px; background: #dbeafe; color: #1d4ed8; font-size: 10.5px;">
+            <i class="fa-solid fa-circle" style="font-size: 6px;"></i> Ready
           </span>
-          <span id="live-exam-rule-badge" style="color: var(--text-muted); font-weight: 700; font-size: 11px;">Standard</span>
+          <span id="live-exam-rule-badge" style="color: var(--text-muted); font-weight: 700; font-size: 10.5px;">Standard</span>
           <div id="test-header-font-zoom-wrap" style="display: inline-flex; align-items: center; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1px 4px;">
             <button type="button" id="test-header-font-minus-btn" class="btn btn-sm btn-secondary" style="border-radius: 12px; font-weight: 800; font-size: 10.5px; padding: 1px 6px; min-height: 22px; border: none;" onclick="adjustTestFontSize(-2)" title="Decrease Text Size">A-</button>
             <span id="test-header-font-size-badge" class="mono-num" style="font-size: 10.5px; font-weight: 700; color: var(--secondary); min-width: 30px; text-align: center;">16px</span>
@@ -168,30 +168,32 @@
             <button type="button" id="test-header-font-reset-btn" class="btn btn-sm btn-secondary" style="border-radius: 12px; font-weight: 700; font-size: 10px; padding: 1px 5px; min-height: 22px; border: none; color: var(--primary);" onclick="adjustTestFontSize(0)" title="Reset Text Size">Reset</button>
           </div>
           <button type="button" id="test-fullscreen-toggle-btn" class="btn btn-sm btn-secondary" style="border-radius: 14px; font-weight: 700; font-size: 10.5px; padding: 2px 7px; min-height: 22px;" onclick="toggleFullscreen()" title="Toggle Full Screen"><i class="fa-solid fa-expand"></i> <span>Full Screen</span></button>
-        </div>
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="color: var(--border);">|</span>
           <span>Words: <strong id="live-stat-words" style="color: var(--primary);">0 (1-Space)</strong></span>
           <span>Strokes: <strong id="live-stat-strokes" style="color: var(--secondary);">0</strong></span>
           <span id="live-stat-wpm-wrap" style="display: none;">Speed: <strong id="live-stat-wpm" style="color: #10b981;">0 WPM</strong></span>
           <span>BS: <strong id="live-stat-backspaces" style="color: #ef4444;">0 / Unlimited</strong></span>
-          <div id="live-status-hall-sound-wrap" style="display: none; align-items: center; gap: 5px; background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(37,99,235,0.28); font-size: 11px; font-weight: 800; margin: 0; color: var(--primary); flex-wrap: wrap;">
+          <div id="live-status-hall-sound-wrap" style="display: none; align-items: center; gap: 5px; background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(37,99,235,0.28); font-size: 10.5px; font-weight: 800; margin: 0; color: var(--primary); flex-wrap: nowrap;">
             <label style="display: inline-flex; align-items: center; gap: 4px; cursor: pointer; margin: 0; color: var(--primary);">
               <i class="fa-solid fa-volume-high"></i> Hall Noise
               <input type="checkbox" id="status-bar-hall-sound-chk" class="exam-hall-sound-chk" style="cursor: pointer; width: 13px; height: 13px; margin: 0;" onchange="toggleExamHallSoundFromStatusBar(this.checked)">
             </label>
-            <select id="status-bar-hall-profile-select" class="exam-hall-profile-select" onchange="changeExamHallNoiseProfile(this.value)" title="Exam Hall Noise Profile" style="margin: 0; padding: 1px 5px; font-size: 10.5px; font-weight: 700; border-radius: 999px; border: 1px solid rgba(37,99,235,0.3); background: var(--surface); color: var(--secondary); cursor: pointer;">
+            <select id="status-bar-hall-profile-select" class="exam-hall-profile-select" onchange="changeExamHallNoiseProfile(this.value)" title="Exam Hall Noise Profile" style="margin: 0; padding: 1px 5px; font-size: 10px; font-weight: 700; border-radius: 999px; border: 1px solid rgba(37,99,235,0.3); background: var(--surface); color: var(--secondary); cursor: pointer;">
               <option value="full_mix">Full Hall</option>
               <option value="keys_only">Keyboards</option>
               <option value="fan_hum">Fan &amp; AC</option>
               <option value="cough_rustle">Footsteps</option>
             </select>
-            <select id="status-bar-hall-vol-select" class="exam-hall-vol-select" onchange="changeExamHallNoiseVolume(this.value)" title="Hall Noise Volume" style="margin: 0; padding: 1px 4px; font-size: 10.5px; font-weight: 700; border-radius: 999px; border: 1px solid rgba(37,99,235,0.3); background: var(--surface); color: var(--secondary); cursor: pointer;">
+            <select id="status-bar-hall-vol-select" class="exam-hall-vol-select" onchange="changeExamHallNoiseVolume(this.value)" title="Hall Noise Volume" style="margin: 0; padding: 1px 4px; font-size: 10px; font-weight: 700; border-radius: 999px; border: 1px solid rgba(37,99,235,0.3); background: var(--surface); color: var(--secondary); cursor: pointer;">
               <option value="30">Low</option>
               <option value="60" selected>Med</option>
               <option value="95">High</option>
             </select>
           </div>
         </div>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="window.toggleActiveTestToolsBar(false)" style="border-radius: 14px; font-weight: 800; font-size: 10.5px; padding: 2px 8px; min-height: 22px; flex-shrink: 0; color: #dc2626; border-color: rgba(220,38,38,0.35); background: rgba(220,38,38,0.08);" title="Hide Tools Bar">
+          <i class="fa-solid fa-chevron-up"></i> Hide Tools
+        </button>
       </div>
 
       <div id="modal-hindi-keymap-overlay" style="display: none; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;"></div>

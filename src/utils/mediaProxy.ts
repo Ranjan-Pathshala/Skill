@@ -43,15 +43,43 @@ export function detectProtectedDriveKind(rawUrl: string, fallbackKind: Protected
   return fallbackKind;
 }
 
+export function buildDriveImageCdnUrl(driveId: string, size = 1600): string {
+  const id = String(driveId || '').trim();
+  if (!id || !DRIVE_ID_PATTERN.test(id)) return '';
+  return `https://lh3.googleusercontent.com/d/${encodeURIComponent(id)}=s${size}`;
+}
+
+export function extractDriveIdFromProxyOrUrl(rawUrl: string): string {
+  const s = String(rawUrl || '').trim();
+  if (!s) return '';
+  const proxyMatch = s.match(/[?&]driveId=([a-zA-Z0-9_-]+)/);
+  if (proxyMatch && proxyMatch[1] && DRIVE_ID_PATTERN.test(proxyMatch[1])) {
+    return proxyMatch[1];
+  }
+  return extractGoogleDriveFileId(s);
+}
+
 export function buildProtectedMediaProxyUrl(rawUrl: string, kind: ProtectedMediaKind = 'file'): string {
   const s = String(rawUrl || '').trim();
   if (!s || s === '-') return '';
-  if (s.startsWith('/api/media-proxy') || s.startsWith('./api/media-proxy')) return s;
   if (s.startsWith('data:') || s.startsWith('blob:')) return s;
+
+  const proxyUnavailable = typeof window !== 'undefined' && (window as unknown as { __RP_MEDIA_PROXY_AVAILABLE__?: boolean }).__RP_MEDIA_PROXY_AVAILABLE__ === false;
+
+  if (s.startsWith('/api/media-proxy') || s.startsWith('./api/media-proxy')) {
+    if (proxyUnavailable && kind === 'image') {
+      const id = extractDriveIdFromProxyOrUrl(s);
+      if (id) return buildDriveImageCdnUrl(id);
+    }
+    return s;
+  }
 
   const driveId = extractGoogleDriveFileId(s);
   if (driveId) {
     const resolvedKind = detectProtectedDriveKind(s, kind);
+    if (proxyUnavailable && resolvedKind === 'image') {
+      return buildDriveImageCdnUrl(driveId);
+    }
     return `/api/media-proxy?driveId=${encodeURIComponent(driveId)}&kind=${encodeURIComponent(resolvedKind)}`;
   }
 
@@ -64,6 +92,9 @@ export function buildProtectedMediaProxyUrl(rawUrl: string, kind: ProtectedMedia
     const low = normalized.toLowerCase();
     // Leave YouTube URLs untouched so YouTube player handles them
     if (low.includes('youtube.com') || low.includes('youtu.be') || low.includes('img.youtube.com')) {
+      return normalized;
+    }
+    if (proxyUnavailable && kind === 'image') {
       return normalized;
     }
     return `/api/media-proxy?url=${encodeURIComponent(normalized)}&kind=${encodeURIComponent(kind)}`;

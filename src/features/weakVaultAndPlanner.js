@@ -427,21 +427,114 @@ window.toggleWeakOutlineMastered = function(word) {
         }
     };
 
-window.deleteWeakOutlineWord = function(word) {
+window.__selectedWeakVaultWords = window.__selectedWeakVaultWords || new Set();
+window.__lastFilteredWeakVaultWords = window.__lastFilteredWeakVaultWords || [];
+
+window.syncWeakVaultBulkBar = function() {
+        const countEl = document.getElementById('weak-vault-selected-count');
+        const delBtn = document.getElementById('btn-weak-vault-delete-selected');
+        const selAllChk = document.getElementById('weak-vault-select-all-chk');
+        const visible = Array.isArray(window.__lastFilteredWeakVaultWords) ? window.__lastFilteredWeakVaultWords : [];
+        const selSet = window.__selectedWeakVaultWords || new Set();
+        const selectedCount = selSet.size;
+        if (countEl) countEl.textContent = `${selectedCount} selected`;
+        if (delBtn) delBtn.disabled = selectedCount === 0;
+        if (selAllChk) {
+            const allChecked = visible.length > 0 && visible.every(w => selSet.has(w));
+            selAllChk.checked = allChecked;
+            selAllChk.indeterminate = !allChecked && visible.some(w => selSet.has(w));
+        }
+    };
+
+window.toggleSelectWeakVaultWord = function(word, checked) {
+        const key = String(word || '').trim().toLowerCase();
+        if (!key) return;
+        if (!window.__selectedWeakVaultWords) window.__selectedWeakVaultWords = new Set();
+        if (checked) window.__selectedWeakVaultWords.add(key);
+        else window.__selectedWeakVaultWords.delete(key);
+        window.syncWeakVaultBulkBar();
+    };
+
+window.toggleSelectAllWeakVaultWords = function(checked) {
+        if (!window.__selectedWeakVaultWords) window.__selectedWeakVaultWords = new Set();
+        const visible = Array.isArray(window.__lastFilteredWeakVaultWords) ? window.__lastFilteredWeakVaultWords : [];
+        visible.forEach(w => {
+            if (checked) window.__selectedWeakVaultWords.add(w);
+            else window.__selectedWeakVaultWords.delete(w);
+        });
+        window.renderDashboardWeakOutlinesVault(true);
+    };
+
+window.deleteSelectedWeakOutlineWords = function() {
+        const selSet = window.__selectedWeakVaultWords || new Set();
+        if (selSet.size === 0) {
+            if (typeof showToast === 'function') showToast('Please select at least one word to delete.');
+            return;
+        }
+        const count = selSet.size;
+        const doBulkDelete = () => {
+            const vault = window.getWeakOutlinesVault().filter(v => !selSet.has(String(v.word || '').trim().toLowerCase()));
+            selSet.clear();
+            window.saveWeakOutlinesVault(vault);
+            window.renderWeakOutlinesVaultModalList();
+            window.renderDashboardWeakOutlinesVault(true);
+            if (typeof showToast === 'function') showToast(`Deleted ${count} selected word${count === 1 ? '' : 's'} from Weak Outlines Vault.`);
+        };
+        if (typeof window.rpConfirmDelete === 'function') {
+            window.rpConfirmDelete(
+                `Delete ${count} Selected Word${count === 1 ? '' : 's'}?`,
+                `Are you sure you want to permanently remove ${count} selected word${count === 1 ? '' : 's'} from your Weak Outlines Vault?`,
+                doBulkDelete
+            );
+        } else {
+            doBulkDelete();
+        }
+    };
+
+window.deleteWeakOutlineWord = function(word, skipConfirm = false) {
         const target = String(word || '').trim().toLowerCase();
         if (!target) return;
-        const vault = window.getWeakOutlinesVault().filter(v => String(v.word || '').toLowerCase() !== target);
-        if (String(window.__currentInspectedPitmanWord || '').toLowerCase() === target) {
-            window.__currentInspectedPitmanWord = vault.length > 0 ? vault[0].word : '';
+        const doDelete = () => {
+            const vault = window.getWeakOutlinesVault().filter(v => String(v.word || '').trim().toLowerCase() !== target);
+            if (window.__selectedWeakVaultWords) window.__selectedWeakVaultWords.delete(target);
+            window.saveWeakOutlinesVault(vault);
+            window.renderWeakOutlinesVaultModalList();
+            window.renderDashboardWeakOutlinesVault(true);
+            if (typeof showToast === 'function') showToast(`Removed "${word}" from your Weak Outlines Vault.`);
+        };
+        if (!skipConfirm && typeof window.rpConfirmDelete === 'function') {
+            window.rpConfirmDelete(
+                'Delete Word from Vault?',
+                `Are you sure you want to permanently delete "${word}" from your Weak Outlines Vault?`,
+                doDelete
+            );
+            return;
         }
-        window.saveWeakOutlinesVault(vault);
-        window.renderWeakOutlinesVaultModalList();
-        if (window.__currentInspectedPitmanWord) {
-            window.inspectPitmanWordInVault(window.__currentInspectedPitmanWord, true);
+        doDelete();
+    };
+
+window.clearAllWeakOutlinesVault = function() {
+        const vault = window.getWeakOutlinesVault();
+        if (!vault.length) {
+            if (typeof showToast === 'function') showToast('Your Weak Outlines Vault is already empty.');
+            return;
+        }
+        const doClearAll = () => {
+            if (window.__selectedWeakVaultWords) window.__selectedWeakVaultWords.clear();
+            window.saveWeakOutlinesVault([]);
+            window.renderWeakOutlinesVaultModalList();
+            window.renderDashboardWeakOutlinesVault(true);
+            if (typeof showToast === 'function') showToast('Cleared all words from your Weak Outlines Vault.');
+        };
+        if (typeof window.rpConfirmDelete === 'function') {
+            window.rpConfirmDelete(
+                'Clear Entire Weak Outlines Vault?',
+                `Are you sure you want to permanently delete all ${vault.length} saved word${vault.length === 1 ? '' : 's'} from your Weak Outlines Vault?`,
+                doClearAll
+            );
         } else {
-            window.renderInlinePitmanInspectorEmpty();
+            doClearAll();
         }
-        if (typeof showToast === 'function') showToast(`Removed "${word}" from your Weak Outlines Vault.`);
     };
 
 window.renderInlinePitmanInspectorEmpty = function() {
@@ -472,6 +565,57 @@ window.closeWeakOutlinesVaultModal = function() {
         modal.style.display = 'none';
     };
 
+window.getWeakVaultWordTabStatus = function(rawWord) {
+        const cleanWord = String(rawWord || '').trim();
+        if (!cleanWord) return { exists: false, unlocked: false, entry: null, outlineUrl: '', requiredRoleLabel: '' };
+        const entry = typeof window.findExistingWordInWordsTabData === 'function'
+          ? window.findExistingWordInWordsTabData(cleanWord)
+          : null;
+        if (!entry) return { exists: false, unlocked: false, entry: null, outlineUrl: '', requiredRoleLabel: '' };
+
+        const accessLevel = String(entry.AccessLevel || 'public').toLowerCase();
+        const perms = typeof window.checkMaterialAccessPermissions === 'function'
+          ? window.checkMaterialAccessPermissions(accessLevel, entry)
+          : { canView: true, requiredRoleLabel: '' };
+        const unlocked = Boolean(perms && perms.canView);
+        const requiredRoleLabel = String((perms && perms.requiredRoleLabel) || 'Authorized Batch / Plan').trim();
+
+        if (!unlocked) {
+          return { exists: true, unlocked: false, entry, outlineUrl: '', requiredRoleLabel };
+        }
+
+        const rawUrl = String(entry.ContentOrUrl || entry.ThumbnailUrl || entry.LogoUrl || '').trim();
+        const isValidImg = Boolean(rawUrl && rawUrl !== '-' && (/^(https?:\/\/|data:image\/|\/api\/media-proxy)/i.test(rawUrl)));
+        const outlineUrl = isValidImg
+          ? (typeof window.getUniversalUrl === 'function' ? window.getUniversalUrl(rawUrl, 'image') : rawUrl)
+          : '';
+        return { exists: true, unlocked: true, entry, outlineUrl, requiredRoleLabel };
+    };
+
+window.openLockedWordInWordsTab = function(rawWord) {
+        const cleanWord = String(rawWord || '').trim();
+        const status = window.getWeakVaultWordTabStatus(cleanWord);
+        if (typeof window.navigateTo === 'function') {
+          window.navigateTo('words', true, true);
+        }
+        setTimeout(() => {
+          if (typeof window.switchWordsSubtab === 'function') {
+            window.switchWordsSubtab('dictionary');
+          }
+          const searchEl = document.getElementById('words-search');
+          if (searchEl) {
+            searchEl.value = cleanWord;
+          }
+          if (typeof window.renderWords === 'function') {
+            window.renderWords();
+          }
+          if (typeof showToast === 'function') {
+            const lockNote = status.requiredRoleLabel ? ` (Locked for ${status.requiredRoleLabel})` : '';
+            showToast(`"${cleanWord}" is available in the Words & Outlines tab${lockNote}.`);
+          }
+        }, 60);
+    };
+
 window.inspectPitmanWordInVault = function(word, inlineOnly = false) {
         const cleanWord = String(word || '').trim();
         if (!cleanWord) {
@@ -486,25 +630,24 @@ window.inspectPitmanWordInVault = function(word, inlineOnly = false) {
         const info = window.describePitmanShorthandOutline(cleanWord);
         window.__currentInspectedPitmanWord = info.word;
 
-        // If this word exists in the Words & Outlines tab, render its actual word outline image directly (without any "already available" notice)
-        const existingWordsEntry = typeof window.findExistingWordInWordsTabData === 'function'
-          ? window.findExistingWordInWordsTabData(cleanWord)
-          : null;
-        const rawExistingImg = existingWordsEntry
-          ? String(existingWordsEntry.ContentOrUrl || existingWordsEntry.ThumbnailUrl || '').trim()
-          : '';
-        const hasExistingWordOutlineUrl = Boolean(rawExistingImg && rawExistingImg !== '-' && /^(https?:\/\/|data:image\/)/i.test(rawExistingImg));
-        const resolvedExistingOutlineUrl = hasExistingWordOutlineUrl
-          ? (typeof window.getUniversalUrl === 'function' ? window.getUniversalUrl(rawExistingImg, 'image') : rawExistingImg)
-          : '';
+        // Check Words & Outlines availability AND user access permissions (never leak locked outline images)
+        const wordStatus = window.getWeakVaultWordTabStatus(cleanWord);
+        const resolvedExistingOutlineUrl = (wordStatus.exists && wordStatus.unlocked) ? wordStatus.outlineUrl : '';
+        const isLockedInWordsTab = Boolean(wordStatus.exists && !wordStatus.unlocked);
         const safeOutlineUrlJs = resolvedExistingOutlineUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         const safeWordJs = window.escapeHtml(info.word).replace(/'/g, "\\'");
-        const stageVisualHtml = resolvedExistingOutlineUrl
-          ? `<div style="width:100%; max-width:300px; margin:0 auto; text-align:center;">
-               <img src="${window.escapeHtml(resolvedExistingOutlineUrl)}" alt="${window.escapeHtml(info.word)}" style="max-width:100%; max-height:190px; object-fit:contain; border-radius:8px; background:#ffffff; padding:6px; border:1px solid var(--border); cursor:pointer;" onclick="if(typeof openEmbeddedImageModal==='function') openEmbeddedImageModal('${safeOutlineUrlJs}', '${safeWordJs}')" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-               <div style="display:none; width:100%; max-width:290px; margin:0 auto;">${info.svg}</div>
+        const stageVisualHtml = isLockedInWordsTab
+          ? `<div style="width:100%; max-width:320px; margin:0 auto; text-align:center; padding:16px 14px; border-radius:10px; background:var(--background); border:1px solid var(--border);">
+               <div style="font-size:13px; font-weight:800; color:var(--secondary); margin-bottom:4px;"><i class="fa-solid fa-lock" style="color:#d97706; margin-right:5px;"></i>Available in Words Tab</div>
+               <div style="font-size:11.5px; color:var(--text-muted); margin-bottom:10px;">This outline is uploaded in the Words &amp; Outlines tab (${window.escapeHtml(wordStatus.requiredRoleLabel)}).</div>
+               <button type="button" class="btn btn-secondary btn-sm" onclick="window.openLockedWordInWordsTab('${safeWordJs}')"><i class="fa-solid fa-arrow-up-right-from-square"></i> View in Words Tab</button>
              </div>`
-          : `<div style="width:100%; max-width:290px; margin:0 auto;">${info.svg}</div>`;
+          : (resolvedExistingOutlineUrl
+              ? `<div style="width:100%; max-width:300px; margin:0 auto; text-align:center;">
+                   <img src="${window.escapeHtml(resolvedExistingOutlineUrl)}" alt="${window.escapeHtml(info.word)}" style="max-width:100%; max-height:190px; object-fit:contain; border-radius:8px; background:#ffffff; padding:6px; border:1px solid var(--border); cursor:pointer;" onclick="if(typeof openEmbeddedImageModal==='function') openEmbeddedImageModal('${safeOutlineUrlJs}', '${safeWordJs}')" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                   <div style="display:none; width:100%; max-width:290px; margin:0 auto;">${info.svg}</div>
+                 </div>`
+              : `<div style="width:100%; max-width:290px; margin:0 auto;">${info.svg}</div>`);
 
         // 1. Update Inline Studio Inspector inside #view-weak-vault
         const inlineTitle = document.getElementById('inline-pitman-word-title');
@@ -514,12 +657,12 @@ window.inspectPitmanWordInVault = function(word, inlineOnly = false) {
         const inlineInput = document.getElementById('inline-pitman-practice-input');
         const inlineProgress = document.getElementById('inline-pitman-practice-progress');
         if (inlineTitle) inlineTitle.textContent = info.word;
-        if (inlinePos) inlinePos.textContent = resolvedExistingOutlineUrl ? info.word : info.position;
+        if (inlinePos) inlinePos.textContent = isLockedInWordsTab ? 'Available in Words Tab' : (resolvedExistingOutlineUrl ? info.word : info.position);
         if (inlineStage) {
             inlineStage.innerHTML = stageVisualHtml;
         }
         if (inlineNotes) {
-            inlineNotes.innerHTML = resolvedExistingOutlineUrl
+            inlineNotes.innerHTML = (resolvedExistingOutlineUrl || isLockedInWordsTab)
               ? ''
               : info.rules.map(r => `<div style="display:flex; align-items:flex-start; gap:8px; background:var(--background); padding:8px 10px; border-radius:8px; border:1px solid var(--border); font-size:12px; color:var(--secondary);"><i class="fas fa-check-circle" style="color:var(--primary); margin-top:2px; flex-shrink:0;"></i><span>${r}</span></div>`).join('');
         }
@@ -635,27 +778,53 @@ window.renderDashboardWeakOutlinesVault = function(skipAutoInspect = false) {
             });
 
             if (vault.length === 0) {
+                window.__lastFilteredWeakVaultWords = [];
+                if (window.__selectedWeakVaultWords) window.__selectedWeakVaultWords.clear();
                 inlineListEl.innerHTML = window.buildRpEmptyStateHtml(
                     'Your Weak Outlines Vault is empty',
-                    'Words you miss or misspell in Dictation & Typing tests appear here automatically. You can also type any difficult word above to inspect its Pitman stroke right away.',
+                    'Words you miss or misspell in Dictation & Typing tests appear here automatically. You can also add any difficult word above.',
                     'Focus Add Word Box',
                     "document.getElementById('weak-vault-custom-word-input')?.focus()"
                 );
-                window.renderInlinePitmanInspectorEmpty();
+                window.syncWeakVaultBulkBar();
             } else if (filtered.length === 0) {
+                window.__lastFilteredWeakVaultWords = [];
                 inlineListEl.innerHTML = `<div style="padding:20px; text-align:center; font-size:12.5px; color:var(--text-muted); border:1px dashed var(--border); border-radius:10px;">No saved words match this filter or search query.</div>`;
+                window.syncWeakVaultBulkBar();
             } else {
-                const activeWordLower = String(window.__currentInspectedPitmanWord || '').toLowerCase();
+                const validKeys = new Set(vault.map(v => String(v.word || '').trim().toLowerCase()));
+                if (window.__selectedWeakVaultWords) {
+                    Array.from(window.__selectedWeakVaultWords).forEach(k => { if (!validKeys.has(k)) window.__selectedWeakVaultWords.delete(k); });
+                } else {
+                    window.__selectedWeakVaultWords = new Set();
+                }
+                window.__lastFilteredWeakVaultWords = filtered.map(item => String(item.word || '').trim().toLowerCase()).filter(Boolean);
+
                 inlineListEl.innerHTML = filtered.map(item => {
-                    const safeWord = window.escapeHtml(String(item.word || ''));
+                    const rawWord = String(item.word || '');
+                    const wordKey = rawWord.trim().toLowerCase();
+                    const safeWord = window.escapeHtml(rawWord);
                     const safeJs = safeWord.replace(/'/g, "\\'");
-                    const isSelected = activeWordLower === String(item.word || '').toLowerCase();
+                    const isChecked = window.__selectedWeakVaultWords.has(wordKey);
                     const wrongTimes = Number(item.wrongCount ?? item.count) || 1;
                     const correctTimes = Number(item.correctCount) || 0;
                     const totalTimes = wrongTimes + correctTimes;
+
+                    // Check if an uploaded outline exists in Words tab & whether current user has access
+                    const wordTabStatus = window.getWeakVaultWordTabStatus(rawWord);
+                    const isUnlockedWord = Boolean(wordTabStatus.exists && wordTabStatus.unlocked && wordTabStatus.outlineUrl);
+                    const isLockedWord = Boolean(wordTabStatus.exists && !wordTabStatus.unlocked);
+                    const safeOutlineJs = (wordTabStatus.outlineUrl || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    const wordActionBtnHtml = isUnlockedWord
+                      ? `<button type="button" class="btn btn-sm btn-secondary" style="padding:4px 9px; font-size:11px; white-space:nowrap;" onclick="if(typeof openEmbeddedImageModal==='function') openEmbeddedImageModal('${safeOutlineJs}', '${safeJs}')"><i class="fa-regular fa-image"></i> Outline</button>`
+                      : (isLockedWord
+                          ? `<button type="button" class="btn btn-sm btn-secondary rp-vault-locked-word-btn" style="padding:4px 10px; font-size:11px; white-space:nowrap;" onclick="window.openLockedWordInWordsTab('${safeJs}')" title="Available in Words & Outlines tab (${window.escapeHtml(wordTabStatus.requiredRoleLabel)})"><i class="fa-solid fa-lock"></i> Available in Words Tab</button>`
+                          : '');
+
                     return `
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:10px; background:${isSelected ? 'rgba(79,70,229,0.08)' : 'var(--background)'}; border:1.5px solid ${isSelected ? 'var(--primary)' : (item.mastered ? 'rgba(16,185,129,0.35)' : 'var(--border)')}; transition:all 0.15s ease;">
-                            <div onclick="inspectPitmanWordInVault('${safeJs}', true)" style="display:flex; align-items:center; gap:10px; min-width:0; flex:1; cursor:pointer;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:10px; background:${isChecked ? 'rgba(37,99,235,0.06)' : 'var(--background)'}; border:1px solid ${isChecked ? 'var(--primary)' : (item.mastered ? 'rgba(16,185,129,0.4)' : 'var(--border)')}; transition:border-color 0.15s ease, background 0.15s ease;">
+                            <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+                                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="window.toggleSelectWeakVaultWord('${safeJs}', this.checked)" aria-label="Select ${safeWord}" style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer; flex-shrink:0;">
                                 <span style="min-width:30px; height:28px; border-radius:6px; background:${item.mastered ? 'rgba(16,185,129,0.14)' : 'rgba(225,29,72,0.12)'}; color:${item.mastered ? '#059669' : '#e11d48'}; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" title="Written wrong ${wrongTimes} time(s)">
                                     ${item.mastered ? '✓' : `${wrongTimes}x`}
                                 </span>
@@ -672,8 +841,8 @@ window.renderDashboardWeakOutlinesVault = function(skipAutoInspect = false) {
                                     </div>
                                 </div>
                             </div>
-                            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                                <button type="button" class="btn btn-sm ${isSelected ? 'btn-primary' : 'btn-secondary'}" style="padding:4px 9px; font-size:11px;" onclick="inspectPitmanWordInVault('${safeJs}', true)">Inspect</button>
+                            <div style="display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;">
+                                ${wordActionBtnHtml}
                                 <button type="button" class="btn btn-sm ${item.mastered ? 'btn-success' : 'btn-secondary'}" style="padding:4px 8px; font-size:11px;" onclick="toggleWeakOutlineMastered('${safeJs}')" title="${item.mastered ? 'Mark Needs Practice' : 'Mark Mastered'}">
                                     <i class="fa-solid ${item.mastered ? 'fa-rotate-left' : 'fa-check'}"></i>
                                 </button>
@@ -684,10 +853,7 @@ window.renderDashboardWeakOutlinesVault = function(skipAutoInspect = false) {
                         </div>
                     `;
                 }).join('');
-
-                if (!skipAutoInspect && (!window.__currentInspectedPitmanWord || !vault.some(v => String(v.word || '').toLowerCase() === String(window.__currentInspectedPitmanWord || '').toLowerCase()))) {
-                    window.inspectPitmanWordInVault(filtered[0].word, true);
-                }
+                window.syncWeakVaultBulkBar();
             }
         }
 
@@ -707,13 +873,13 @@ window.renderDashboardWeakOutlinesVault = function(skipAutoInspect = false) {
                     const wrongTimes = Number(item.wrongCount ?? item.count) || 1;
                     const correctTimes = Number(item.correctCount) || 0;
                     return `
-                    <div onclick="inspectPitmanWordInVault('${window.escapeHtml(String(item.word)).replace(/'/g, "\\'")}')" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 10px; background: var(--background); border: 1px solid var(--border); cursor: pointer;">
+                    <div onclick="navigateTo('weak-vault')" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 10px; background: var(--background); border: 1px solid var(--border); cursor: pointer;">
                         <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
                             <span style="min-width: 24px; height: 24px; border-radius: 6px; background: rgba(225,29,72,0.14); color: #e11d48; font-size: 10.5px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center;">${wrongTimes}x</span>
                             <strong style="font-size: 12.5px; color: var(--secondary);">${window.escapeHtml(item.word)}</strong>
                             <span style="font-size: 10.5px; color: #059669; font-weight: 700;">✓${correctTimes}x</span>
                         </div>
-                        <span style="font-size: 11px; font-weight: 800; color: var(--primary);">Inspect</span>
+                        <span style="font-size: 11px; font-weight: 800; color: var(--primary);">Open Vault</span>
                     </div>
                 `;
                 }).join('');
@@ -821,9 +987,9 @@ window.launchWeakOutlinesCustomDrill = function() {
         if (mainBody) {
             mainBody.innerHTML = `
                 <div style="display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 1140px; flex: 1; margin: 0 auto;">
-                    <div style="background: rgba(225,29,72,0.10); border: 1px solid rgba(225,29,72,0.3); padding: 10px 16px; border-radius: 10px; font-size: 12.5px; font-weight: 800; color: var(--secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                        <span><i class="fas fa-bolt" style="color: #e11d48;"></i> Weak Outlines Custom Mastery Drill — Practicing Focus Words: <strong style="color: var(--primary);">${words.slice(0, 8).join(', ')}</strong></span>
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="openWeakOutlinesVaultModal()"><i class="fas fa-vault"></i> Open Weak Vault</button>
+                    <div style="background: rgba(225,29,72,0.08); border: 1px solid rgba(225,29,72,0.28); padding: 10px 16px; border-radius: 10px; font-size: 12.5px; font-weight: 700; color: var(--secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <span><i class="fas fa-bolt" style="color: #e11d48; margin-right: 4px;"></i> Weak Outlines Mastery Drill — Focus Words: <strong style="color: var(--primary);">${words.slice(0, 8).join(', ')}</strong></span>
+                        <span style="font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums;">${words.length} target word${words.length === 1 ? '' : 's'}</span>
                     </div>
                     <div id="test-material-passage-text" style="background: var(--surface); padding: 18px; border-radius: 12px; border: 1.5px solid var(--border); font-size: 17px; line-height: 1.75; max-height: 220px; overflow-y: auto; user-select: none; white-space: pre-wrap;">${passage}</div>
                     <textarea id="test-user-input" class="form-control" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off" style="flex: 1; min-height: 220px; font-family: 'Segoe UI', monospace; font-size: 17px; padding: 14px;" placeholder="Start typing the Weak Outlines Mastery Drill here (Timer starts on your first keystroke)..." oninput="handleTypingInputProgress()" onkeydown="handleTestKeyDown(event)"></textarea>

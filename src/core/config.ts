@@ -48,7 +48,6 @@ export const ALL_STUDENT_PORTAL_TABS = [
   'typingtest',
   'cbttest',
   'weak-vault',
-  'planner-goals',
   'batchhub',
   'cbt-revision',
   'batch-leaderboard',

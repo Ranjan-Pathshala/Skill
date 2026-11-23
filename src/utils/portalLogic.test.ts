@@ -185,7 +185,7 @@ test('permissions normalize batch lists, enforce batch scoping, and evaluate mai
   // resolveAllowedStudentPortalTabs treats 'ALL' / '*' / empty as full access for regular users
   const sampleTabs = [
     'dashboard', 'profile', 'buy-plans', 'audio', 'typingtest', 'cbttest',
-    'words', 'weak-vault', 'attendance-matrix', 'planner-goals', 'cbt-revision', 'batch-leaderboard', 'batchhub',
+    'words', 'weak-vault', 'attendance-matrix', 'cbt-revision', 'batch-leaderboard', 'batchhub',
   ];
   assert.deepEqual(
     resolveAllowedStudentPortalTabs({ role: 'user', studentTabPermissions: 'ALL' }, sampleTabs),

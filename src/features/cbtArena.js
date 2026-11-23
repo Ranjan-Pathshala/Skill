@@ -699,7 +699,13 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
         if (!drawer) return;
         const nextShow = typeof forceShow === 'boolean' ? forceShow : (drawer.style.display === 'none' || !drawer.style.display);
         drawer.style.display = nextShow ? 'flex' : 'none';
-        if (btn) btn.style.borderColor = nextShow ? '#38bdf8' : '#475569';
+        if (btn) {
+          btn.style.borderColor = nextShow ? '#38bdf8' : '#475569';
+          btn.style.background = nextShow ? '#0369a1' : '#1e293b';
+          btn.innerHTML = nextShow
+            ? '<i class="fa-solid fa-chevron-up"></i> <span>Hide Tools</span>'
+            : '<i class="fa-solid fa-sliders"></i> <span>Tools</span>';
+        }
       };
       window.toggleCbtPaletteDrawer = function(forceOpen) {
         const aside = document.getElementById('cbt-palette-aside');
@@ -1985,11 +1991,56 @@ window.renderCbtSavedMcqsNotebookList = function() {
         }).join('');
     };
 
-window.removeBookmarkFromCbtNotebook = function(idx) {
-        const list = window.getCbtBookmarkedMcqs();
-        list.splice(idx, 1);
-        window.saveCbtBookmarkedMcqs(list);
-        window.renderCbtSavedMcqsNotebookList();
+window.removeBookmarkFromCbtNotebook = function(idx, skipConfirm = false) {
+        const doRemove = () => {
+            const list = window.getCbtBookmarkedMcqs();
+            list.splice(idx, 1);
+            window.saveCbtBookmarkedMcqs(list);
+            window.renderCbtSavedMcqsNotebookList();
+            if (typeof window.renderDedicatedCbtRevisionTab === 'function') window.renderDedicatedCbtRevisionTab();
+        };
+        if (!skipConfirm && typeof window.rpConfirmDelete === 'function') {
+            window.rpConfirmDelete(
+                'Delete Saved Bookmark?',
+                'Are you sure you want to remove this saved MCQ from your Revision Logbook?',
+                doRemove
+            );
+            return;
+        }
+        doRemove();
+    };
+
+window.clearCbtRevisionNotebookList = function() {
+        const mode = window.__cbtNotebookMode || 'all';
+        const label = mode === 'bookmarks'
+            ? 'all Saved Bookmarks'
+            : (mode === 'flashcards' ? 'all Wrong Answers' : (mode === 'unattempted' ? 'all Not Answered MCQs' : 'all Saved MCQs & Error Logbook items'));
+        const doClear = () => {
+            if (mode === 'bookmarks') {
+                window.saveCbtBookmarkedMcqs([]);
+            } else if (mode === 'flashcards') {
+                const kept = window.getCbtMistakeHistoryBank().filter(x => x.mistakeType === 'unattempted');
+                window.saveCbtMistakeHistoryBank(kept);
+            } else if (mode === 'unattempted') {
+                const kept = window.getCbtMistakeHistoryBank().filter(x => x.mistakeType !== 'unattempted');
+                window.saveCbtMistakeHistoryBank(kept);
+            } else {
+                window.saveCbtBookmarkedMcqs([]);
+                window.saveCbtMistakeHistoryBank([]);
+            }
+            if (window.__selectedCbtRevisionKeys) window.__selectedCbtRevisionKeys.clear();
+            if (typeof window.renderDedicatedCbtRevisionTab === 'function') window.renderDedicatedCbtRevisionTab();
+            if (typeof showToast === 'function') showToast(`Cleared ${label}.`);
+        };
+        if (typeof window.rpConfirmDelete === 'function') {
+            window.rpConfirmDelete(
+                'Clear Revision Logbook?',
+                `Are you sure you want to permanently delete ${label}? This action cannot be undone.`,
+                doClear
+            );
+        } else {
+            doClear();
+        }
     };
 
 window.launchCustomCbtMistakeMiniQuiz = function(limitCount, sourceType) {
@@ -2065,7 +2116,9 @@ window.launchCustomCbtMistakeMiniQuiz = function(limitCount, sourceType) {
         if (!Array.isArray(window.__customRuntimeCbtTests)) window.__customRuntimeCbtTests = [];
         window.__customRuntimeCbtTests.unshift(customTestObj);
 
-        if (typeof window.switchView === 'function') {
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('cbttest', true, true);
+        } else if (typeof window.switchView === 'function') {
             window.switchView('cbttest');
         }
         if (typeof window.startCbtMockTest === 'function') {
@@ -2474,15 +2527,27 @@ window.renderDedicatedCbtRevisionTab = function() {
       rawItems = rawItems.filter(item => Number(item.srsIntervalDays || 1) >= 7);
     }
 
+    if (!window.__selectedCbtRevisionKeys) window.__selectedCbtRevisionKeys = new Set();
+
     if (rawItems.length === 0) {
+      window.__lastFilteredCbtRevisionKeys = [];
+      window.__selectedCbtRevisionKeys.clear();
       const emptyMsg = mode === 'unattempted'
         ? 'No unanswered CBT questions logged yet. Any question you leave unanswered in a CBT Mock Exam will appear here automatically.'
         : (mode === 'flashcards'
             ? 'No wrong answers logged yet. Take a CBT Mock Exam and any wrong question will appear here automatically.'
             : 'No saved questions here yet. Take a CBT Mock Exam (wrong & unanswered questions auto-save) or click "Add Custom MCQ" above.');
       inlineList.innerHTML = `<div style="padding:28px; text-align:center; color:var(--text-muted); border:1px dashed var(--border); border-radius:12px; font-size:12.5px;">${emptyMsg}</div>`;
+      if (typeof window.syncCbtRevisionBulkBar === 'function') window.syncCbtRevisionBulkBar();
       return;
     }
+
+    const visibleKeyList = rawItems.map(item => `${item._src}:${item._idx}`);
+    const visibleKeySet = new Set(visibleKeyList);
+    Array.from(window.__selectedCbtRevisionKeys).forEach(k => {
+      if (!visibleKeySet.has(k)) window.__selectedCbtRevisionKeys.delete(k);
+    });
+    window.__lastFilteredCbtRevisionKeys = visibleKeyList;
 
     inlineList.innerHTML = rawItems.map((item, cardIdx) => {
       const opts = Array.isArray(item.options) && item.options.length > 0 ? item.options : (Array.isArray(item.optionsEn) ? item.optionsEn : []);
@@ -2490,6 +2555,8 @@ window.renderDedicatedCbtRevisionTab = function() {
       const isMastered = Number(item.srsIntervalDays || 1) >= 7;
       const isErr = item._src === 'err';
       const isUnattempted = isErr && item.mistakeType === 'unattempted';
+      const revKey = `${item._src}:${item._idx}`;
+      const isChecked = window.__selectedCbtRevisionKeys.has(revKey);
       const cardDomId = `rev-interactive-card-${item._src}-${item._idx}-${cardIdx}`;
       const wrongTimes = Number(item.wrongCount ?? (isErr && !isUnattempted ? 1 : 0)) || 0;
       const unattemptedTimes = Number(item.unattemptedCount ?? (isUnattempted ? 1 : 0)) || 0;
@@ -2508,9 +2575,10 @@ window.renderDedicatedCbtRevisionTab = function() {
         : (isErr ? (item.confidenceTag === 'guess' ? '50-50 Guess' : 'Wrong Answer') : 'Saved Bookmark');
 
       return `
-        <div id="${cardDomId}" style="background:var(--background); border:1px solid var(--border); border-left:4px solid ${borderLeftColor}; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
+        <div id="${cardDomId}" style="background:${isChecked ? 'rgba(37,99,235,0.05)' : 'var(--background)'}; border:1px solid ${isChecked ? 'var(--primary)' : 'var(--border)'}; border-left:4px solid ${borderLeftColor}; border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11.5px; font-variant-numeric:tabular-nums;">
+              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="window.toggleSelectCbtRevisionItem('${revKey}', this.checked)" aria-label="Select question ${cardIdx + 1}" style="width:16px; height:16px; accent-color:var(--primary); cursor:pointer; flex-shrink:0;">
               <strong style="color:${typeLabelColor};">${typeLabelText}</strong>
               <span style="color:var(--text-muted);">&middot;</span>
               <span style="color:var(--secondary); font-weight:700;">${window.escapeHtml(item.section || 'General')}${item.subTopic && item.subTopic !== item.section ? ' / ' + window.escapeHtml(item.subTopic) : ''}</span>
@@ -2565,6 +2633,7 @@ window.renderDedicatedCbtRevisionTab = function() {
         </div>
       `;
     }).join('');
+    if (typeof window.syncCbtRevisionBulkBar === 'function') window.syncCbtRevisionBulkBar();
   };
 
 window.checkRevisionMcqOption = function(cardDomId, chosenIdx, correctIdx, src, itemIdx) {
@@ -2637,18 +2706,107 @@ window.updateRevisionItemSrs = function(src, idx, days) {
     showToast(`Updated review schedule to ${days} day(s).`);
   };
 
-window.deleteRevisionItem = function(src, idx) {
-    if (src === 'bm') {
-      const list = typeof window.getCbtBookmarkedMcqs === 'function' ? window.getCbtBookmarkedMcqs() : [];
-      list.splice(idx, 1);
-      window.saveCbtBookmarkedMcqs(list);
-    } else {
-      const list = typeof window.getCbtMistakeHistoryBank === 'function' ? window.getCbtMistakeHistoryBank() : [];
-      list.splice(idx, 1);
-      window.saveCbtMistakeHistoryBank(list);
+window.syncCbtRevisionBulkBar = function() {
+    const countEl = document.getElementById('cbt-rev-selected-count');
+    const delBtn = document.getElementById('btn-cbt-rev-delete-selected');
+    const selAllChk = document.getElementById('cbt-rev-select-all-chk');
+    const visible = Array.isArray(window.__lastFilteredCbtRevisionKeys) ? window.__lastFilteredCbtRevisionKeys : [];
+    const selSet = window.__selectedCbtRevisionKeys || new Set();
+    const count = selSet.size;
+    if (countEl) countEl.textContent = `${count} selected`;
+    if (delBtn) delBtn.disabled = count === 0;
+    if (selAllChk) {
+      const allChecked = visible.length > 0 && visible.every(k => selSet.has(k));
+      selAllChk.checked = allChecked;
+      selAllChk.indeterminate = !allChecked && visible.some(k => selSet.has(k));
     }
+  };
+
+window.toggleSelectCbtRevisionItem = function(revKey, checked) {
+    if (!revKey) return;
+    if (!window.__selectedCbtRevisionKeys) window.__selectedCbtRevisionKeys = new Set();
+    if (checked) window.__selectedCbtRevisionKeys.add(revKey);
+    else window.__selectedCbtRevisionKeys.delete(revKey);
+    window.syncCbtRevisionBulkBar();
+  };
+
+window.toggleSelectAllCbtRevisionItems = function(checked) {
+    if (!window.__selectedCbtRevisionKeys) window.__selectedCbtRevisionKeys = new Set();
+    const visible = Array.isArray(window.__lastFilteredCbtRevisionKeys) ? window.__lastFilteredCbtRevisionKeys : [];
+    visible.forEach(k => {
+      if (checked) window.__selectedCbtRevisionKeys.add(k);
+      else window.__selectedCbtRevisionKeys.delete(k);
+    });
     window.renderDedicatedCbtRevisionTab();
-    showToast('Removed question from Revision Notebook.');
+  };
+
+window.deleteSelectedCbtRevisionItems = function() {
+    const selSet = window.__selectedCbtRevisionKeys || new Set();
+    if (selSet.size === 0) {
+      showToast('Please select at least one question to delete.');
+      return;
+    }
+    const count = selSet.size;
+    const doBulkDelete = () => {
+      const bmIndices = [];
+      const errIndices = [];
+      selSet.forEach(k => {
+        const [src, idxStr] = String(k).split(':');
+        const idx = parseInt(idxStr, 10);
+        if (!isNaN(idx) && idx >= 0) {
+          if (src === 'bm') bmIndices.push(idx);
+          else if (src === 'err') errIndices.push(idx);
+        }
+      });
+      if (bmIndices.length > 0 && typeof window.getCbtBookmarkedMcqs === 'function') {
+        const bmList = window.getCbtBookmarkedMcqs();
+        bmIndices.sort((a, b) => b - a).forEach(i => { if (i < bmList.length) bmList.splice(i, 1); });
+        window.saveCbtBookmarkedMcqs(bmList);
+      }
+      if (errIndices.length > 0 && typeof window.getCbtMistakeHistoryBank === 'function') {
+        const errList = window.getCbtMistakeHistoryBank();
+        errIndices.sort((a, b) => b - a).forEach(i => { if (i < errList.length) errList.splice(i, 1); });
+        window.saveCbtMistakeHistoryBank(errList);
+      }
+      selSet.clear();
+      window.renderDedicatedCbtRevisionTab();
+      showToast(`Deleted ${count} selected MCQ${count === 1 ? '' : 's'} from Revision Logbook.`);
+    };
+    if (typeof window.rpConfirmDelete === 'function') {
+      window.rpConfirmDelete(
+        `Delete ${count} Selected Question${count === 1 ? '' : 's'}?`,
+        `Are you sure you want to permanently remove ${count} selected MCQ${count === 1 ? '' : 's'} from your Saved MCQs & Error Logbook?`,
+        doBulkDelete
+      );
+    } else {
+      doBulkDelete();
+    }
+  };
+
+window.deleteRevisionItem = function(src, idx, skipConfirm = false) {
+    const doDelete = () => {
+      if (src === 'bm') {
+        const list = typeof window.getCbtBookmarkedMcqs === 'function' ? window.getCbtBookmarkedMcqs() : [];
+        list.splice(idx, 1);
+        window.saveCbtBookmarkedMcqs(list);
+      } else {
+        const list = typeof window.getCbtMistakeHistoryBank === 'function' ? window.getCbtMistakeHistoryBank() : [];
+        list.splice(idx, 1);
+        window.saveCbtMistakeHistoryBank(list);
+      }
+      if (window.__selectedCbtRevisionKeys) window.__selectedCbtRevisionKeys.clear();
+      window.renderDedicatedCbtRevisionTab();
+      showToast('Removed question from Revision Notebook.');
+    };
+    if (!skipConfirm && typeof window.rpConfirmDelete === 'function') {
+      window.rpConfirmDelete(
+        'Delete Question from Logbook?',
+        'Are you sure you want to permanently remove this question from your Saved MCQs & Error Logbook?',
+        doDelete
+      );
+      return;
+    }
+    doDelete();
   };
 
 export function removeUselessPreTranscribeToolbars() {

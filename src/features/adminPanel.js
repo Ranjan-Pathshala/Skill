@@ -107,69 +107,31 @@ export async function loadAdminData() {
     if (Array.isArray(res.feeLedger)) {
       portalState.adminData.feeLedger = res.feeLedger;
     }
+    if (res.contentAutoDeletePolicy && typeof res.contentAutoDeletePolicy === 'object') {
+      portalState.adminData.contentAutoDeletePolicy = res.contentAutoDeletePolicy;
+      ['admin-autodelete-enable-chk', 'admin-autodelete-days-input', 'admin-autodelete-type-select', 'admin-autodelete-expired-chk'].forEach((elId) => {
+        const el = document.getElementById(elId);
+        if (el) delete el.dataset.userTouched;
+      });
+    }
     saveFastPortalCache();
 
     applyAdminTabPermissions();
 
-    const activeSubtabId = document.querySelector('#view-admin .admin-subtab-content.active')?.id || 'admin-subtab-analytics';
-    const immediateTasks = [];
-    const deferredTasks = [];
-    const routeTask = (subtabId, fn) => {
-      if (typeof fn !== 'function') return;
-      if (activeSubtabId === subtabId) immediateTasks.push(fn);
-      else deferredTasks.push(fn);
-    };
-
-    routeTask('admin-subtab-analytics', () => {
-      renderAdminPerformanceDashboard();
-      if (typeof renderAdminRealtimeNotifications === 'function') renderAdminRealtimeNotifications();
+    const activeSubBtn = document.querySelector('#admin-main-subtab-bar .subtab-btn.active');
+    const activeSubKey = activeSubBtn?.getAttribute('data-admin-subtab') || 'content';
+    // Render ONLY the currently active admin subtab to prevent freezing the main thread on data load
+    requestAnimationFrame(() => {
+      try {
+        if (activeSubKey === 'content') {
+          populateAdminSubtabsDropdown();
+          hydrateAdminAutoDeletePolicyUI();
+          renderAdminMaterialsTable();
+        } else {
+          triggerAdminRenderer(activeSubKey);
+        }
+      } catch (e) {}
     });
-    routeTask('admin-subtab-users', () => renderAdminUsers());
-    routeTask('admin-subtab-fees', () => {
-      if (typeof window.renderAdminFeesManager === 'function') window.renderAdminFeesManager();
-    });
-    routeTask('admin-subtab-attendance-matrix', () => {
-      if (typeof window.renderAdminMonthlyAttendanceMatrix === 'function') window.renderAdminMonthlyAttendanceMatrix();
-    });
-    routeTask('admin-subtab-logs', () => renderAdminLogs());
-    routeTask('admin-subtab-feedback-admin', () => renderAdminFeedback());
-    routeTask('admin-subtab-content', () => {
-      populateAdminSubtabsDropdown();
-      renderAdminMaterialsTable();
-    });
-    routeTask('admin-subtab-subtabs', () => renderAdminSubtabsTable());
-    routeTask('admin-subtab-banner', () => {
-      renderAdminBannersTable();
-      renderAdminDateBannersTable();
-      loadDashboardBannerIntoAdminForm();
-      if (typeof loadMaintenanceSettingsIntoAdminForm === 'function') loadMaintenanceSettingsIntoAdminForm();
-    });
-    routeTask('admin-subtab-livetests', () => {
-      renderAdminLiveTestsTable();
-      populateLiveTestMaterialOptions();
-    });
-    routeTask('admin-subtab-leaderboard', () => renderAdminLeaderboard());
-    routeTask('admin-subtab-evaluation', () => {
-      populateEvalCategoryDropdown();
-      loadSelectedEvaluationRulesIntoForm();
-      if (typeof renderAdminEvaluationRulesTable === 'function') renderAdminEvaluationRulesTable();
-    });
-
-    deferredTasks.push(() => {
-      if (typeof window.renderStaticStreamDoneFooter === 'function') {
-        window.renderStaticStreamDoneFooter('admin-users-tbody', (portalState.adminData.users || []).length, 'user', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_users'));
-        window.renderStaticStreamDoneFooter('admin-materials-table-container', (portalState.adminData.materials || []).length, 'material', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_materials'));
-        window.renderStaticStreamDoneFooter('admin-logs-tbody', (portalState.adminData.logs || []).length, 'log entry', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_logs'));
-        window.renderStaticStreamDoneFooter('admin-feedback-tbody', (portalState.adminData.feedback || []).length, 'ticket', () => window.streamAdminCollectionOneByOne && window.streamAdminCollectionOneByOne('admin_feedback'));
-      }
-    });
-
-    immediateTasks.forEach(fn => { try { fn(); } catch (e) {} });
-    scheduleFrameTasks('admin-data-render', deferredTasks, 8);
-  } else {
-    renderAdminPerformanceDashboard();
-    if (typeof renderAdminRealtimeNotifications === 'function') renderAdminRealtimeNotifications();
-    renderAdminLogs();
   }
   return res;
 }
@@ -242,16 +204,16 @@ window.streamAdminCollectionOneByOne = async function (collection) {
 export function getAllowedAdminSubtabsForCurrentUser() {
   if (!portalState.currentUser) return [];
   const role = String(portalState.currentUser.role || '').toLowerCase();
-  const allTabs = ['analytics', 'batch-discussion', 'content', 'livetests', 'users', 'fees', 'attendance-matrix', 'outline-replies', 'logs', 'subtabs', 'evaluation', 'banner', 'leaderboard', 'feedback-admin', 'enterprise-ops'];
+  const allTabs = ['batch-discussion', 'content', 'livetests', 'users', 'fees', 'attendance-matrix', 'outline-replies', 'logs', 'subtabs', 'evaluation', 'banner', 'leaderboard', 'feedback-admin', 'enterprise-ops'];
   if (role === 'superadmin') return allTabs;
   if (role !== 'admin') return [];
 
   const rawPerms = String(portalState.currentUser.adminPermissions ?? portalState.currentUser.AdminPermissions ?? 'ALL').trim();
   if (!rawPerms || rawPerms.toUpperCase() === 'ALL' || rawPerms === '*') return allTabs;
-  const parsed = rawPerms.split(',').map(s => s.trim()).filter(Boolean);
+  const parsed = rawPerms.split(',').map(s => s.trim()).filter(p => p && p !== 'analytics');
   if (parsed.some(p => p.toUpperCase() === 'ALL' || p === '*')) return allTabs;
-  if (parsed.includes('analytics') && !parsed.includes('batch-discussion')) {
-    parsed.push('batch-discussion');
+  if ((parsed.includes('users') || parsed.includes('content')) && !parsed.includes('fees')) {
+    parsed.push('fees');
   }
   return parsed;
 }
@@ -528,10 +490,6 @@ export function switchAdminTab(subTab, btn) {
 }
 
 export function triggerAdminRenderer(subTab) {
-  if (subTab === 'analytics') {
-    renderAdminPerformanceDashboard();
-    renderAdminRealtimeNotifications();
-  }
   if (subTab === 'batch-discussion') {
     populateAllBatchSelectDropdowns();
     if (typeof renderAdminBatchDiscussionBoard === 'function') renderAdminBatchDiscussionBoard();
@@ -558,13 +516,48 @@ export function triggerAdminRenderer(subTab) {
     if (typeof window.renderAdminMonthlyAttendanceMatrix === 'function') window.renderAdminMonthlyAttendanceMatrix();
   }
   if (subTab === 'fees') {
-    if (typeof window.renderAdminFeesManager === 'function') window.renderAdminFeesManager();
+    if (typeof window.renderAdminFeesManager === 'function') {
+      const needsFeesFetch = !portalState.adminData?.feeConfig || !Array.isArray(portalState.adminData?.feeLedger);
+      window.renderAdminFeesManager(needsFeesFetch);
+    }
   }
   if (subTab === 'logs') renderAdminLogs();
   if (subTab === 'subtabs') renderAdminSubtabsTable();
-  if (subTab === 'evaluation') renderAdminEvaluationRulesTable();
-  if (subTab === 'content') renderAdminMaterialsTable();
+  if (subTab === 'evaluation') {
+    populateEvalCategoryDropdown();
+    loadSelectedEvaluationRulesIntoForm();
+    renderAdminEvaluationRulesTable();
+  }
+  if (subTab === 'content') {
+    populateAdminSubtabsDropdown();
+    hydrateAdminAutoDeletePolicyUI();
+    renderAdminMaterialsTable();
+  }
 }
+
+window.toggleAdminEvalFullParameters = function(forceOpen) {
+  const wrap = document.getElementById('admin-eval-full-params-wrapper');
+  const btn = document.getElementById('btn-admin-toggle-eval-full-params');
+  if (!wrap) return;
+  const currentlyOpen = wrap.style.display !== 'none';
+  const nextOpen = typeof forceOpen === 'boolean' ? forceOpen : !currentlyOpen;
+  wrap.style.display = nextOpen ? 'flex' : 'none';
+  if (btn) {
+    btn.innerHTML = nextOpen
+      ? '<i class="fa-solid fa-eye-slash"></i> Hide Full Parameters'
+      : '<i class="fa-solid fa-eye"></i> Show Full Parameters';
+  }
+};
+
+window.appendAnotherBannerLine = function(textareaId) {
+  const ta = document.getElementById(textareaId);
+  if (!ta) return;
+  const cur = String(ta.value || '').trimEnd();
+  ta.value = cur ? `${cur}\n` : '';
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  showToast('Added a new line — type the next scrolling banner message.');
+};
 
 window.rpConfirmDelete = function(title, message, onConfirm) {
   let overlay = document.getElementById('rp-delete-confirm-overlay');
@@ -4446,12 +4439,22 @@ export function openAdminMemberAccessModal(userId, userName, opts = {}) {
       const memberPlans = Array.isArray(feeCfg.memberPlans) ? feeCfg.memberPlans : [];
       if (planSelect) {
         planSelect.innerHTML = `<option value="">— Custom / Manual Member Assignment —</option>` + memberPlans.map((p, idx) => {
-          const label = `${p.name || 'Member Plan'} (₹${Number(p.amount || 0).toLocaleString('en-IN')} · ${p.validityDays || 365}d)`;
-          return `<option value="${idx}" data-name="${String(p.name || '').replace(/"/g, '&quot;')}" data-days="${Number(p.validityDays || 365)}" data-scope="${String(p.accessScope || 'ALL_PAST_CURRENT_UPCOMING')}" data-batches="${String(p.includedBatches || '').replace(/"/g, '&quot;')}" data-upcoming="${p.includeUpcoming ? '1' : '0'}">${label}</option>`;
+          const optsList = Array.isArray(p.billingOptions) && p.billingOptions.length > 0
+            ? p.billingOptions
+            : [{ label: 'Standard', amount: p.amount || 0, validityDays: p.validityDays || 365 }];
+          const cycleSummary = optsList.length > 1
+            ? optsList.map(o => `${o.label || o.cycle}: ₹${Number(o.amount || 0).toLocaleString('en-IN')}/${o.validityDays}d`).join(' | ')
+            : `₹${Number(optsList[0].amount || 0).toLocaleString('en-IN')} · ${optsList[0].validityDays || 365}d`;
+          const label = `${p.name || 'Member Plan'} (${cycleSummary})`;
+          const batchesStr = Array.isArray(p.includedBatches) ? p.includedBatches.join(', ') : String(p.includedBatches || '');
+          return `<option value="${idx}" data-name="${String(p.name || '').replace(/"/g, '&quot;')}" data-days="${Number(opts.validityDays || optsList[0].validityDays || 365)}" data-scope="${String(p.accessScope || 'ALL_PAST_CURRENT_UPCOMING')}" data-batches="${batchesStr.replace(/"/g, '&quot;')}" data-upcoming="${p.includeUpcoming ? '1' : '0'}">${label}</option>`;
         }).join('');
-        const targetPlanName = String(opts.planName || u.MembershipPlan || u.membershipPlan || '').trim().toLowerCase();
+        const targetPlanName = String(opts.mainPlanName || opts.planName || u.MembershipPlan || u.membershipPlan || '').trim().toLowerCase();
         if (targetPlanName) {
-          const matchIdx = memberPlans.findIndex(p => String(p.name || '').trim().toLowerCase() === targetPlanName);
+          const matchIdx = memberPlans.findIndex((p) => {
+            const nm = String(p.name || '').trim().toLowerCase();
+            return nm && (nm === targetPlanName || targetPlanName.startsWith(nm + ' —') || targetPlanName.startsWith(nm + ' -') || targetPlanName.startsWith(nm + ' ('));
+          });
           if (matchIdx >= 0) planSelect.value = String(matchIdx);
         }
       }
@@ -5336,11 +5339,17 @@ export function adjustAdminUploadForm() {
         if (urlLabel) urlLabel.innerHTML = 'Master Passage / Transcription Text <span class="required-star">*</span>';
         if (groupSubtab) groupSubtab.style.display = 'block';
         if (groupThumb) groupThumb.style.display = 'block';
+        const logoLabel = document.querySelector('#group-adm-logo > label');
+        const thumbLabel = document.querySelector('#group-adm-thumb > label');
         const logoInput = document.getElementById('adm-upload-logo');
         const thumbInput = document.getElementById('adm-upload-thumb');
+        if (logoLabel) logoLabel.textContent = 'Card Thumbnail / Cover Logo URL (Optional — defaults to Portal Logo)';
+        if (thumbLabel) thumbLabel.textContent = 'Pitman Material / Shorthand Plate Image URL (Shown inside Test)';
         if (logoInput) logoInput.placeholder = 'Optional Card Cover Thumbnail / Book Logo URL (shown on Pitman card)';
         if (thumbInput) thumbInput.placeholder = 'Pitman Shorthand Exercise Plate Image URL (shown inside Test workspace)';
       } else {
+        const thumbLabel = document.querySelector('#group-adm-thumb > label');
+        if (thumbLabel) thumbLabel.textContent = 'Thumbnail / Cover Image URL';
         if (titleLabel) titleLabel.innerHTML = 'Title <span class="required-star">*</span>';
         if (subtabLabel) subtabLabel.innerHTML = 'Subtab <span class="required-star">*</span>';
         if (urlLabel) urlLabel.innerHTML = 'Material Passage / Transcription Text / URL <span class="required-star">*</span>';
@@ -6369,9 +6378,10 @@ export function hydrateAdminAutoDeletePolicyUI() {
       allMats.forEach(m => {
         let meta = {};
         try { if (m.ExtraMetaJson && m.ExtraMetaJson !== '-') meta = JSON.parse(String(m.ExtraMetaJson)); } catch (e) {}
-        if (meta.AutoDeleteAt) {
+        const autoDelAt = meta.AutoDeleteAt || m.AutoDeleteAt || '';
+        if (autoDelAt && autoDelAt !== '-') {
           scheduledCount++;
-          const ms = new Date(meta.AutoDeleteAt).getTime();
+          const ms = new Date(autoDelAt).getTime();
           if (!isNaN(ms) && nowMs >= ms) dueCount++;
         }
       });
@@ -6396,10 +6406,16 @@ export async function saveAdminContentAutoDeletePolicy() {
         deleteExpiredAutomatically
       });
       if (res && res.success) {
-        if (portalState.adminData) portalState.adminData.contentAutoDeletePolicy = res.policy || { enabled, defaultDays, targetTypes: [targetType], deleteExpiredAutomatically };
+        if (!portalState.adminData) portalState.adminData = {};
+        portalState.adminData.contentAutoDeletePolicy = res.policy || { enabled, defaultDays, targetTypes: [targetType], deleteExpiredAutomatically };
+        ['admin-autodelete-enable-chk', 'admin-autodelete-days-input', 'admin-autodelete-type-select', 'admin-autodelete-expired-chk'].forEach((elId) => {
+          const el = document.getElementById(elId);
+          if (el) delete el.dataset.userTouched;
+        });
+        saveFastPortalCache();
         hydrateAdminAutoDeletePolicyUI();
       }
-      showToast(res?.message || 'Auto-Delete policy saved.');
+      showToast(res?.message || (res?.success ? 'Auto-Delete policy saved to Google Sheet.' : 'Failed to save Auto-Delete policy.'), !res?.success);
     }
 
 export async function runAutoDeleteExpiredMaterialsNow() {
@@ -6932,8 +6948,8 @@ export function renderAdminBannersTable() {
             <td><span style="font-weight: 800; color: var(--primary);">${modeBadgeText}</span></td>
             <td>${banner.startTime || '-'}</td>
             <td>${banner.stopTime || '-'}</td>
-            <td>${banner.text || '-'}</td>
-            <td>${isSameMode ? (banner.text || '-') : (banner.loggedOutText || 'Default Public Banner')}</td>
+            <td>${banner.text ? escapeHtml(String(banner.text)).replace(/\r?\n|\s*\|\|\s*/g, ' &nbsp;◆&nbsp; ') : '-'}</td>
+            <td>${isSameMode ? (banner.text ? escapeHtml(String(banner.text)).replace(/\r?\n|\s*\|\|\s*/g, ' &nbsp;◆&nbsp; ') : '-') : (banner.loggedOutText ? escapeHtml(String(banner.loggedOutText)).replace(/\r?\n|\s*\|\|\s*/g, ' &nbsp;◆&nbsp; ') : '-')}</td>
             <td><button class="btn btn-danger btn-sm" onclick="deleteBannerItem('active')">Reset Banner</button></td>
           </tr>
         </table>

@@ -1,8 +1,10 @@
 /**
  * Ranjan Pathshala Skill BACKEND ENGINE (Google Apps Script)
- * High-Speed API Version 3.7 (Pooled DbConnectionManager + Instant CacheService RAM Layer + Lock-Free Concurrent Reads)
- * Includes: Multi-Monitor Support (up to 3/batch), Separate Logged-In & Logged-Out Scrolling Banners,
+ * High-Speed API Version 3.9 (Pooled DbConnectionManager + Instant CacheService RAM Layer + Lock-Free Concurrent Reads)
+ * Includes: Multi-Monitor Support (up to 3/batch), Multi-Banner Single-Line Logged-In & Logged-Out Scrolling Banners,
  * ₹0 Free / 100%-Coupon Batch Approval & Receipts, Keystroke Rhythm & Latency Heatmap Persistence,
+ * Guaranteed Google Drive & Sheet Shorthand Pad Photo Storage, Content Auto-Delete Policy Sheet Persistence,
+ * Lossless Fee Plans JSON Persistence with Attached Monthly/Quarterly/Annual Billing Cycles & Included Batches,
  * and Automated 90-Day Activity Logs Archival & Trigger Management.
  */
 
@@ -3472,7 +3474,7 @@ function handleUploadMaterial(payload) {
         };
       });
     }
-    var finalExtraMeta = Object.keys(metaObj).length > 0 ? formatReadableSheetData(metaObj, 48500) : '-';
+    var finalExtraMeta = Object.keys(metaObj).length > 0 ? safeSheetCellValue(JSON.stringify(metaObj), 48500) : '-';
     var mergedTracksReadable = Array.isArray(metaObj.MergedAudioTracks) && metaObj.MergedAudioTracks.length > 0
       ? metaObj.MergedAudioTracks.map(function(t, idx) {
           return (idx + 1) + '. ' + (t.title || ('Part ' + (idx + 1))) + (t.startTime || t.endTime ? (' [' + (t.startTime || '0') + 's-' + (t.endTime || 'end') + 's]') : '') + ' (' + t.url + ')';
@@ -3513,6 +3515,7 @@ function handleUploadMaterial(payload) {
     ]);
   }
 
+  try { SpreadsheetApp.flush(); } catch (flushErr) {}
   invalidateSheetCache(sheetName);
   handleLogActivity({
     userId: payload.actorId || 'ADMIN',
@@ -3580,13 +3583,16 @@ function handleUpdateMaterial(payload) {
                 };
               });
             }
-            var updatedMetaStr = Object.keys(existingMeta).length > 0 ? formatReadableSheetData(existingMeta, 48500) : '-';
+            var updatedMetaStr = Object.keys(existingMeta).length > 0 ? safeSheetCellValue(JSON.stringify(existingMeta), 48500) : '-';
             sheet.getRange(rowIndex, 15).setValue(updatedMetaStr);
             var updMergedReadable = Array.isArray(existingMeta.MergedAudioTracks) && existingMeta.MergedAudioTracks.length > 0
               ? existingMeta.MergedAudioTracks.map(function(t, idx) {
                   return (idx + 1) + '. ' + (t.title || ('Part ' + (idx + 1))) + (t.startTime || t.endTime ? (' [' + (t.startTime || '0') + 's-' + (t.endTime || 'end') + 's]') : '') + ' (' + t.url + ')';
                 }).join(' | ')
               : '-';
+            var updNotesSummary = [];
+            if (existingMeta.AutoDeleteAt) updNotesSummary.push('AutoDeleteAt: ' + existingMeta.AutoDeleteAt);
+            if (existingMeta.HardWords) updNotesSummary.push('HardWords: ' + String(existingMeta.HardWords).slice(0, 300));
             setRowNamedColumns(sheet, 'MATERIALS', rowIndex, {
               'TargetBatch': defaultDash(existingMeta.TargetBatch || 'ALL_BATCHES'),
               'Description': sanitizeInput(existingMeta.Description || payload.description || '-'),
@@ -3597,11 +3603,13 @@ function handleUpdateMaterial(payload) {
               'MergedTracks': safeSheetCellValue(updMergedReadable, 10000),
               'PublishAt': defaultDash(existingMeta.PublishAt || '-'),
               'ExpireAt': defaultDash(existingMeta.ExpireAt || '-'),
-              'AutoDeleteDays': defaultDash(existingMeta.AutoDeleteDays || '-')
+              'AutoDeleteDays': defaultDash(existingMeta.AutoDeleteDays || '-'),
+              'AdditionalNotes': updNotesSummary.length ? safeSheetCellValue(updNotesSummary.join(' | '), 10000) : '-'
             });
           }
         }
 
+        try { SpreadsheetApp.flush(); } catch (flushErr) {}
         invalidateSheetCache(sheetNames[s]);
         handleLogActivity({
           userId: payload.actorId || 'ADMIN',
@@ -3696,16 +3704,19 @@ function handleBulkDeleteMaterials(payload) {
 }
 
 function parseContentAutoDeletePolicy(settings) {
-  var def = { enabled: false, defaultDays: 0, deleteExpiredAutomatically: false, targetTypes: [], updatedAt: '' };
+  var def = { enabled: false, defaultDays: 0, deleteExpiredAutomatically: false, targetTypes: ['all'], updatedAt: '' };
   if (!Array.isArray(settings)) return def;
   for (var i = 0; i < settings.length; i++) {
-    if (String(settings[i].Key || '') === 'CONTENT_AUTO_DELETE_POLICY') {
+    if (String(settings[i].Key || '').toUpperCase().trim() === 'CONTENT_AUTO_DELETE_POLICY') {
       var parsed = parseReadableSheetData(settings[i].Value, {});
+      var types = Array.isArray(parsed.targetTypes) && parsed.targetTypes.length > 0
+        ? parsed.targetTypes
+        : (typeof parsed.targetTypes === 'string' && parsed.targetTypes.trim() ? parsed.targetTypes.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : ['all']);
       return {
-        enabled: Boolean(parsed.enabled),
+        enabled: parsed.enabled === true || String(parsed.enabled).toLowerCase() === 'true' || String(parsed.enabled) === '1',
         defaultDays: Math.max(0, parseInt(parsed.defaultDays || 0, 10) || 0),
-        deleteExpiredAutomatically: Boolean(parsed.deleteExpiredAutomatically),
-        targetTypes: Array.isArray(parsed.targetTypes) ? parsed.targetTypes : [],
+        deleteExpiredAutomatically: parsed.deleteExpiredAutomatically === true || String(parsed.deleteExpiredAutomatically).toLowerCase() === 'true' || String(parsed.deleteExpiredAutomatically) === '1',
+        targetTypes: types,
         updatedAt: String(parsed.updatedAt || '')
       };
     }
@@ -3714,36 +3725,40 @@ function parseContentAutoDeletePolicy(settings) {
 }
 
 function handleSaveContentAutoDeletePolicy(payload) {
+  var rawTypes = Array.isArray(payload.targetTypes)
+    ? payload.targetTypes
+    : (typeof payload.targetTypes === 'string' && payload.targetTypes.trim() ? [payload.targetTypes.trim()] : ['all']);
   var policy = {
-    enabled: Boolean(payload.enabled),
+    enabled: payload.enabled === true || String(payload.enabled).toLowerCase() === 'true' || String(payload.enabled) === '1',
     defaultDays: Math.max(0, parseInt(payload.defaultDays || 0, 10) || 0),
-    deleteExpiredAutomatically: Boolean(payload.deleteExpiredAutomatically),
-    targetTypes: Array.isArray(payload.targetTypes) ? payload.targetTypes : [],
+    deleteExpiredAutomatically: payload.deleteExpiredAutomatically === true || String(payload.deleteExpiredAutomatically).toLowerCase() === 'true' || String(payload.deleteExpiredAutomatically) === '1',
+    targetTypes: rawTypes.length > 0 ? rawTypes : ['all'],
     updatedAt: new Date().toISOString()
   };
   var settingsSheet = getOrCreateSheet('SETTINGS');
   var data = settingsSheet.getDataRange().getValues();
   var foundRow = -1;
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]) === 'CONTENT_AUTO_DELETE_POLICY') {
+    if (String(data[i][0] || '').toUpperCase().trim() === 'CONTENT_AUTO_DELETE_POLICY') {
       foundRow = i + 1;
       break;
     }
   }
-  var valStr = formatReadableSheetData(policy);
+  var valStr = JSON.stringify(policy);
   if (foundRow > 0) {
     settingsSheet.getRange(foundRow, 2).setValue(valStr);
   } else {
     settingsSheet.appendRow(['CONTENT_AUTO_DELETE_POLICY', valStr]);
   }
+  try { SpreadsheetApp.flush(); } catch (flushErr) {}
   invalidateSheetCache('SETTINGS');
   handleLogActivity({
     userId: payload.actorId || payload._verifiedUserId || 'ADMIN',
     userName: payload.actorName || 'Admin/Superadmin',
     activityType: 'CONTENT_AUTODELETE_POLICY',
-    details: 'Saved Content Auto-Delete Policy (Enabled: ' + policy.enabled + ', Max Age: ' + policy.defaultDays + 'd, Purge Expired: ' + policy.deleteExpiredAutomatically + ')'
+    details: 'Saved Content Auto-Delete Policy (Enabled: ' + policy.enabled + ', Max Age: ' + policy.defaultDays + 'd, Target: ' + policy.targetTypes.join(',') + ', Purge Expired: ' + policy.deleteExpiredAutomatically + ')'
   });
-  return { success: true, policy: policy, message: 'Content Auto-Delete policy saved successfully.' };
+  return { success: true, policy: policy, message: 'Content Auto-Delete policy saved to Google Sheet.' };
 }
 
 function handlePurgeExpiredMaterials(payload) {
@@ -4612,6 +4627,7 @@ function handleUpdateBannerSettings(payload) {
     }
   }
 
+  try { SpreadsheetApp.flush(); } catch (flushErr) {}
   invalidateSheetCache('SETTINGS');
   handleLogActivity({
     userId: payload.actorId || 'ADMIN',
@@ -6264,6 +6280,35 @@ function upsertSettingsJsonKey(keyName, jsonValue) {
   } else {
     sheet.appendRow([upperKey, safeReadable]);
   }
+  invalidateSheetCache('SETTINGS');
+}
+
+function upsertSettingsExactJsonKey(keyName, jsonValue) {
+  var sheet = getOrCreateSheet('SETTINGS');
+  var data = sheet.getDataRange().getValues();
+  var rowIdx = 0;
+  var upperKey = String(keyName).toUpperCase().trim();
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0]).toUpperCase().trim() === upperKey) {
+      rowIdx = i + 1;
+      break;
+    }
+  }
+  var serialized = '';
+  try {
+    serialized = JSON.stringify(jsonValue);
+  } catch (err) {
+    serialized = formatReadableSheetData(jsonValue, 48500);
+  }
+  if (serialized.length > 49500) {
+    serialized = serialized.substring(0, 49500);
+  }
+  if (rowIdx > 0) {
+    sheet.getRange(rowIdx, 2).setValue(serialized);
+  } else {
+    sheet.appendRow([upperKey, serialized]);
+  }
+  try { SpreadsheetApp.flush(); } catch (flushErr) {}
   invalidateSheetCache('SETTINGS');
 }
 
@@ -8021,35 +8066,58 @@ function getOrCreateDriveMediaSubfolder(subFolderName) {
   return subIter.hasNext() ? subIter.next() : rootFolder.createFolder(subFolderName);
 }
 
-function saveShorthandPadImageToDriveOrSheet(dataUrl, padId, userId) {
+function saveShorthandPadImageToDriveOrSheet(dataUrl, padId, userId, returnMeta) {
   var raw = String(dataUrl || '').trim();
-  if (!raw) return '';
-  if (raw.indexOf('http://') === 0 || raw.indexOf('https://') === 0) return raw;
+  if (!raw) return returnMeta ? { url: '', driveFileId: '', driveError: 'Empty image payload' } : '';
+  if (raw.indexOf('http://') === 0 || raw.indexOf('https://') === 0) {
+    return returnMeta ? { url: raw, driveFileId: '', driveError: '' } : raw;
+  }
 
   // Store high-clarity notebook photos in dedicated Drive vault folder (RP_Skill_Media_Vault/Shorthand_Pads)
+  var driveError = '';
   try {
-    var match = raw.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-    if (match && typeof DriveApp !== 'undefined') {
-      var mimeType = match[1];
-      var base64Body = match[2];
-      var ext = mimeType.indexOf('png') !== -1 ? 'png' : 'jpg';
+    var commaIdx = raw.indexOf(',');
+    var mimeType = 'image/jpeg';
+    var base64Body = raw;
+    if (raw.indexOf('data:') === 0 && commaIdx !== -1) {
+      var headerPart = raw.substring(5, commaIdx);
+      var semiIdx = headerPart.indexOf(';');
+      if (semiIdx !== -1) {
+        mimeType = headerPart.substring(0, semiIdx).trim() || 'image/jpeg';
+      }
+      base64Body = raw.substring(commaIdx + 1);
+    }
+    base64Body = String(base64Body || '').replace(/\s+/g, '');
+    if (base64Body && typeof DriveApp !== 'undefined') {
+      var ext = mimeType.indexOf('png') !== -1 ? 'png' : (mimeType.indexOf('webp') !== -1 ? 'webp' : 'jpg');
       var bytes = Utilities.base64Decode(base64Body);
-      var blob = Utilities.newBlob(bytes, mimeType, padId + '_' + userId + '.' + ext);
-      var folder = getOrCreateDriveMediaSubfolder('Shorthand_Pads');
-      var file = folder.createFile(blob);
+      var safeUid = String(userId || 'USER').replace(/[^a-zA-Z0-9_-]/g, '');
+      var blob = Utilities.newBlob(bytes, mimeType, padId + '_' + safeUid + '.' + ext);
+      var file = null;
       try {
-        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      } catch (shareErr) {}
-      return 'https://lh3.googleusercontent.com/d/' + file.getId() + '=s1600';
+        var folder = getOrCreateDriveMediaSubfolder('Shorthand_Pads');
+        file = folder.createFile(blob);
+      } catch (subErr) {
+        file = DriveApp.createFile(blob);
+      }
+      if (file) {
+        try {
+          file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        } catch (shareErr) {}
+        var fid = file.getId();
+        var driveViewUrl = 'https://drive.google.com/file/d/' + fid + '/view';
+        return returnMeta ? { url: driveViewUrl, driveFileId: fid, driveError: '' } : driveViewUrl;
+      }
     }
   } catch (driveErr) {
-    // Fallback to compressed inline image only if DriveApp authorization is unavailable
+    driveError = String(driveErr && driveErr.message ? driveErr.message : driveErr);
   }
 
+  // Fallback to compressed inline image only if DriveApp authorization is unavailable and size fits Sheet cell limit
   if (raw.length > 48000) {
-    return '';
+    return returnMeta ? { url: '', driveFileId: '', driveError: driveError || 'Drive upload unavailable and image exceeds Sheet 48KB cell limit.' } : '';
   }
-  return raw;
+  return returnMeta ? { url: raw, driveFileId: '', driveError: driveError } : raw;
 }
 
 function handleUploadShorthandPad(payload) {
@@ -8076,11 +8144,15 @@ function handleUploadShorthandPad(payload) {
   }
 
   var padId = 'PAD-' + Date.now() + '-' + Math.floor(Math.random() * 900 + 100);
-  var storedImage = saveShorthandPadImageToDriveOrSheet(imageData, padId, userId);
+  var saveRes = saveShorthandPadImageToDriveOrSheet(imageData, padId, userId, true);
+  var storedImage = saveRes && saveRes.url ? saveRes.url : '';
+  var driveFileId = saveRes && saveRes.driveFileId ? saveRes.driveFileId : '';
+  var driveError = saveRes && saveRes.driveError ? saveRes.driveError : '';
   if (!storedImage) {
     return {
       success: false,
-      message: 'Image is too large for sheet storage and Drive upload is unavailable. Please retry with a smaller or compressed photo.'
+      driveError: driveError,
+      message: 'Could not save shorthand photo to Google Drive (' + (driveError || 'Drive authorization needed — re-deploy Apps Script with Drive permission') + ').'
     };
   }
 
@@ -8108,17 +8180,21 @@ function handleUploadShorthandPad(payload) {
     '-',
     '-'
   ]);
+  try { SpreadsheetApp.flush(); } catch (flushErr) {}
   invalidateSheetCache('SHORTHAND_PADS');
 
   handleLogActivity({
     userId: userId,
     userName: userName,
     activityType: 'SHORTHAND_PAD_UPLOAD',
-    details: 'Uploaded shorthand notebook pad photo for "' + materialTitle + '" (' + userBatch + ') [' + diagnosisTag + ']'
+    details: 'Uploaded shorthand notebook pad photo for "' + materialTitle + '" (' + userBatch + ') [' + diagnosisTag + ']' + (driveFileId ? (' [DriveID:' + driveFileId + ']') : '')
   });
 
   return {
     success: true,
+    driveFileId: driveFileId,
+    photoUrl: storedImage,
+    driveWarning: driveError || '',
     pad: {
       PadID: padId,
       UserID: userId,
@@ -8136,7 +8212,9 @@ function handleUploadShorthandPad(payload) {
       ReviewerRemarks: '',
       ReviewedAt: ''
     },
-    message: 'Shorthand notebook photo uploaded! Your Batch Monitor, Admin, and Superadmin can now inspect and review it.'
+    message: driveFileId
+      ? 'Shorthand notebook photo saved to Google Drive & Google Sheet! Your Batch Monitor & Admin can now inspect it.'
+      : 'Shorthand notebook photo saved to Google Sheet! (Re-authorize Drive scope in Apps Script if you also want Drive folder copies.)'
   };
 }
 
@@ -9153,6 +9231,60 @@ function handleGetShorthandPadAnnotations(payload) {
 // =========================================================================
 // BATCH FEE & MEMBER ALL-ACCESS PASS FEE SYSTEM (UPI/QR + FEE LEDGER)
 // =========================================================================
+function inferFeeBillingCycleLabel(rawCycle, rawName, validityDays) {
+  var c = String(rawCycle || '').trim();
+  if (c) return c;
+  var nm = String(rawName || '').toLowerCase();
+  var d = parseInt(validityDays || 0, 10) || 0;
+  if (nm.indexOf('month') !== -1 || d === 28 || d === 30 || d === 31) return 'Monthly';
+  if (nm.indexOf('quarter') !== -1 || nm.indexOf('3 month') !== -1 || d === 90 || d === 91 || d === 92) return 'Quarterly';
+  if (nm.indexOf('half') !== -1 || nm.indexOf('6 month') !== -1 || d === 180 || d === 182 || d === 183) return 'Half-Yearly';
+  if (nm.indexOf('annual') !== -1 || nm.indexOf('year') !== -1 || nm.indexOf('12 month') !== -1 || d >= 360) return 'Annual';
+  return 'Custom';
+}
+
+function normalizeMemberBillingOptionsServer(mp, fallbackIdx) {
+  var rawOpts = Array.isArray(mp.billingOptions) ? mp.billingOptions : (Array.isArray(mp.plans) ? mp.plans : []);
+  var clean = [];
+  for (var i = 0; i < rawOpts.length; i++) {
+    var opt = rawOpts[i] || {};
+    var amt = Math.max(0, Number(opt.amount !== undefined ? opt.amount : (opt.fee !== undefined ? opt.fee : 0)) || 0);
+    var vDays = Math.max(1, parseInt(opt.validityDays || 30, 10) || 30);
+    var label = sanitizeInput(String(opt.label || opt.name || '').trim()).slice(0, 60);
+    var cycle = sanitizeInput(inferFeeBillingCycleLabel(opt.cycle, label, vDays)).slice(0, 32);
+    if (!label) label = cycle === 'Custom' ? ('Option ' + (i + 1)) : cycle;
+    var note = sanitizeInput(String(opt.note || opt.description || '').trim()).slice(0, 200);
+    clean.push({
+      id: sanitizeInput(String(opt.id || ('mo-' + (fallbackIdx || 0) + '-' + (i + 1)))),
+      cycle: cycle,
+      label: label,
+      amount: amt,
+      validityDays: vDays,
+      note: note,
+      allowInstallments: Boolean(opt.allowInstallments),
+      installmentCount: Math.max(2, Math.min(4, parseInt(opt.installmentCount || 2, 10) || 2)),
+      firstInstallmentPercent: Math.max(20, Math.min(80, parseInt(opt.firstInstallmentPercent || 50, 10) || 50))
+    });
+  }
+  if (!clean.length) {
+    var baseAmt = Math.max(0, Number(mp.amount !== undefined ? mp.amount : (mp.fee !== undefined ? mp.fee : 0)) || 0);
+    var baseDays = Math.max(1, parseInt(mp.validityDays || 365, 10) || 365);
+    var baseCycle = inferFeeBillingCycleLabel(mp.cycle, mp.name, baseDays);
+    clean.push({
+      id: 'mo-' + (fallbackIdx || 0) + '-1',
+      cycle: baseCycle,
+      label: baseCycle === 'Custom' ? 'Standard' : baseCycle,
+      amount: baseAmt,
+      validityDays: baseDays,
+      note: '',
+      allowInstallments: Boolean(mp.allowInstallments),
+      installmentCount: 2,
+      firstInstallmentPercent: Math.max(20, Math.min(80, parseInt(mp.firstInstallmentPercent || 50, 10) || 50))
+    });
+  }
+  return clean;
+}
+
 function parseFeeConfigSettings(settings) {
   var def = {
     upiId: '',
@@ -9173,26 +9305,103 @@ function parseFeeConfigSettings(settings) {
       var parsed = parseReadableSheetData(settings[i].Value, {});
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         var batchFeesObj = (parsed.batchFees && typeof parsed.batchFees === 'object' && !Array.isArray(parsed.batchFees)) ? parsed.batchFees : {};
-        var batchPlansObj = (parsed.batchPlans && typeof parsed.batchPlans === 'object' && !Array.isArray(parsed.batchPlans)) ? parsed.batchPlans : {};
+        var rawBatchPlansObj = (parsed.batchPlans && typeof parsed.batchPlans === 'object' && !Array.isArray(parsed.batchPlans)) ? parsed.batchPlans : {};
+        var batchPlansObj = {};
+        for (var bpk in rawBatchPlansObj) {
+          if (!rawBatchPlansObj.hasOwnProperty(bpk)) continue;
+          var cleanBpk = String(bpk || '').trim();
+          if (!cleanBpk || cleanBpk.toLowerCase() === 'rp-trail') continue;
+          var bpList = Array.isArray(rawBatchPlansObj[bpk]) ? rawBatchPlansObj[bpk] : [];
+          var normBpList = [];
+          for (var bi = 0; bi < bpList.length; bi++) {
+            var bp = bpList[bi] || {};
+            var bpAmt = Math.max(0, Number(bp.amount !== undefined ? bp.amount : (bp.fee !== undefined ? bp.fee : 0)) || 0);
+            var bpDays = Math.max(1, parseInt(bp.validityDays || 30, 10) || 30);
+            var bpName = String(bp.name || ('Plan ' + (bi + 1))).trim();
+            var bpCycle = inferFeeBillingCycleLabel(bp.cycle, bpName, bpDays);
+            var bpNote = String(bp.note || bp.description || '').trim();
+            normBpList.push({
+              id: String(bp.id || ('bp-' + cleanBpk.replace(/[^a-zA-Z0-9]/g, '') + '-' + (bi + 1))),
+              cycle: bpCycle,
+              name: bpName || (bpCycle === 'Custom' ? 'Standard Plan' : (bpCycle + ' Plan')),
+              amount: bpAmt,
+              validityDays: bpDays,
+              note: bpNote,
+              description: bpNote,
+              allowInstallments: Boolean(bp.allowInstallments),
+              installmentCount: Math.max(2, Math.min(4, parseInt(bp.installmentCount || 2, 10) || 2)),
+              firstInstallmentPercent: Math.max(20, Math.min(80, parseInt(bp.firstInstallmentPercent || 50, 10) || 50))
+            });
+          }
+          if (normBpList.length) batchPlansObj[cleanBpk] = normBpList;
+        }
         for (var bk in batchFeesObj) {
           if (!batchFeesObj.hasOwnProperty(bk)) continue;
-          if (!Array.isArray(batchPlansObj[bk]) || !batchPlansObj[bk].length) {
+          var cleanBk = String(bk || '').trim();
+          if (!cleanBk || cleanBk.toLowerCase() === 'rp-trail') continue;
+          if (!Array.isArray(batchPlansObj[cleanBk]) || !batchPlansObj[cleanBk].length) {
             var bf = batchFeesObj[bk];
-            var amt = (typeof bf === 'object' && bf !== null) ? (Number(bf.amount) || 0) : (Number(bf) || 0);
-            var vDays = (typeof bf === 'object' && bf !== null) ? (parseInt(bf.validityDays || 30, 10) || 30) : 30;
-            var desc = (typeof bf === 'object' && bf !== null) ? String(bf.description || bf.note || '') : '';
-            if (amt > 0) {
-              batchPlansObj[bk] = [{ id: 'bp-' + bk.replace(/[^a-zA-Z0-9]/g, '') + '-1', name: 'Standard Plan', amount: amt, validityDays: vDays, note: desc, description: desc, allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 }];
+            var amt = (typeof bf === 'object' && bf !== null) ? Math.max(0, Number(bf.amount !== undefined ? bf.amount : (bf.fee || 0)) || 0) : Math.max(0, Number(bf) || 0);
+            var vDays = (typeof bf === 'object' && bf !== null) ? Math.max(1, parseInt(bf.validityDays || 30, 10) || 30) : 30;
+            var desc = (typeof bf === 'object' && bf !== null) ? String(bf.description || bf.note || '').trim() : '';
+            if (amt > 0 || desc || (typeof bf === 'object' && bf !== null && bf.amount !== undefined)) {
+              batchPlansObj[cleanBk] = [{
+                id: 'bp-' + cleanBk.replace(/[^a-zA-Z0-9]/g, '') + '-1',
+                cycle: inferFeeBillingCycleLabel('', 'Standard Plan', vDays),
+                name: 'Standard Plan',
+                amount: amt,
+                validityDays: vDays,
+                note: desc,
+                description: desc,
+                allowInstallments: Boolean(typeof bf === 'object' && bf !== null && bf.allowInstallments),
+                installmentCount: 2,
+                firstInstallmentPercent: 50
+              }];
             }
           }
         }
-        var memberPlansArr = Array.isArray(parsed.memberPlans) ? parsed.memberPlans : [];
+        var rawMemberPlans = Array.isArray(parsed.memberPlans) ? parsed.memberPlans : [];
+        var memberPlansArr = [];
+        for (var mi = 0; mi < rawMemberPlans.length; mi++) {
+          var mp = rawMemberPlans[mi] || {};
+          var mpName = String(mp.name || '').trim();
+          if (!mpName) continue;
+          var mpScope = String(mp.accessScope || 'ALL_PAST_CURRENT_UPCOMING').toUpperCase().trim();
+          var mpBatches = Array.isArray(mp.includedBatches)
+            ? mp.includedBatches.map(function(x) { return String(x || '').trim(); }).filter(Boolean)
+            : String(mp.includedBatches || '').split(',').map(function(x) { return x.trim(); }).filter(Boolean);
+          var opts = normalizeMemberBillingOptionsServer(mp, mi + 1);
+          memberPlansArr.push({
+            id: String(mp.id || ('mp-' + (mi + 1))),
+            name: mpName,
+            amount: opts[0].amount,
+            validityDays: opts[0].validityDays,
+            billingOptions: opts,
+            accessScope: mpScope,
+            includedBatches: mpBatches,
+            includeUpcoming: Boolean(mp.includeUpcoming === true || mpScope === 'ALL_PAST_CURRENT_UPCOMING' || mpScope === 'CURRENT_AND_UPCOMING'),
+            description: String(mp.description || '').trim()
+          });
+        }
         if (!memberPlansArr.length && (Number(parsed.memberFee) || 0) > 0) {
+          var legDays = Math.max(1, parseInt(parsed.memberValidityDays || 365, 10) || 365);
+          var legAmt = Number(parsed.memberFee) || 0;
           memberPlansArr = [{
             id: 'mp-default',
             name: 'Member All-Access Pass',
-            amount: Number(parsed.memberFee) || 0,
-            validityDays: Math.max(1, parseInt(parsed.memberValidityDays || 365, 10) || 365),
+            amount: legAmt,
+            validityDays: legDays,
+            billingOptions: [{
+              id: 'mo-default-1',
+              cycle: inferFeeBillingCycleLabel('', 'Annual', legDays),
+              label: inferFeeBillingCycleLabel('', 'Annual', legDays),
+              amount: legAmt,
+              validityDays: legDays,
+              note: '',
+              allowInstallments: false,
+              installmentCount: 2,
+              firstInstallmentPercent: 50
+            }],
             accessScope: 'ALL_PAST_CURRENT_UPCOMING',
             includedBatches: [],
             includeUpcoming: true,
@@ -9308,15 +9517,18 @@ function handleSaveFeeConfig(payload) {
       var cleanArr = [];
       for (var p = 0; p < arr.length; p++) {
         var pl = arr[p] || {};
-        var amt = Math.max(0, Number(pl.amount) || 0);
+        var amt = Math.max(0, Number(pl.amount !== undefined ? pl.amount : (pl.fee || 0)) || 0);
         var pName = sanitizeInput(String(pl.name || ('Plan ' + (p + 1))).trim()).slice(0, 80);
         if (!pName && amt <= 0) continue;
+        var pDays = Math.max(1, parseInt(pl.validityDays || 30, 10) || 30);
+        var pCycle = sanitizeInput(inferFeeBillingCycleLabel(pl.cycle, pName, pDays)).slice(0, 32);
         var pNote = sanitizeInput(String(pl.note || pl.description || '').trim()).slice(0, 220);
         cleanArr.push({
           id: sanitizeInput(String(pl.id || ('bp-' + Date.now() + '-' + p))),
-          name: pName || 'Standard Plan',
+          cycle: pCycle,
+          name: pName || (pCycle === 'Custom' ? 'Standard Plan' : (pCycle + ' Plan')),
           amount: amt,
-          validityDays: Math.max(1, parseInt(pl.validityDays || 30, 10) || 30),
+          validityDays: pDays,
           note: pNote,
           description: pNote,
           allowInstallments: Boolean(pl.allowInstallments),
@@ -9341,13 +9553,22 @@ function handleSaveFeeConfig(payload) {
       var cleanB = String(bName || '').trim();
       if (!cleanB || cleanB.toLowerCase() === 'rp-trail') continue;
       var entry = incoming.batchFees[bName];
-      var bAmt = (typeof entry === 'object' && entry !== null) ? Math.max(0, Number(entry.amount) || 0) : Math.max(0, Number(entry) || 0);
+      var bAmt = (typeof entry === 'object' && entry !== null) ? Math.max(0, Number(entry.amount !== undefined ? entry.amount : (entry.fee || 0)) || 0) : Math.max(0, Number(entry) || 0);
       var bDays = (typeof entry === 'object' && entry !== null) ? Math.max(1, parseInt(entry.validityDays || 30, 10) || 30) : 30;
       var bDesc = (typeof entry === 'object' && entry !== null) ? sanitizeInput(String(entry.note || entry.description || '').trim()).slice(0, 200) : '';
       cleanBatchFees[cleanB] = { amount: bAmt, validityDays: bDays, note: bDesc, description: bDesc };
-      if (bAmt > 0) {
-        cleanBatchPlans[cleanB] = [{ id: 'bp-' + cleanB.replace(/[^a-zA-Z0-9]/g, '') + '-1', name: 'Standard Plan', amount: bAmt, validityDays: bDays, note: bDesc, description: bDesc, allowInstallments: false, installmentCount: 2, firstInstallmentPercent: 50 }];
-      }
+      cleanBatchPlans[cleanB] = [{
+        id: 'bp-' + cleanB.replace(/[^a-zA-Z0-9]/g, '') + '-1',
+        cycle: inferFeeBillingCycleLabel('', 'Standard Plan', bDays),
+        name: 'Standard Plan',
+        amount: bAmt,
+        validityDays: bDays,
+        note: bDesc,
+        description: bDesc,
+        allowInstallments: false,
+        installmentCount: 2,
+        firstInstallmentPercent: 50
+      }];
     }
   }
 
@@ -9355,18 +9576,19 @@ function handleSaveFeeConfig(payload) {
   if (Array.isArray(incoming.memberPlans)) {
     for (var m = 0; m < incoming.memberPlans.length; m++) {
       var mp = incoming.memberPlans[m] || {};
-      var mAmt = Math.max(0, Number(mp.amount) || 0);
       var mName = sanitizeInput(String(mp.name || ('Member Tier ' + (m + 1))).trim()).slice(0, 90);
-      if (!mName && mAmt <= 0) continue;
+      if (!mName) continue;
       var mScope = String(mp.accessScope || 'ALL_PAST_CURRENT_UPCOMING').toUpperCase().trim();
       var mBatches = Array.isArray(mp.includedBatches)
         ? mp.includedBatches.map(function(x) { return sanitizeInput(String(x || '').trim()); }).filter(Boolean)
         : String(mp.includedBatches || '').split(',').map(function(x) { return sanitizeInput(x.trim()); }).filter(Boolean);
+      var cleanOpts = normalizeMemberBillingOptionsServer(mp, m + 1);
       cleanMemberPlans.push({
         id: sanitizeInput(String(mp.id || ('mp-' + Date.now() + '-' + m))),
-        name: mName || 'Member Pass',
-        amount: mAmt,
-        validityDays: Math.max(1, parseInt(mp.validityDays || 365, 10) || 365),
+        name: mName,
+        amount: cleanOpts[0].amount,
+        validityDays: cleanOpts[0].validityDays,
+        billingOptions: cleanOpts,
         accessScope: mScope,
         includedBatches: mBatches,
         includeUpcoming: Boolean(mp.includeUpcoming === true || mScope === 'ALL_PAST_CURRENT_UPCOMING' || mScope === 'CURRENT_AND_UPCOMING'),
@@ -9374,11 +9596,24 @@ function handleSaveFeeConfig(payload) {
       });
     }
   } else if ((Number(incoming.memberFee) || 0) > 0) {
+    var legMDays = Math.max(1, parseInt(incoming.memberValidityDays || 365, 10) || 365);
+    var legMAmt = Math.max(0, Number(incoming.memberFee) || 0);
     cleanMemberPlans.push({
       id: 'mp-default',
       name: 'Member All-Access Pass',
-      amount: Math.max(0, Number(incoming.memberFee) || 0),
-      validityDays: Math.max(1, parseInt(incoming.memberValidityDays || 365, 10) || 365),
+      amount: legMAmt,
+      validityDays: legMDays,
+      billingOptions: [{
+        id: 'mo-default-1',
+        cycle: inferFeeBillingCycleLabel('', 'Annual', legMDays),
+        label: inferFeeBillingCycleLabel('', 'Annual', legMDays),
+        amount: legMAmt,
+        validityDays: legMDays,
+        note: '',
+        allowInstallments: false,
+        installmentCount: 2,
+        firstInstallmentPercent: 50
+      }],
       accessScope: 'ALL_PAST_CURRENT_UPCOMING',
       includedBatches: [],
       includeUpcoming: true,
@@ -9440,14 +9675,21 @@ function handleSaveFeeConfig(payload) {
     coupons: cleanCoupons,
     updatedAt: new Date().toISOString()
   };
-  upsertSettingsJsonKey('FEE_CONFIG_SETTINGS', cfg);
+  upsertSettingsExactJsonKey('FEE_CONFIG_SETTINGS', cfg);
   handleLogActivity({
     userId: payload._verifiedUserId || 'ADMIN',
     userName: payload.actorName || 'Admin',
     activityType: 'FEE_CONFIG_UPDATED',
-    details: 'Updated Fee Configuration (Member Tiers: ' + cleanMemberPlans.length + ', Batches: ' + Object.keys(cleanBatchPlans).length + ', Coupons: ' + cleanCoupons.length + ', UPI: ' + (cfg.upiId || 'Not Set') + ')'
+    details: 'Updated Fee Configuration (Member Plans: ' + cleanMemberPlans.length + ', Batch Plans: ' + Object.keys(cleanBatchPlans).length + ', Coupons: ' + cleanCoupons.length + ', UPI: ' + (cfg.upiId || 'Not Set') + ')'
   });
-  return { success: true, feeConfig: cfg, message: 'UPI/QR, Batch Plans, Member Plans & Coupons saved to Google Sheets!' };
+  var freshSettings = getSheetData('SETTINGS');
+  return {
+    success: true,
+    feeConfig: cfg,
+    instituteBatches: parseInstituteBatchesSettings(freshSettings),
+    batchMetaMap: parseInstituteBatchesMetaSettings(freshSettings),
+    message: 'UPI/QR, Batch Plans, Member Plans & Coupons saved to Google Sheets!'
+  };
 }
 
 function handleSubmitStudentFeePayment(payload) {
@@ -9472,17 +9714,58 @@ function handleSubmitStudentFeePayment(payload) {
   var settings = getSheetData('SETTINGS');
   var feeCfg = parseFeeConfigSettings(settings);
   var configuredFee = null;
-  if (feeType === 'Batch' && feeCfg && feeCfg.batchFees && feeCfg.batchFees[targetBatch]) {
-    var bf = feeCfg.batchFees[targetBatch];
-    if (bf && bf.fee !== undefined && bf.fee !== '' && !isNaN(Number(bf.fee))) {
-      configuredFee = Math.max(0, Number(bf.fee));
-    }
-  } else if (feeType === 'Member' && feeCfg && Array.isArray(feeCfg.memberPlans)) {
-    for (var mfi = 0; mfi < feeCfg.memberPlans.length; mfi++) {
-      if (String(feeCfg.memberPlans[mfi].name || '').toLowerCase().trim() === planName.toLowerCase().trim()) {
-        configuredFee = Math.max(0, Number(feeCfg.memberPlans[mfi].fee || 0) || 0);
+  var reqBillingCycle = String(payload.billingCycle || '').toLowerCase().trim();
+  var reqMainPlanName = String(payload.mainPlanName || '').toLowerCase().trim();
+  if (feeType === 'Batch' && feeCfg) {
+    var bPlansList = (feeCfg.batchPlans && Array.isArray(feeCfg.batchPlans[targetBatch])) ? feeCfg.batchPlans[targetBatch] : [];
+    var matchedBp = null;
+    for (var bpi = 0; bpi < bPlansList.length; bpi++) {
+      var candBp = bPlansList[bpi];
+      if (!candBp) continue;
+      if (String(candBp.name || '').toLowerCase().trim() === planName.toLowerCase().trim() ||
+          (reqBillingCycle && String(candBp.cycle || '').toLowerCase().trim() === reqBillingCycle)) {
+        matchedBp = candBp;
         break;
       }
+    }
+    if (!matchedBp && bPlansList.length === 1) matchedBp = bPlansList[0];
+    if (matchedBp && matchedBp.amount !== undefined && !isNaN(Number(matchedBp.amount))) {
+      configuredFee = Math.max(0, Number(matchedBp.amount));
+    } else if (feeCfg.batchFees && feeCfg.batchFees[targetBatch]) {
+      var bf = feeCfg.batchFees[targetBatch];
+      var bfRaw = (bf && bf.amount !== undefined) ? bf.amount : (bf && bf.fee !== undefined ? bf.fee : undefined);
+      if (bfRaw !== undefined && bfRaw !== '' && !isNaN(Number(bfRaw))) {
+        configuredFee = Math.max(0, Number(bfRaw));
+      }
+    }
+  } else if (feeType === 'Member' && feeCfg && Array.isArray(feeCfg.memberPlans)) {
+    var normPlanLow = planName.toLowerCase().trim();
+    for (var mfi = 0; mfi < feeCfg.memberPlans.length; mfi++) {
+      var mPlan = feeCfg.memberPlans[mfi];
+      if (!mPlan) continue;
+      var mNameLow = String(mPlan.name || '').toLowerCase().trim();
+      var isPlanMatch = (mNameLow && (mNameLow === normPlanLow || mNameLow === reqMainPlanName || normPlanLow.indexOf(mNameLow + ' —') === 0 || normPlanLow.indexOf(mNameLow + ' -') === 0));
+      if (!isPlanMatch) continue;
+      var mOpts = Array.isArray(mPlan.billingOptions) ? mPlan.billingOptions : [];
+      var matchedOpt = null;
+      for (var moi = 0; moi < mOpts.length; moi++) {
+        var mo = mOpts[moi];
+        var moLabelLow = String(mo.label || mo.cycle || '').toLowerCase().trim();
+        if ((reqBillingCycle && (String(mo.cycle || '').toLowerCase().trim() === reqBillingCycle || moLabelLow === reqBillingCycle)) ||
+            (moLabelLow && normPlanLow.indexOf(moLabelLow) !== -1)) {
+          matchedOpt = mo;
+          break;
+        }
+      }
+      if (matchedOpt && matchedOpt.amount !== undefined && !isNaN(Number(matchedOpt.amount))) {
+        configuredFee = Math.max(0, Number(matchedOpt.amount));
+      } else {
+        var mpRaw = mPlan.amount !== undefined ? mPlan.amount : mPlan.fee;
+        if (mpRaw !== undefined && mpRaw !== '' && !isNaN(Number(mpRaw))) {
+          configuredFee = Math.max(0, Number(mpRaw));
+        }
+      }
+      break;
     }
   }
 
@@ -9672,7 +9955,8 @@ function handleVerifyFeePayment(payload) {
     if (feeType === 'Member' && Array.isArray(feeCfg.memberPlans)) {
       var recPlan = String(rec.PlanName || rec.InstallmentNo || '').toLowerCase().trim();
       for (var mpIdx = 0; mpIdx < feeCfg.memberPlans.length; mpIdx++) {
-        if (String(feeCfg.memberPlans[mpIdx].name || '').toLowerCase().trim() === recPlan) {
+        var mpNameLow = String(feeCfg.memberPlans[mpIdx].name || '').toLowerCase().trim();
+        if (mpNameLow && (mpNameLow === recPlan || recPlan.indexOf(mpNameLow + ' —') === 0 || recPlan.indexOf(mpNameLow + ' -') === 0 || recPlan.indexOf(mpNameLow + ' (') === 0)) {
           matchedMemberPlan = feeCfg.memberPlans[mpIdx];
           break;
         }
@@ -9723,7 +10007,7 @@ function handleVerifyFeePayment(payload) {
           break;
         }
       }
-      if (cpUpdated) upsertSettingsJsonKey('FEE_CONFIG_SETTINGS', feeCfg);
+      if (cpUpdated) upsertSettingsExactJsonKey('FEE_CONFIG_SETTINGS', feeCfg);
     }
 
     setRowNamedColumns(sheet, 'FEE_LEDGER', targetRowIdx, {

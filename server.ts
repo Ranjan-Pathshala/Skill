@@ -240,7 +240,7 @@ async function handleMediaProxy(req: Request, res: Response): Promise<void> {
   res.setHeader('Content-Disposition', 'inline');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Cache-Control', 'private, max-age=300');
   res.setHeader('Accept-Ranges', finalResp.headers.get('accept-ranges') || 'bytes');
 

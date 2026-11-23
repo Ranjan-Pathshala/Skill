@@ -1,5 +1,5 @@
 <section id="view-words" class="app-view" style="display: none;">
-      <div class="card" style="margin-bottom: 16px; padding: 14px 18px; border-top: 3px solid var(--primary); display: flex; flex-direction: column; gap: 12px;">
+      <div class="card" style="margin-bottom: 16px; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <div>
             <h3 style="margin: 0; font-size: 16.5px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
@@ -23,7 +23,7 @@
             <select id="words-category-filter" class="form-control" onchange="renderWords()" style="max-width: 185px; margin: 0;">
               <option value="ALL">All Categories</option>
             </select>
-            <input type="text" id="words-search" class="form-control" placeholder="Search word or outline..." onfocus="activateAllSubtabs('word')" oninput="activateAllSubtabs('word')" style="flex: 1; min-width: 200px; margin: 0;">
+            <input type="text" id="words-search" class="form-control" placeholder="Search word or outline..." oninput="activateAllSubtabs('word')" style="flex: 1; min-width: 200px; margin: 0;">
           </div>
           <div class="alphabet-bar" id="alphabet-bar" style="margin-bottom: 0;"></div>
         </div>

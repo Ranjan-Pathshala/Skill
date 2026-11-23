@@ -969,17 +969,14 @@ export function renderDashboardUI() {
       if (typeof window.renderDashboardExpiryRenewalAlert === 'function') window.renderDashboardExpiryRenewalAlert();
       if (typeof renderLiveTestsEverywhere === 'function') renderLiveTestsEverywhere();
 
-      // Heavy below-the-fold widgets & SVG/Canvas charts render across animation frames to keep mobile scrolling smooth
+      // Heavy below-the-fold widgets render across animation frames to keep scrolling responsive (Planner & Analytics removed)
       scheduleFrameTasks('dashboard-render', [
-        () => renderDailyPracticeGoalUI(),
         () => { if (typeof renderDashboardBatchMonitoringHub === 'function') renderDashboardBatchMonitoringHub(); },
         () => renderAnnouncements(),
         () => renderHomework(),
         () => renderVideoReferences(),
-        () => renderUserDashboardLeaderboards(),
-        () => renderD3WeeklyProgressHeatmap(),
-        () => renderUserPerformanceChart()
-      ], 8);
+        () => renderUserDashboardLeaderboards()
+      ], 10);
     }
 
 export function renderDashboardFreeTierNotice() {
@@ -1100,9 +1097,22 @@ export function renderPromoBanner() {
       const hasLoggedInText = Boolean(rawLoggedInText && rawLoggedInText !== '-');
       const hasLoggedOutText = Boolean(rawLoggedOutText && rawLoggedOutText !== '-');
 
+      const splitMultiBannerLines = (rawVal) => {
+        return String(rawVal || '')
+          .split(/\r?\n|\|\|/)
+          .map(s => s.replace(/\s+/g, ' ').trim())
+          .filter(s => s && s !== '-');
+      };
+
+      const pushBannerLines = (rawVal, prefix = '') => {
+        splitMultiBannerLines(rawVal).forEach(line => {
+          activeTopBanners.push(prefix ? `${prefix} ${line}` : line);
+        });
+      };
+
       if ((isLoggedIn || isSameForBoth) && todaySpecificMatter && String(todaySpecificMatter.text || todaySpecificMatter || '').trim() !== '') {
         const textVal = typeof todaySpecificMatter === 'object' ? todaySpecificMatter.text : String(todaySpecificMatter);
-        activeTopBanners.push(`📅 [${todayStr}] ${textVal}`);
+        pushBannerLines(textVal, `📅 [${todayStr}]`);
       }
 
       const rawEnabledVal = (banner && banner.enabled !== undefined)
@@ -1130,28 +1140,24 @@ export function renderPromoBanner() {
       const isWithinTimeRange = (!startTime || isNaN(startTime.getTime()) || now >= startTime) && (!stopTime || isNaN(stopTime.getTime()) || now <= stopTime);
 
       if (!isLoggedIn) {
-        // Logged-Out / Public Visitor Scrolling Banner (same as Logged-In if configured, or separate custom text)
         if (isForceEnabled && isWithinTimeRange && hasLoggedOutText) {
-          activeTopBanners.push(rawLoggedOutText);
+          pushBannerLines(rawLoggedOutText);
         } else if (isForceEnabled && isWithinTimeRange && isSameForBoth && hasLoggedInText) {
-          activeTopBanners.push(rawLoggedInText);
-        } else if (activeTopBanners.length === 0) {
-          activeTopBanners.push('🎓 Welcome to RP Skill | Ranjan Pathshala — Sign In or Register to access Live SSC, High Court, DSSSB & Reporter Steno Dictations, Pitman Tests & CBT Exams!');
+          pushBannerLines(rawLoggedInText);
         }
       } else {
-        // Logged-In Student Scrolling Banner
         if (isForceEnabled && isWithinTimeRange && hasLoggedInText) {
-          activeTopBanners.push(rawLoggedInText);
-        } else if (activeTopBanners.length === 0) {
-          const userName = String(portalState.currentUser?.name || 'Student').trim();
-          const userBatch = String(portalState.currentUser?.batch || '').trim();
-          const batchSnippet = (userBatch && userBatch !== '-') ? ` (${userBatch})` : '';
-          activeTopBanners.push(`✨ Welcome back, ${userName}${batchSnippet}! Practice Daily Audio Dictations, Pitman Tests, CBT Arena & track Weak Outlines from your workspace.`);
+          pushBannerLines(rawLoggedInText);
         }
       }
 
+      if (activeTopBanners.length === 0) {
+        bannerElem.style.display = 'none';
+        if (bannerTextElem) bannerTextElem.innerHTML = '';
+        return;
+      }
+
       bannerElem.style.display = 'flex';
-      // Visual theme for scrolling top banner
       if (!isLoggedIn && !isSameForBoth) {
         bannerElem.style.background = 'linear-gradient(90deg, #0f172a, #4338ca, #0284c7)';
         bannerElem.style.borderBottom = '1px solid rgba(129, 140, 248, 0.35)';
@@ -1160,21 +1166,24 @@ export function renderPromoBanner() {
         bannerElem.style.borderBottom = '1px solid rgba(52, 211, 153, 0.3)';
       }
 
-      if (activeTopBanners.length === 1) {
-        if (bannerTextElem) bannerTextElem.innerText = activeTopBanners[0];
-      } else {
-        _topPromoBannerCycleIdx = _topPromoBannerCycleIdx % activeTopBanners.length;
-        const updateTopText = () => {
-          const idx = _topPromoBannerCycleIdx % activeTopBanners.length;
-          if (bannerTextElem) {
-            bannerTextElem.innerText = `[${idx + 1}/${activeTopBanners.length}] ${activeTopBanners[idx]}`;
-          }
-        };
-        updateTopText();
-        _topPromoBannerCycleTimer = setInterval(() => {
-          _topPromoBannerCycleIdx = (_topPromoBannerCycleIdx + 1) % activeTopBanners.length;
-          updateTopText();
-        }, 5000);
+      // Render ALL active banners continuously on ONE single line with wide spacing between consecutive items
+      if (bannerTextElem) {
+        const itemsHtml = activeTopBanners
+          .map((txt, idx) => {
+            const sepHtml = idx > 0
+              ? `<span class="rp-banner-marquee-sep" aria-hidden="true">◆</span>`
+              : '';
+            return `${sepHtml}<span class="rp-banner-marquee-item">${escapeHtml(txt)}</span>`;
+          })
+          .join('');
+        bannerTextElem.innerHTML = itemsHtml;
+
+        const marqueeContainer = bannerElem.querySelector('.banner-marquee-container');
+        if (marqueeContainer) {
+          const totalChars = activeTopBanners.reduce((acc, s) => acc + s.length, 0) + (activeTopBanners.length - 1) * 18;
+          const durationSec = Math.max(18, Math.min(90, Math.round(totalChars * 0.22)));
+          marqueeContainer.style.animationDuration = `${durationSec}s`;
+        }
       }
     }
 
@@ -2938,11 +2947,15 @@ export function getThumbnailUrl(item) {
         return DEFAULT_LOGO_URL;
       }
 
+      // For image-native items (word / pitman), allow ContentOrUrl as thumbnail fallback if no separate cover was set
       if (isDistinctValidImageThumb(thumbRaw)) {
         return getUniversalUrl(thumbRaw, 'image');
       }
       if (isDistinctValidImageThumb(logoRaw)) {
         return getUniversalUrl(logoRaw, 'image');
+      }
+      if ((itemType === 'word' || itemType === 'pitman') && contentUrl && contentUrl !== '-' && /^https?:\/\/|^data:image\/|^\/|^\./i.test(contentUrl) && !isVideoOrMediaContentUrl(contentUrl)) {
+        return getUniversalUrl(contentUrl, 'image');
       }
       return DEFAULT_LOGO_URL;
     }
@@ -2961,7 +2974,7 @@ export function renderVideoReferences() {
 
         card.innerHTML = `
           <div class="rp-thumb-frame">
-            <img src="${thumbUrl}" class="card-thumb" onerror="this.onerror=null;this.src='${DEFAULT_LOGO_URL}'">
+            <img src="${thumbUrl}" class="card-thumb" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="window.rpHandleImageError && window.rpHandleImageError(this)">
           </div>
           <strong style="color:var(--secondary); font-size:12.5px; margin: 4px 0; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(vid.Title || '')}</strong>
           <button class="btn btn-primary btn-sm" style="margin-top:auto; width: 100%; font-size: 11px; padding: 5px 8px;" onclick="openReferenceVideoModal('${safeUrl}', '${safeTitle}')"><i class="fa-solid fa-play"></i> Watch</button>
@@ -4034,25 +4047,27 @@ export function setupDedicatedTabsAndMoveSections() {
     if (!mainContainer) return;
 
     if (typeof ALL_STUDENT_PORTAL_TABS !== 'undefined' && Array.isArray(ALL_STUDENT_PORTAL_TABS)) {
-      ['weak-vault', 'planner-goals', 'batchhub', 'cbt-revision'].forEach(t => {
+      ['weak-vault', 'batchhub', 'cbt-revision'].forEach(t => {
         if (!ALL_STUDENT_PORTAL_TABS.includes(t)) ALL_STUDENT_PORTAL_TABS.push(t);
       });
-      const oldOffIdx = ALL_STUDENT_PORTAL_TABS.indexOf('official-contacts');
-      if (oldOffIdx !== -1) ALL_STUDENT_PORTAL_TABS.splice(oldOffIdx, 1);
+      ['official-contacts', 'planner-goals'].forEach(rem => {
+        const idx = ALL_STUDENT_PORTAL_TABS.indexOf(rem);
+        if (idx !== -1) ALL_STUDENT_PORTAL_TABS.splice(idx, 1);
+      });
     }
     if (typeof TAB_DISPLAY_META !== 'undefined' && TAB_DISPLAY_META) {
-      TAB_DISPLAY_META['weak-vault'] = { icon: '🔐', label: 'My Weak Outlines Vault' };
-      TAB_DISPLAY_META['planner-goals'] = { icon: '📅', label: '7-Day Planner & Goals' };
-      TAB_DISPLAY_META['batchhub'] = { icon: '🏫', label: 'Batch Monitor & Polls' };
-      TAB_DISPLAY_META['cbt-revision'] = { icon: '🗂️', label: 'Saved MCQs & Error Logbook' };
+      TAB_DISPLAY_META['weak-vault'] = { icon: 'fa-solid fa-vault', label: 'My Weak Outlines Vault' };
+      TAB_DISPLAY_META['batchhub'] = { icon: 'fa-solid fa-people-group', label: 'Batch Monitor & Comms' };
+      TAB_DISPLAY_META['cbt-revision'] = { icon: 'fa-solid fa-bookmark', label: 'Saved MCQs & Logbook' };
       delete TAB_DISPLAY_META['official-contacts'];
+      delete TAB_DISPLAY_META['planner-goals'];
     }
 
     if (authTabsList) {
-      const insertNavLiAfter = (newTabId, labelHtml, afterTabId) => {
+      const insertNavLiAfter = (newTabId, iconCls, labelText, afterTabId) => {
         if (authTabsList.querySelector(`[data-tab="${newTabId}"]`)) return;
         const li = document.createElement('li');
-        li.innerHTML = `<button type="button" class="nav-tab-btn" data-tab="${newTabId}" onclick="navigateTo('${newTabId}', true, true)"><span>${labelHtml}</span></button>`;
+        li.innerHTML = `<button type="button" class="nav-tab-btn" data-tab="${newTabId}" onclick="navigateTo('${newTabId}', true, true)"><i class="${iconCls} rp-nav-ico"></i><span>${labelText}</span></button>`;
         const refBtn = authTabsList.querySelector(`[data-tab="${afterTabId}"]`);
         const refLi = refBtn ? refBtn.closest('li') : null;
         if (refLi && refLi.nextSibling) {
@@ -4062,23 +4077,24 @@ export function setupDedicatedTabsAndMoveSections() {
         }
       };
 
-      insertNavLiAfter('planner-goals', '📅 7-Day Planner &amp; Goals', 'dashboard');
-      insertNavLiAfter('batchhub', '🏫 Batch Monitor &amp; Communication', 'planner-goals');
-      insertNavLiAfter('weak-vault', '🔐 My Weak Outlines Vault', 'words');
-      insertNavLiAfter('cbt-revision', '🗂️ Saved MCQs &amp; Error Logbook', 'cbttest');
+      insertNavLiAfter('batchhub', 'fa-solid fa-people-group', 'Batch Monitor &amp; Comms', 'livetests');
+      insertNavLiAfter('weak-vault', 'fa-solid fa-vault', 'My Weak Outlines Vault', 'words');
+      insertNavLiAfter('cbt-revision', 'fa-solid fa-bookmark', 'Saved MCQs &amp; Logbook', 'cbttest');
 
-      // Remove deleted Official Dedicated Directory menu item if any exists
-      const obsoleteOffBtn = authTabsList.querySelector('[data-tab="official-contacts"]');
-      if (obsoleteOffBtn) obsoleteOffBtn.closest('li')?.remove();
+      ['official-contacts', 'planner-goals'].forEach(rem => {
+        const obsoleteBtn = authTabsList.querySelector(`[data-tab="${rem}"]`);
+        if (obsoleteBtn) obsoleteBtn.closest('li')?.remove();
+      });
 
       if (portalState.currentUser && typeof applyStudentPortalTabPermissions === 'function') {
         applyStudentPortalTabPermissions();
       }
     }
 
-    // Remove deleted Official Dedicated Directory section cleanly; keep contacts inside Help & Contact (#view-feedback)
-    const obsoleteOffSec = document.getElementById('view-official-contacts');
-    if (obsoleteOffSec) obsoleteOffSec.remove();
+    ['view-official-contacts', 'view-planner-goals'].forEach(secId => {
+      const obsoleteSec = document.getElementById(secId);
+      if (obsoleteSec) obsoleteSec.remove();
+    });
 
     // Requirement #8: Remove duplicate quick-jump navigation bar & duplicate admin subtab category cards
     const dupQuickBar = document.getElementById('rp-student-quick-jump-bar');
@@ -4106,7 +4122,7 @@ export function setupDedicatedTabsAndMoveSections() {
     ensureHelpDeskFeedbackFormVisible();
 
     // =========================================================================
-    // REQUIREMENT #6: NEW TAB FOR "MY WEAK OUTLINES VAULT" (#view-weak-vault)
+    // REQUIREMENT #6 & #12 & #13: "MY WEAK OUTLINES VAULT" (Pitman Stroke Inspector Removed + Multi-Select Bulk Delete)
     // =========================================================================
     if (!document.getElementById('view-weak-vault')) {
       const vaultSec = document.createElement('section');
@@ -4114,13 +4130,13 @@ export function setupDedicatedTabsAndMoveSections() {
       vaultSec.className = 'app-view';
       vaultSec.style.display = 'none';
       vaultSec.innerHTML = `
-        <div style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
-          <div class="card" style="border-top: 4px solid #e11d48; padding: 18px 20px;">
+        <div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
+          <div class="card" style="padding: 18px 20px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
               <div>
-                <div style="font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#be123c; margin-bottom:4px;">SHORTHAND RECOVERY WORKSPACE</div>
-                <h3 style="margin:0 0 4px 0; font-size:20px; font-weight:900; color:var(--secondary);">My Weak Outlines Vault</h3>
-                <p style="margin:0; font-size:12.5px; color:var(--text-muted); max-width:680px;">Missed or misspelled words from your Dictation &amp; Typing tests are saved here automatically. Select any word on the left to inspect its Pitman stroke and practice typing it 5 times to mark it mastered.</p>
+                <div style="font-size:11.5px; font-weight:700; color:#be123c; margin-bottom:3px;">Shorthand Recovery Workspace</div>
+                <h3 style="margin:0 0 4px 0; font-size:19px; font-weight:800; color:var(--secondary);">My Weak Outlines Vault</h3>
+                <p style="margin:0; font-size:12.5px; color:var(--text-muted); max-width:680px;">Missed or misspelled words from your Dictation &amp; Typing tests are saved here automatically. Unlocked words open directly; locked batch words link to the Words &amp; Outlines tab.</p>
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button type="button" class="btn btn-primary btn-sm" style="background:#e11d48; border:none; font-weight:800;" onclick="if(typeof launchWeakOutlinesCustomDrill==='function') launchWeakOutlinesCustomDrill();">
@@ -4151,50 +4167,37 @@ export function setupDedicatedTabsAndMoveSections() {
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:16px; align-items:start;">
-            <!-- Left Column: Saved Weak Words List & Controls -->
-            <div class="card" style="padding:16px; display:flex; flex-direction:column; gap:12px;">
-              <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                <input type="text" id="weak-vault-custom-word-input" class="form-control" placeholder="Add a difficult word (e.g. Parliament, Jurisdiction)..." onkeydown="if(event.key==='Enter'){event.preventDefault(); window.addCustomWordToWeakVault();}" style="flex:1; min-width:190px; min-height:38px; font-size:12.5px;">
-                <button type="button" class="btn btn-primary btn-sm" style="min-height:38px; font-weight:800;" onclick="window.addCustomWordToWeakVault()">
-                  <i class="fa-solid fa-plus"></i> Add &amp; Inspect
+          <div class="card" style="padding:16px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <input type="text" id="weak-vault-custom-word-input" class="form-control" placeholder="Add a difficult word (e.g. Parliament, Jurisdiction)..." onkeydown="if(event.key==='Enter'){event.preventDefault(); window.addCustomWordToWeakVault();}" style="flex:1; min-width:190px; min-height:38px; font-size:12.5px;">
+              <button type="button" class="btn btn-primary btn-sm" style="min-height:38px; font-weight:800;" onclick="window.addCustomWordToWeakVault()">
+                <i class="fa-solid fa-plus"></i> Add Word
+              </button>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border);">
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" id="weak-vault-filter-all" class="btn btn-primary btn-sm" onclick="window.setWeakVaultFilterMode('all')">All</button>
+                <button type="button" id="weak-vault-filter-pending" class="btn btn-secondary btn-sm" onclick="window.setWeakVaultFilterMode('pending')">Needs Practice</button>
+                <button type="button" id="weak-vault-filter-mastered" class="btn btn-secondary btn-sm" onclick="window.setWeakVaultFilterMode('mastered')">Mastered</button>
+              </div>
+              <input type="text" id="weak-vault-search-input" class="form-control" placeholder="Search saved words..." oninput="window.filterWeakOutlinesVaultUI()" style="width:200px; min-height:34px; font-size:12px;">
+            </div>
+
+            <div id="weak-vault-bulk-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding:8px 12px; border-radius:9px; background:var(--background); border:1px solid var(--border);">
+              <label style="display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--secondary); cursor:pointer; margin:0;">
+                <input type="checkbox" id="weak-vault-select-all-chk" style="width:15px; height:15px;" onchange="if(typeof window.toggleSelectAllWeakVaultWords==='function') window.toggleSelectAllWeakVaultWords(this.checked)">
+                <span>Select All Visible Words</span>
+              </label>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span id="weak-vault-selected-count" class="mono-num" style="font-size:11.5px; font-weight:700; color:var(--text-muted);">0 selected</span>
+                <button type="button" id="btn-weak-vault-delete-selected" class="btn btn-danger btn-sm" disabled style="font-size:11.5px; font-weight:800; padding:4px 12px;" onclick="if(typeof window.deleteSelectedWeakOutlineWords==='function') window.deleteSelectedWeakOutlineWords()">
+                  <i class="fa-solid fa-trash-can"></i> Delete Selected
                 </button>
               </div>
-
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--border);">
-                <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                  <button type="button" id="weak-vault-filter-all" class="btn btn-primary btn-sm" onclick="window.setWeakVaultFilterMode('all')">All</button>
-                  <button type="button" id="weak-vault-filter-pending" class="btn btn-secondary btn-sm" onclick="window.setWeakVaultFilterMode('pending')">Needs Practice</button>
-                  <button type="button" id="weak-vault-filter-mastered" class="btn btn-secondary btn-sm" onclick="window.setWeakVaultFilterMode('mastered')">Mastered</button>
-                </div>
-                <input type="text" id="weak-vault-search-input" class="form-control" placeholder="Search saved words..." oninput="window.filterWeakOutlinesVaultUI()" style="width:175px; min-height:34px; font-size:12px;">
-              </div>
-
-              <div id="weak-vault-inline-list" style="display:flex; flex-direction:column; gap:8px; max-height:520px; overflow-y:auto;"></div>
             </div>
 
-            <!-- Right Column: Inline Pitman Stroke Inspector & 5x Mastery Practice -->
-            <div class="card" style="padding:18px; display:flex; flex-direction:column; gap:12px; position:sticky; top:16px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding-bottom:10px; border-bottom:1px solid var(--border);">
-                <div>
-                  <div style="font-size:10.5px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:var(--primary);">PITMAN STROKE INSPECTOR</div>
-                  <h4 id="inline-pitman-word-title" style="margin:2px 0 0 0; font-size:18px; font-weight:900; color:var(--secondary);">Select or add a word</h4>
-                </div>
-                <span id="inline-pitman-position-badge" style="font-size:11px; font-weight:800; color:var(--primary); background:rgba(79,70,229,0.1); padding:4px 10px; border-radius:8px;">Stroke Guide</span>
-              </div>
-
-              <div id="inline-pitman-svg-stage" style="background:var(--background); border:1px solid var(--border); border-radius:12px; padding:12px; min-height:150px; display:flex; align-items:center; justify-content:center;"></div>
-
-              <div id="inline-pitman-notes" style="display:flex; flex-direction:column; gap:6px;"></div>
-
-              <div style="padding-top:10px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:800; color:var(--secondary);">
-                  <span>Quick 5x Muscle-Memory Practice</span>
-                  <span id="inline-pitman-practice-progress" style="color:var(--primary); font-variant-numeric:tabular-nums;">0 / 5 reps</span>
-                </div>
-                <input type="text" id="inline-pitman-practice-input" class="form-control" disabled oninput="checkPitmanInspectorPracticeInput(this)" placeholder="Select a word first to start 5x practice..." style="font-size:13px; min-height:40px;">
-              </div>
-            </div>
+            <div id="weak-vault-inline-list" style="display:flex; flex-direction:column; gap:8px; max-height:580px; overflow-y:auto;"></div>
           </div>
         </div>
       `;
@@ -4202,44 +4205,7 @@ export function setupDedicatedTabsAndMoveSections() {
     }
 
     // =========================================================================
-    // REQUIREMENT #7: NEW TAB FOR "7-DAY PLANNER & GOALS" (#view-planner-goals)
-    // =========================================================================
-    if (!document.getElementById('view-planner-goals')) {
-      const planSec = document.createElement('section');
-      planSec.id = 'view-planner-goals';
-      planSec.className = 'app-view';
-      planSec.style.display = 'none';
-      planSec.innerHTML = `
-        <div style="max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;">
-          <div class="card" style="border-top: 4px solid #2563eb; background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(16,185,129,0.06));">
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-              <div>
-                <span style="font-size:10.5px; font-weight:800; color:#1d4ed8; background:rgba(37,99,235,0.12); padding:3px 10px; border-radius:999px; border:1px solid rgba(37,99,235,0.3);">📅 DEDICATED GOAL, CONSISTENCY HEATMAP &amp; COMPETENCY ANALYTICS HUB</span>
-                <h3 style="margin:6px 0 2px 0; font-size:19px; font-weight:900; color:var(--secondary);">7-Day Study Planner, Daily Target Tracker, Consistency Heatmap &amp; Real-Time Competency Analytics</h3>
-                <p style="margin:0; font-size:12.5px; color:var(--text-muted);">Track your daily practice goals, 7-day smart study schedule, 52-week consistency heatmap, and real-time WPM/Accuracy competency progression.</p>
-              </div>
-              <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="window.refreshPlannerAndGoalsTab()">
-                  <i class="fa-solid fa-arrows-rotate"></i> Refresh Real-Time Analytics
-                </button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="navigateTo('audio')">
-                  🎧 Start Today's Dictation Task
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div id="planner-goals-top-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: stretch;"></div>
-          <div id="planner-goals-heatmap-mount" style="display: flex; flex-direction: column; gap: 16px;"></div>
-          <div id="planner-goals-competency-mount" style="display: flex; flex-direction: column; gap: 16px;"></div>
-        </div>
-      `;
-      mainContainer.appendChild(planSec);
-    }
-
-    // =========================================================================
-    // REQUIREMENT #8: NEW TAB FOR "INSTITUTION BATCH MONITOR & COMMUNICATION"
-    //                 WITH LIVE POLLS + DASHBOARD PINNED ANNOUNCEMENTS ONLY
+    // BATCH MONITOR & COMMUNICATION — ALL SECTIONS SHOWN TOGETHER (NO SUBTABS)
     // =========================================================================
     if (!document.getElementById('view-batchhub')) {
       const batchSec = document.createElement('section');
@@ -4258,7 +4224,7 @@ export function setupDedicatedTabsAndMoveSections() {
                 <span id="batchhub-topbar-role-badge" class="rp-batchhub-role-meta"></span>
               </div>
               <div id="batchhub-topbar-monitor-meta" class="rp-batchhub-meta-line">
-                Switch batches on the right or pick any workspace tab below.
+                All batch announcements, monitor chat, student progress, live polls, shorthand pads &amp; doubt wall in one unified view.
               </div>
             </div>
             <div class="rp-batchhub-topbar-controls">
@@ -4271,8 +4237,10 @@ export function setupDedicatedTabsAndMoveSections() {
             </div>
           </div>
 
+          <div id="batchhub-dedicated-mount" style="display: flex; flex-direction: column; gap: 16px;"></div>
+
           <!-- Interactive Batch Poll Builder & Live Voting Card -->
-          <div id="batch-poll-creator-box" class="card" style="display:none; border-top: 3px solid var(--accent); padding: 18px;">
+          <div id="batch-poll-creator-box" class="card" style="display:block; border-top: 3px solid var(--accent); padding: 18px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border);">
               <div>
                 <div style="font-size:11px; font-weight:800; letter-spacing:0.05em; text-transform:uppercase; color:var(--accent);">Batch Polls &amp; Consensus</div>
@@ -4327,69 +4295,18 @@ export function setupDedicatedTabsAndMoveSections() {
             <div id="batch-polls-list-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(290px, 1fr)); gap:12px;"></div>
           </div>
 
-          <div id="batchhub-dedicated-mount" style="display: flex; flex-direction: column; gap: 16px;"></div>
-          <div id="batchhub-pads-mount" style="display: none; flex-direction: column; gap: 16px;"></div>
-          <div id="batchhub-doubt-wall-mount" style="display: none; flex-direction: column; gap: 16px;"></div>
+          <div id="batchhub-pads-mount" style="display: flex; flex-direction: column; gap: 16px;"></div>
+          <div id="batchhub-doubt-wall-mount" style="display: flex; flex-direction: column; gap: 16px;"></div>
         </div>
       `;
       mainContainer.appendChild(batchSec);
     }
 
-    // Move 7-Day Study Planner into its dedicated tab (Weak Outlines Vault now has its own clean 2-column studio)
-    const engagementRow = document.getElementById('student-engagement-suite-row');
-    if (engagementRow) {
-      const plannerChecklist = document.getElementById('weekly-study-planner-checklist');
-      const plannerCard = plannerChecklist ? plannerChecklist.closest('.card') : null;
-
-      const plannerTopGrid = document.getElementById('planner-goals-top-grid');
-      const dailyGoalCard = document.getElementById('daily-practice-goal-card');
-      if (plannerTopGrid && plannerCard && !plannerTopGrid.contains(plannerCard)) {
-        plannerCard.style.marginBottom = '0';
-        plannerTopGrid.appendChild(plannerCard);
-      }
-      if (plannerTopGrid && dailyGoalCard && !plannerTopGrid.contains(dailyGoalCard)) {
-        dailyGoalCard.style.marginBottom = '0';
-        plannerTopGrid.appendChild(dailyGoalCard);
-      }
-      engagementRow.style.display = 'none';
-    }
-
-    // Mount Unified Monthly Attendance, Streak & Consistency Heatmap Calendar inside #planner-goals-heatmap-mount
-    const heatmapCard = document.getElementById('d3-weekly-heatmap-card');
-    const attendanceCard = document.getElementById('student-attendance-matrix-card') || document.querySelector('#view-attendance-matrix > .card');
-    const heatmapMount = document.getElementById('planner-goals-heatmap-mount');
-    if (heatmapMount) {
-      let hub = document.getElementById('rp-merged-attendance-heatmap-hub');
-      if (!hub) {
-        hub = document.createElement('div');
-        hub.id = 'rp-merged-attendance-heatmap-hub';
-        hub.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
-        hub.innerHTML = `<div id="rp-merged-attendance-heatmap-body" style="display: flex; flex-direction: column; gap: 12px;"></div>`;
-        heatmapMount.appendChild(hub);
-      }
-      const hubBody = document.getElementById('rp-merged-attendance-heatmap-body') || hub;
-      if (attendanceCard && !hubBody.contains(attendanceCard)) {
-        attendanceCard.id = 'student-attendance-matrix-card';
-        attendanceCard.style.display = 'block';
-        attendanceCard.style.marginBottom = '0';
-        hubBody.appendChild(attendanceCard);
-      }
-      if (heatmapCard) {
-        // Legacy secondary heatmap card is superseded by the unified calendar inside #student-attendance-matrix-card
-        heatmapCard.style.display = 'none';
-      }
-      if (typeof window.renderStudentAttendanceMatrixView === 'function') {
-        window.renderStudentAttendanceMatrixView();
-      }
-    }
-
-    const sessionCard = document.getElementById('user-engagement-session-card');
-    const compMount = document.getElementById('planner-goals-competency-mount');
-    if (sessionCard && compMount && !compMount.contains(sessionCard)) {
-      sessionCard.style.display = 'block';
-      sessionCard.style.marginBottom = '0';
-      compMount.appendChild(sessionCard);
-    }
+    // Planner & Analytics sections removed per user request
+    ['student-engagement-suite-row', 'dashboard-planner-source-wrapper', 'daily-practice-goal-card', 'd3-weekly-heatmap-card', 'user-engagement-session-card'].forEach(remId => {
+      const remEl = document.getElementById(remId);
+      if (remEl) remEl.style.display = 'none';
+    });
 
     // Move Institution Batch Monitoring & Communication Card into #batchhub-dedicated-mount,
     // Shorthand Pad Review Desk into #batchhub-pads-mount, and Shorthand Doubt Wall into #batchhub-doubt-wall-mount
@@ -4429,16 +4346,16 @@ export function setupDedicatedTabsAndMoveSections() {
       const pinCard = document.createElement('div');
       pinCard.id = 'dashboard-pinned-directives-card';
       pinCard.className = 'card';
-      pinCard.style.cssText = 'margin-bottom: 18px; border-top: 4px solid #7c3aed; background: linear-gradient(135deg, rgba(124,58,237,0.06), rgba(37,99,235,0.04)); padding: 16px 18px;';
+      pinCard.style.cssText = 'margin-bottom: 18px; padding: 16px 18px;';
       pinCard.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border);">
           <div>
-            <span style="font-size:10px; font-weight:900; padding:2px 9px; border-radius:999px; background:rgba(124,58,237,0.14); color:#6d28d9; border:1px solid rgba(124,58,237,0.3);">📌 PINNED BATCH MONITOR &amp; FACULTY NOTICES</span>
-            <h4 style="margin:4px 0 0 0; font-size:15.5px; font-weight:900; color:var(--secondary);">Important Pinned Notices from Your Batch Monitor &amp; Faculty</h4>
+            <div style="font-size:11.5px; font-weight:700; color:var(--primary); margin-bottom:2px;">Pinned Batch Monitor &amp; Faculty Directives</div>
+            <h4 style="margin:0; font-size:15.5px; font-weight:800; color:var(--secondary);">Important Pinned Notices from Your Batch</h4>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-primary btn-sm" style="font-size:11.5px; background:linear-gradient(135deg,#7c3aed,#2563eb); border:none;" onclick="navigateTo('batchhub')">
-              💬 Open Full Batch Communication, Replies &amp; Polls &rarr;
+            <button type="button" class="btn btn-secondary btn-sm" onclick="navigateTo('batchhub')">
+              <i class="fa-solid fa-comments"></i> Open Batch Communication &amp; Polls
             </button>
           </div>
         </div>
@@ -4475,12 +4392,12 @@ export function setupDedicatedTabsAndMoveSections() {
       revSec.style.display = 'none';
       revSec.innerHTML = `
         <div style="max-width: 1240px; margin: 0 auto; display:flex; flex-direction:column; gap:16px;">
-          <div class="card" style="border-top: 4px solid #7c3aed; padding: 18px 20px;">
+          <div class="card" style="padding: 18px 20px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
               <div>
-                <div style="font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#6d28d9; margin-bottom:4px;">CBT REVISION NOTEBOOK</div>
-                <h3 style="margin:0 0 4px 0; font-size:20px; font-weight:900; color:var(--secondary);">Saved MCQs &amp; Wrong-Answer Logbook</h3>
-                <p style="margin:0; font-size:12.5px; color:var(--text-muted);">Review questions you starred or got wrong in CBT Mock Exams. Click any option to self-test, reveal the solution, and mark questions Mastered.</p>
+                <div style="font-size:11.5px; font-weight:700; color:var(--primary); margin-bottom:3px;">CBT Revision Notebook</div>
+                <h3 style="margin:0 0 4px 0; font-size:19px; font-weight:800; color:var(--secondary);">Saved MCQs &amp; Wrong-Answer Logbook</h3>
+                <p style="margin:0; font-size:12.5px; color:var(--text-muted);">Review questions you starred, answered wrongly, or left unanswered in CBT Mock Exams. Click any option to self-test and mark questions Mastered.</p>
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="const f=document.getElementById('cbt-rev-add-custom-form'); if(f) f.style.display = f.style.display==='none' ? 'grid' : 'none';">
@@ -4574,6 +4491,18 @@ export function setupDedicatedTabsAndMoveSections() {
                   <option value="NEEDS_REVIEW">Needs Review</option>
                   <option value="MASTERED">Mastered</option>
                 </select>
+              </div>
+            </div>
+            <div id="cbt-rev-bulk-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; padding:8px 12px; border-radius:9px; background:var(--background); border:1px solid var(--border); margin-bottom:12px;">
+              <label style="display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--secondary); cursor:pointer; margin:0;">
+                <input type="checkbox" id="cbt-rev-select-all-chk" style="width:15px; height:15px;" onchange="if(typeof window.toggleSelectAllCbtRevisionItems==='function') window.toggleSelectAllCbtRevisionItems(this.checked)">
+                <span>Select All Visible Questions</span>
+              </label>
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span id="cbt-rev-selected-count" class="mono-num" style="font-size:11.5px; font-weight:700; color:var(--text-muted);">0 selected</span>
+                <button type="button" id="btn-cbt-rev-delete-selected" class="btn btn-danger btn-sm" disabled style="font-size:11.5px; font-weight:800; padding:4px 12px;" onclick="if(typeof window.deleteSelectedCbtRevisionItems==='function') window.deleteSelectedCbtRevisionItems()">
+                  <i class="fa-solid fa-trash-can"></i> Delete Selected
+                </button>
               </div>
             </div>
             <div id="cbt-revision-inline-list" style="display:flex; flex-direction:column; gap:12px;"></div>

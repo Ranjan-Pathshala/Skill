@@ -1,5 +1,5 @@
 <section id="view-pitman" class="app-view" style="display: none;">
-      <div class="card" style="margin-bottom: 16px; padding: 14px 18px; border-top: 4px solid var(--primary); display: flex; flex-direction: column; gap: 12px;">
+      <div class="card" style="margin-bottom: 16px; padding: 14px 18px; display: flex; flex-direction: column; gap: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <div>
             <h3 style="margin: 0; font-size: 16.5px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
@@ -8,7 +8,7 @@
             <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">Select an exercise chapter subtab below to practice shorthand outlines, audio dictation, and full transcription.</p>
           </div>
           <div style="min-width: min(100%, 300px); flex: 1; max-width: 420px;">
-            <input type="text" id="pitman-search-input" class="form-control" placeholder="🔍 Search Pitman exercises..." onfocus="activateAllSubtabs('pitman')" oninput="activateAllSubtabs('pitman')">
+            <input type="text" id="pitman-search-input" class="form-control" placeholder="Search Pitman exercises..." oninput="activateAllSubtabs('pitman')">
           </div>
         </div>
         <div class="subtab-bar" id="pitman-subtabs" style="margin-bottom: 0;"></div>

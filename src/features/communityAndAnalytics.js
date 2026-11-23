@@ -1064,17 +1064,31 @@ window.__enterpriseSuiteState = {
 window.findExistingWordInWordsTabData = function(rawWord) {
     const clean = String(rawWord || '').trim().toLowerCase();
     if (!clean) return null;
-    const pool = (typeof portalState.materialsData !== 'undefined' && Array.isArray(portalState.materialsData))
+    const primaryPool = (typeof portalState.materialsData !== 'undefined' && Array.isArray(portalState.materialsData))
       ? portalState.materialsData
+      : [];
+    const globalPool = (portalState.globalData && Array.isArray(portalState.globalData.materials))
+      ? portalState.globalData.materials
       : ((window.globalData && Array.isArray(window.globalData.materials)) ? window.globalData.materials : []);
-    return pool.find(item => {
+    const pool = primaryPool.length > 0 ? primaryPool : globalPool;
+    const matches = pool.filter(item => {
       if (!item || String(item.Type || '').toLowerCase().trim() !== 'word') return false;
       const t = String(item.Title || item.Word || '').trim().toLowerCase();
       if (!t) return false;
       if (t === clean) return true;
       const parts = t.split(/[\/|,;()-]+/).map(s => s.trim()).filter(Boolean);
       return parts.includes(clean);
-    }) || null;
+    });
+    if (matches.length === 0) return null;
+    if (matches.length === 1 || typeof window.checkMaterialAccessPermissions !== 'function') {
+      return matches[0];
+    }
+    const unlockedMatch = matches.find(item => {
+      const accessLevel = String(item.AccessLevel || 'public').toLowerCase();
+      const perms = window.checkMaterialAccessPermissions(accessLevel, item);
+      return Boolean(perms && perms.canView);
+    });
+    return unlockedMatch || matches[0];
   };
 
 window.checkAndSubmitWordOutlineRequest = async function(optionalWord, sourceContext = 'Words & Outlines Tab') {
@@ -1704,13 +1718,13 @@ window.renderDashboardPinnedDirectivesOnly = function() {
     }
 
     mount.innerHTML = combined.slice(0, 4).map(item => `
-      <div style="background: var(--background); border: 1px solid rgba(124,58,237,0.28); border-left: 4px solid #7c3aed; border-radius: 10px; padding: 11px 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-          <span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(124,58,237,0.12); color: #6d28d9;">${window.escapeHtml(item.badge)}</span>
-          <span style="font-size: 10px; color: var(--text-muted);">${window.escapeHtml(item.time)}</span>
+      <div style="background: var(--background); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11px;">
+          <span style="font-weight: 700; color: var(--primary);"><i class="fa-solid fa-thumbtack" style="margin-right: 4px;"></i>Pinned Directive</span>
+          <span style="color: var(--text-muted); font-variant-numeric: tabular-nums;">${window.escapeHtml(item.time)}</span>
         </div>
-        <div style="font-size: 12.5px; font-weight: 800; color: var(--secondary);">${window.escapeHtml(item.title)}</div>
-        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">${window.escapeHtml(item.body)}</div>
+        <div style="font-size: 13px; font-weight: 800; color: var(--secondary);">${window.escapeHtml(item.title)}</div>
+        <div style="font-size: 12px; color: var(--text-muted); line-height: 1.45;">${window.escapeHtml(item.body)}</div>
       </div>
     `).join('');
   };
@@ -2170,9 +2184,11 @@ window.switchPlannerGoalsSubtab = function(mode) {
     });
   };
 
-window.switchBatchHubSubtab = function(mode) {
-    const normalizedMode = (!mode || mode === 'feed' || mode === 'all') ? 'comms' : mode;
-    window._activeBatchHubSubtab = normalizedMode;
+window.switchBatchHubSubtab = function() {
+    window._activeBatchHubSubtab = 'all';
+    const oldBar = document.getElementById('rp-batchhub-subtab-bar');
+    if (oldBar) oldBar.remove();
+
     const pollsCard = document.getElementById('batch-poll-creator-box') || document.getElementById('batch-hub-polls-card');
     const feedMount = document.getElementById('batchhub-dedicated-mount') || document.getElementById('batch-hub-Full-mount');
     const feedCard = document.getElementById('dashboard-batch-monitoring-card');
@@ -2187,83 +2203,47 @@ window.switchBatchHubSubtab = function(mode) {
       doubtMount.appendChild(doubtCard);
     }
 
-    const isMonitorCardTab = normalizedMode === 'comms' || normalizedMode === 'progress';
-    if (pollsCard) pollsCard.style.display = normalizedMode === 'polls' ? 'block' : 'none';
-    if (feedMount) feedMount.style.display = isMonitorCardTab ? 'flex' : 'none';
-    if (feedCard) feedCard.style.display = isMonitorCardTab ? 'block' : 'none';
-    if (progPane) progPane.style.display = normalizedMode === 'progress' ? 'block' : 'none';
-    if (commsPane) commsPane.style.display = normalizedMode === 'comms' ? 'block' : 'none';
-    if (padsMount) padsMount.style.display = normalizedMode === 'pads' ? 'flex' : 'none';
-    if (padsCard) padsCard.style.display = normalizedMode === 'pads' ? 'block' : 'none';
-    if (doubtMount) doubtMount.style.display = normalizedMode === 'doubts' ? 'flex' : 'none';
-    if (doubtCard) doubtCard.style.display = normalizedMode === 'doubts' ? 'block' : 'none';
+    // Show ALL sections together directly without subtab hiding
+    if (feedMount) feedMount.style.display = 'flex';
+    if (feedCard) feedCard.style.display = 'block';
+    if (commsPane) commsPane.style.display = 'block';
+    if (progPane) progPane.style.display = 'block';
+    if (pollsCard) pollsCard.style.display = 'block';
+    if (padsMount) padsMount.style.display = 'flex';
+    if (padsCard) padsCard.style.display = 'block';
+    if (doubtMount) doubtMount.style.display = 'flex';
+    if (doubtCard) doubtCard.style.display = 'block';
 
-    if (isMonitorCardTab) {
-      window.currentBatchMonitoringHubTab = normalizedMode;
-      if (typeof window.renderDashboardBatchMonitoringHub === 'function') {
-        window.renderDashboardBatchMonitoringHub();
-      }
-    } else if (normalizedMode === 'polls' && typeof window.renderBatchPollsWidget === 'function') {
+    if (typeof window.renderDashboardBatchMonitoringHub === 'function') {
+      window.renderDashboardBatchMonitoringHub();
+    }
+    if (typeof window.renderBatchPollsWidget === 'function') {
       window.renderBatchPollsWidget();
-    } else if (normalizedMode === 'pads' && typeof window.loadShorthandPadsFromServer === 'function') {
+    }
+    if (typeof window.loadShorthandPadsFromServer === 'function') {
       window.loadShorthandPadsFromServer('batchhub', false);
-    } else if (normalizedMode === 'doubts' && typeof window.renderBatchShorthandDoubtWall === 'function') {
+    }
+    if (typeof window.renderBatchShorthandDoubtWall === 'function') {
       window.renderBatchShorthandDoubtWall();
     }
-
-    document.querySelectorAll('#rp-batchhub-subtab-bar .subtab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-bsub') === normalizedMode);
-    });
   };
 
 window.switchWeakVaultSubtab = function(mode) {
     const vaultMount = document.getElementById('weak-vault-dedicated-mount');
-    const strokeCard = document.getElementById('weak-vault-stroke-geometry-card');
-    if (vaultMount) vaultMount.style.display = (mode === 'all' || mode === 'vault') ? 'block' : 'none';
-    if (strokeCard) strokeCard.style.display = (mode === 'all' || mode === 'geometry') ? 'block' : 'none';
-    if (mode === 'geometry' && !strokeCard && typeof window.openWeakOutlinesVaultModal === 'function') {
-      window.openWeakOutlinesVaultModal();
-    }
-    document.querySelectorAll('#rp-weakvault-subtab-bar .subtab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-wsub') === mode);
-    });
+    if (vaultMount) vaultMount.style.display = 'block';
+    const oldWeakSubBar = document.getElementById('rp-weakvault-subtab-bar');
+    if (oldWeakSubBar) oldWeakSubBar.remove();
   };
 
 export function injectSubtabBarsIntoDedicatedViews() {
-    const plannerWrap = document.querySelector('#view-planner-goals > div');
-    if (plannerWrap && !document.getElementById('rp-planner-subtab-bar')) {
-      const bar = document.createElement('div');
-      bar.id = 'rp-planner-subtab-bar';
-      bar.className = 'subtab-bar';
-      bar.style.marginBottom = '4px';
-      bar.innerHTML = `
-        <button type="button" class="subtab-btn active" data-psub="all" onclick="window.switchPlannerGoalsSubtab('all')">📋 All Planner &amp; Analytics</button>
-        <button type="button" class="subtab-btn" data-psub="planner" onclick="window.switchPlannerGoalsSubtab('planner')">📅 7-Day Planner &amp; Daily Goal Ring</button>
-        <button type="button" class="subtab-btn" data-psub="heatmap" onclick="window.switchPlannerGoalsSubtab('heatmap')">🔥 Attendance, Streak &amp; Heatmap</button>
-        <button type="button" class="subtab-btn" data-psub="analytics" onclick="window.switchPlannerGoalsSubtab('analytics')">📈 Real-Time Competency Analytics</button>
-      `;
-      plannerWrap.insertBefore(bar, plannerWrap.children[1] || null);
+    // Planner & Analytics subtabs removed, Batch Monitor & Communication subtabs removed (all sections shown together), Weak Vault subtabs removed
+    ['rp-planner-subtab-bar', 'rp-batchhub-subtab-bar', 'rp-weakvault-subtab-bar'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
+    if (document.getElementById('view-batchhub')) {
+      window.switchBatchHubSubtab('all');
     }
-
-    const batchWrap = document.querySelector('#view-batchhub > div');
-    if (batchWrap && !document.getElementById('rp-batchhub-subtab-bar')) {
-      const bar = document.createElement('div');
-      bar.id = 'rp-batchhub-subtab-bar';
-      bar.className = 'subtab-bar rp-batchhub-tabs';
-      bar.innerHTML = `
-        <button type="button" class="subtab-btn active" data-bsub="comms" onclick="window.switchBatchHubSubtab('comms')"><i class="fa-solid fa-comments"></i> Announcements &amp; Chat <span id="batchhub-tab-comms-badge" class="rp-batchhub-tab-badge" style="display:none;">0</span></button>
-        <button type="button" class="subtab-btn" data-bsub="progress" onclick="window.switchBatchHubSubtab('progress')"><i class="fa-solid fa-chart-line"></i> Progress &amp; Roster</button>
-        <button type="button" class="subtab-btn" data-bsub="polls" onclick="window.switchBatchHubSubtab('polls')"><i class="fa-solid fa-square-poll-vertical"></i> Live Polls</button>
-        <button type="button" class="subtab-btn" data-bsub="pads" onclick="window.switchBatchHubSubtab('pads')"><i class="fa-solid fa-book-open"></i> Shorthand Pads</button>
-        <button type="button" class="subtab-btn" data-bsub="doubts" onclick="window.switchBatchHubSubtab('doubts')"><i class="fa-solid fa-pen-nib"></i> Outline Doubts</button>
-      `;
-      batchWrap.insertBefore(bar, batchWrap.children[1] || null);
-      window.switchBatchHubSubtab('comms');
-    }
-
-    // Weak Outlines Vault is a single unified master-detail view (word list left + Pitman outline preview right) — remove any legacy subtab bar
-    const oldWeakSubBar = document.getElementById('rp-weakvault-subtab-bar');
-    if (oldWeakSubBar) oldWeakSubBar.remove();
   }
 
 export const AUTOSAVE_TYPING_KEY = 'rp_active_test_autosave_v1';

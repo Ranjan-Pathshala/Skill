@@ -75,9 +75,9 @@ export function registerPortalHooks() {
   portalHooks.on('afterNavigate', (rawTab) => {
     let tabName = rawTab;
     if (tabName === 'official-contacts') tabName = 'feedback';
-    else if (tabName === 'attendance-matrix') tabName = 'planner-goals';
+    else if (tabName === 'planner-goals') tabName = 'dashboard';
 
-    ['view-weak-vault', 'view-planner-goals', 'view-batchhub', 'view-cbt-revision'].forEach((secId) => {
+    ['view-weak-vault', 'view-batchhub', 'view-cbt-revision'].forEach((secId) => {
       const sec = document.getElementById(secId);
       if (sec) {
         const isTarget = secId === `view-${tabName}`;
@@ -109,8 +109,6 @@ export function registerPortalHooks() {
         }
       } else if (tabName === 'weak-vault') {
         if (typeof window.renderDashboardWeakOutlinesVault === 'function') window.renderDashboardWeakOutlinesVault();
-      } else if (tabName === 'planner-goals') {
-        if (typeof window.refreshPlannerAndGoalsTab === 'function') window.refreshPlannerAndGoalsTab();
       } else if (tabName === 'batchhub') {
         const bCard = document.getElementById('dashboard-batch-monitoring-card');
         if (bCard) bCard.style.display = 'block';
@@ -139,8 +137,8 @@ export function registerPortalHooks() {
 
   // 3. Admin Subtab Post-Switch Hooks
   portalHooks.on('afterAdminTabSwitch', (subTab) => {
-    const evalPane = document.getElementById('admin-sub-eval-rules');
-    if (evalPane && subTab !== 'eval-rules' && evalPane.classList.contains('rp-eval-fullscreen-active')) {
+    const evalPane = document.getElementById('admin-sub-evaluation');
+    if (evalPane && subTab !== 'evaluation' && evalPane.classList.contains('rp-eval-fullscreen-active')) {
       evalPane.classList.remove('rp-eval-fullscreen-active');
       const fsBtn = document.getElementById('rp-admin-eval-fs-btn');
       if (fsBtn) fsBtn.innerHTML = '⛶ Full Screen';
@@ -167,10 +165,8 @@ export function registerPortalHooks() {
       setTimeout(() => {
         if (typeof mountServerPaginationToolbar === 'function') mountServerPaginationToolbar();
       }, 40);
-    } else if (subTab === 'enterprise' && typeof window.renderAdminEnterpriseOpsSubtab === 'function') {
+    } else if ((subTab === 'enterprise-ops' || subTab === 'enterprise') && typeof window.renderAdminEnterpriseOpsSubtab === 'function') {
       setTimeout(() => window.renderAdminEnterpriseOpsSubtab(), 30);
-    } else if (subTab === 'fees' && typeof window.renderAdminFeesManager === 'function') {
-      setTimeout(() => window.renderAdminFeesManager(), 30);
     }
 
     setTimeout(() => {

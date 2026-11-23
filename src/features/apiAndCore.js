@@ -97,9 +97,117 @@ portalState.currentTypingPassagesCache = [];
 
 export const SITE_NAME = 'RP Skill';
 
-export const DEFAULT_LOGO_URL = '/api/media-proxy?driveId=1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_&kind=image';
+export const DEFAULT_LOGO_DRIVE_ID = '1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_';
+
+export const DEFAULT_LOGO_CDN_URL = `https://lh3.googleusercontent.com/d/${DEFAULT_LOGO_DRIVE_ID}=s512`;
+
+export const DEFAULT_LOGO_URL = `/api/media-proxy?driveId=${DEFAULT_LOGO_DRIVE_ID}&kind=image`;
 
 export const FAST_CACHE_KEY = 'steno_fast_cache_v3';
+
+function extractAnyDriveFileId(rawUrl) {
+  const s = String(rawUrl || '').trim();
+  if (!s) return '';
+  const m = s.match(/[?&]driveId=([a-zA-Z0-9_-]{10,120})/) || s.match(/\/d\/([a-zA-Z0-9_-]{10,120})/) || s.match(/[?&]id=([a-zA-Z0-9_-]{10,120})/);
+  return (m && m[1]) ? m[1] : '';
+}
+
+window.rpHandleImageError = function(imgEl, allowLogoFallback = true) {
+  if (!imgEl || imgEl.tagName !== 'IMG') return;
+  const stage = parseInt(imgEl.dataset.rpImgStage || '0', 10) || 0;
+  const currentSrc = String(imgEl.getAttribute('src') || imgEl.src || '').trim();
+  const origSrc = imgEl.dataset.rpOrigSrc || currentSrc;
+  if (!imgEl.dataset.rpOrigSrc && origSrc) imgEl.dataset.rpOrigSrc = origSrc;
+
+  const driveId = String(imgEl.dataset.driveId || extractAnyDriveFileId(origSrc) || extractAnyDriveFileId(currentSrc) || '').trim();
+  imgEl.referrerPolicy = 'no-referrer';
+
+  // Stage 0 -> Stage 1: Zero-footprint Googleusercontent CDN (works on static hosts & never creates Drive "Shared with me" footprint)
+  if (stage < 1 && driveId) {
+    imgEl.dataset.rpImgStage = '1';
+    imgEl.src = `https://lh3.googleusercontent.com/d/${encodeURIComponent(driveId)}=s1600`;
+    return;
+  }
+
+  // Stage 1 -> Stage 2: Google Drive thumbnail endpoint (with no-referrer)
+  if (stage < 2 && driveId) {
+    imgEl.dataset.rpImgStage = '2';
+    imgEl.src = `https://drive.google.com/thumbnail?id=${encodeURIComponent(driveId)}&sz=w1600`;
+    return;
+  }
+
+  // Stage 2 -> Stage 3: If original was an external URL wrapped in /api/media-proxy?url=..., try direct URL
+  if (stage < 3 && origSrc.includes('/api/media-proxy') && origSrc.includes('url=')) {
+    try {
+      const u = new URL(origSrc, window.location.origin);
+      const rawExternal = u.searchParams.get('url');
+      if (rawExternal && /^https?:\/\//i.test(rawExternal)) {
+        imgEl.dataset.rpImgStage = '3';
+        imgEl.src = rawExternal;
+        return;
+      }
+    } catch (_e) {}
+  }
+
+  // Stage 3 -> Stage 4: Apps Script DriveApp base64 fetch (works even for private/restricted Drive images)
+  if (stage < 4 && driveId && typeof apiCall === 'function') {
+    imgEl.dataset.rpImgStage = '4';
+    apiCall('getDriveFileBase64', { fileId: driveId }, true).then((res) => {
+      if (res && res.success && res.base64) {
+        const mime = res.mimeType || 'image/png';
+        imgEl.src = `data:${mime};base64,${res.base64}`;
+      } else if (allowLogoFallback && driveId !== DEFAULT_LOGO_DRIVE_ID) {
+        imgEl.dataset.rpImgStage = '5';
+        imgEl.src = DEFAULT_LOGO_CDN_URL;
+      }
+    }).catch(() => {
+      if (allowLogoFallback && driveId !== DEFAULT_LOGO_DRIVE_ID) {
+        imgEl.dataset.rpImgStage = '5';
+        imgEl.src = DEFAULT_LOGO_CDN_URL;
+      }
+    });
+    return;
+  }
+
+  // Stage 5: Final brand logo fallback via reliable CDN
+  if (stage < 5 && allowLogoFallback && currentSrc !== DEFAULT_LOGO_CDN_URL) {
+    imgEl.dataset.rpImgStage = '5';
+    imgEl.src = DEFAULT_LOGO_CDN_URL;
+    return;
+  }
+
+  imgEl.onerror = null;
+};
+
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  // Global capture-phase fallback for ANY <img> tag across the entire portal
+  document.addEventListener('error', (ev) => {
+    const target = ev && ev.target;
+    if (target && target.tagName === 'IMG') {
+      window.rpHandleImageError(target, true);
+    }
+  }, true);
+
+  // Non-blocking startup probe to detect whether Express /api/media-proxy is active (vs static deploy)
+  window.__RP_MEDIA_PROXY_AVAILABLE__ = true;
+  fetch('/api/health', { method: 'GET', cache: 'no-store' })
+    .then((r) => {
+      if (!r.ok) throw new Error('no-proxy');
+      return r.json();
+    })
+    .then((j) => {
+      if (!j || j.status !== 'ok') throw new Error('no-proxy');
+      window.__RP_MEDIA_PROXY_AVAILABLE__ = true;
+    })
+    .catch(() => {
+      window.__RP_MEDIA_PROXY_AVAILABLE__ = false;
+      document.querySelectorAll('img[src*="/api/media-proxy"]').forEach((img) => {
+        if (!img.complete || img.naturalWidth === 0) {
+          window.rpHandleImageError(img, true);
+        }
+      });
+    });
+}
 
 export function applyAppTheme(theme) {
       const normalized = theme === 'dark' ? 'dark' : 'light';
@@ -1243,8 +1351,11 @@ document.addEventListener('visibilitychange', () => {
     });
 
 export async function initApp() {
-      // Stale-while-revalidate: hydrate warm cache immediately for instant UI, then fetch fresh data from Google Sheets
-      hydrateFastPortalCache();
+      // Stale-while-revalidate: hydrate warm cache once for instant non-blocking UI, then sync fresh data from Google Sheets
+      if (!window.__rpFastCacheHydratedOnce) {
+        window.__rpFastCacheHydratedOnce = true;
+        hydrateFastPortalCache();
+      }
       try {
         const cachedRules = localStorage.getItem('steno_all_eval_rules');
         portalState.allEvaluationRules = cachedRules ? (JSON.parse(cachedRules) || {}) : {};
@@ -1254,24 +1365,28 @@ export async function initApp() {
 
       if (portalState.currentUser && (portalState.currentUser.token || portalState.currentUser.userId)) {
         setupAuthenticatedUI();
-        renderDashboardUI();
         let initialRestoreTab = "dashboard";
         const hashMatch = window.location.hash ? window.location.hash.replace("#", "").trim().toLowerCase() : "";
         const savedTab = localStorage.getItem("rp_skill_last_active_tab");
-        if (hashMatch && document.getElementById(`view-${hashMatch}`)) {
+        if (hashMatch && hashMatch !== 'planner-goals' && document.getElementById(`view-${hashMatch}`)) {
           initialRestoreTab = hashMatch;
-        } else if (savedTab && document.getElementById(`view-${savedTab}`)) {
+        } else if (savedTab && savedTab !== 'planner-goals' && document.getElementById(`view-${savedTab}`)) {
           initialRestoreTab = savedTab;
         }
+        // Yield a frame before rendering heavy views so the shell & header paint immediately with zero freeze
+        await yieldToMainFrame();
         navigateTo(initialRestoreTab, false);
-        syncPortalDataInBackground(true);
+        if (initialRestoreTab === 'dashboard') {
+          requestAnimationFrame(() => renderDashboardUI());
+        }
+        setTimeout(() => { syncPortalDataInBackground(true); }, 60);
       } else {
         const notifBtn = document.getElementById('header-notification-bell-btn');
         const notifDrawer = document.getElementById('notification-center-drawer');
         if (notifBtn) notifBtn.style.display = 'none';
         if (notifDrawer) notifDrawer.style.display = 'none';
         renderAuthView();
-        syncPortalDataInBackground(true);
+        setTimeout(() => { syncPortalDataInBackground(true); }, 60);
       }
     }
 
