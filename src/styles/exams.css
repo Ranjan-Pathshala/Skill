@@ -55,11 +55,10 @@ body.cbt-exam-fullscreen-lock #cbt-active-interface {
         left: 0 !important;
         right: 0 !important;
         bottom: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        height: 100dvh !important;
-        max-width: 100vw !important;
-        max-height: 100dvh !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
         z-index: 99998 !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -73,9 +72,8 @@ body.cbt-exam-fullscreen-lock #cbt-active-interface {
       }
 
 body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-main-split {
-        flex: 1 1 auto !important;
+        flex: 1 1 0% !important;
         min-height: 0 !important;
-        height: 100% !important;
         overflow: hidden !important;
         display: flex !important;
         flex-direction: row !important;
@@ -85,16 +83,16 @@ body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-main-split {
 body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-question-stage {
         flex: 1 1 0% !important;
         min-width: 0 !important;
-        height: 100% !important;
+        min-height: 0 !important;
         overflow: hidden !important;
-        padding: 10px 14px !important;
+        padding: 8px 14px !important;
         box-sizing: border-box !important;
         display: flex !important;
         flex-direction: column !important;
       }
 
 body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-question-scroll-body {
-        flex: 1 1 auto !important;
+        flex: 1 1 0% !important;
         min-height: 0 !important;
         overflow-y: auto !important;
         overscroll-behavior: contain !important;
@@ -105,15 +103,99 @@ body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-palette-aside {
         width: 245px !important;
         max-width: 30vw !important;
         flex: 0 0 245px !important;
-        height: 100% !important;
+        min-height: 0 !important;
         overflow-y: auto !important;
         padding: 10px 12px !important;
         box-sizing: border-box !important;
         border-left: 1px solid var(--border) !important;
       }
 
-#cbt-active-interface #cbt-palette-aside.is-collapsed {
+#cbt-active-interface #cbt-palette-aside.is-collapsed,
+#cbt-active-interface #cbt-palette-aside.rp-mobile-palette-collapsed {
         display: none !important;
+      }
+
+#cbt-active-interface.rp-cbt-palette-hidden .cbt-question-stage {
+        border-right: none !important;
+      }
+
+/* Equal 50/50 Split Workspace for Skill Typing Exam (Full Viewport, Footer Always Pinned) */
+#active-test-modal #test-main-body-container.rp-typing-exam-body {
+        overflow: hidden !important;
+        padding: 6px 10px !important;
+        align-items: stretch !important;
+      }
+
+.rp-typing-equal-split {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 1320px !important;
+        margin: 0 auto !important;
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+      }
+
+.rp-typing-equal-split.rp-typing-split-side {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+        grid-template-rows: minmax(0, 1fr) !important;
+      }
+
+@media (max-width: 900px) {
+        .rp-typing-equal-split.rp-typing-split-side {
+          grid-template-columns: minmax(0, 1fr) !important;
+          grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) !important;
+        }
+      }
+
+.rp-typing-equal-split > #test-reference-display,
+.rp-typing-equal-split > .rp-typing-input-pane {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 10px !important;
+        padding: 8px 12px !important;
+        gap: 6px !important;
+        box-sizing: border-box !important;
+      }
+
+.rp-typing-equal-split #test-material-passage-text {
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        padding-right: 4px !important;
+      }
+
+.rp-typing-equal-split #test-user-input {
+        flex: 1 1 0% !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        resize: none !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        padding: 10px 12px !important;
+        box-sizing: border-box !important;
+      }
+
+#active-test-modal #active-test-footer-bar {
+        position: relative !important;
+        bottom: auto !important;
+        flex-shrink: 0 !important;
+        z-index: 60 !important;
+        padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
       }
 
 /* 👉 Mobile Exam Focus Mode & Comprehensive Mobile UI/UX Overhaul */
@@ -168,8 +250,8 @@ body.mobile-exam-focus-mode #active-test-modal #active-test-footer-bar .btn {
       min-width: 85px !important;
     }
 
-/* Compact, Professional Catalog Grid & Fitted Thumbnail System Across PDF, Video, Audio, CBT, Learning, Words & Pitman */
-    .grid-cards,
+/* Compact, Narrow-Width Catalog Grid & Fitted Thumbnail System Everywhere */
+    .grid-cards:not([style*="grid-template-columns"]),
     .video-grid-cards,
     #pdf-grid,
     #videocourse-grid,
@@ -178,11 +260,30 @@ body.mobile-exam-focus-mode #active-test-modal #active-test-footer-bar .btn {
     #learning-uploaded-exercises-grid,
     #words-grid,
     #pitman-grid,
-    #video-grid {
+    #video-grid,
+    #typing-step-4-passage-cards {
       display: grid !important;
-      grid-template-columns: repeat(auto-fill, minmax(192px, 1fr)) !important;
-      gap: 11px !important;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 192px)) !important;
+      gap: 9px !important;
       align-items: stretch !important;
+      justify-content: start !important;
+    }
+
+    @media (max-width: 640px) {
+      .grid-cards:not([style*="grid-template-columns"]),
+      .video-grid-cards,
+      #pdf-grid,
+      #videocourse-grid,
+      #audio-grid,
+      #cbttest-grid,
+      #learning-uploaded-exercises-grid,
+      #words-grid,
+      #pitman-grid,
+      #video-grid,
+      #typing-step-4-passage-cards {
+        grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)) !important;
+        gap: 8px !important;
+      }
     }
 
 .grid-cards > .card,
@@ -194,11 +295,13 @@ body.mobile-exam-focus-mode #active-test-modal #active-test-footer-bar .btn {
     #learning-uploaded-exercises-grid > .card,
     #words-grid > .card,
     #pitman-grid > .card,
-    #video-grid > .card {
-      padding: 10px 11px !important;
-      border-radius: 10px !important;
+    #video-grid > .card,
+    #typing-step-4-passage-cards > .card {
+      padding: 8px 9px !important;
+      border-radius: 9px !important;
       justify-content: space-between !important;
-      gap: 6px !important;
+      gap: 5px !important;
+      margin-bottom: 0 !important;
     }
 
 /* Fullscreen Exclusive Animated Reading Time Lock (Requirement #3: Nothing else shown) */
@@ -289,18 +392,18 @@ body.reading-time-fullscreen-lock header,
       #active-test-modal #live-exam-rule-badge {
         display: none !important;
       }
-      #active-test-modal #test-main-body-container {
+      #active-test-modal #test-main-body-container:not(.rp-typing-exam-body) {
         padding: 6px !important;
         gap: 6px !important;
       }
-      #active-test-modal #test-reference-display {
+      #active-test-modal #test-main-body-container:not(.rp-typing-exam-body) #test-reference-display {
         max-height: 28vh !important;
         min-height: 82px !important;
         padding: 8px 10px !important;
         font-size: var(--test-active-font-size, 15px);
         line-height: 1.5 !important;
       }
-      #active-test-modal #test-user-input {
+      #active-test-modal #test-main-body-container:not(.rp-typing-exam-body) #test-user-input {
         flex: 1 1 auto !important;
         min-height: 44vh !important;
         max-height: 70vh !important;

@@ -769,9 +769,6 @@ export function launchScheduledLiveTest(liveTestId) {
       window.activeScheduledLiveTestObj = lt;
       window.activeScheduledLiveTestEndTime = eMs;
       const remainingMinutes = Math.max(0.5, (eMs - nowMs) / 60000);
-      if (typeof window.requestExamNativeFullscreen === 'function') {
-        window.requestExamNativeFullscreen();
-      }
 
       if (lt.category === 'cbttest') {
         window.lastOriginTabBeforeTest = portalState.activeTab === 'livetests' ? 'livetests' : 'cbttest';
@@ -2997,8 +2994,12 @@ window.toggleActiveTestToolsBar = function(forceShow) {
 export function configureActiveTestModalChrome(mode) {
       // mode: 'dictation_room' | 'audio_transcription' | 'pitman_transcription' | 'typing_exam' | 'learning_exercise'
       const isDictationRoom = mode === 'dictation_room';
-      const isCompactStartMode = mode === 'audio_transcription' || mode === 'pitman_transcription';
+      const isCompactStartMode = mode === 'audio_transcription' || mode === 'pitman_transcription' || mode === 'typing_exam';
 
+      const mainBody = document.getElementById('test-main-body-container');
+      if (mainBody) {
+        mainBody.classList.toggle('rp-typing-exam-body', mode === 'typing_exam');
+      }
       const zoomWrap = document.getElementById('test-header-font-zoom-wrap');
       const submitBtn = document.getElementById('test-header-quick-submit-btn');
       const exitBtn = document.getElementById('test-header-exit-btn');
@@ -3735,7 +3736,8 @@ export function startAudioDictationTestById(id) {
         </div>
       `;
 
-      document.getElementById('active-test-modal').style.display = 'flex'; if (typeof enterImmersiveFullscreenLock === 'function') enterImmersiveFullscreenLock('active-test-modal');
+      document.getElementById('active-test-modal').style.display = 'flex';
+      if (typeof enterImmersiveFullscreenLock === 'function') enterImmersiveFullscreenLock('dictation-room');
 
       if (mediaInfo.isDrive) {
         tryLoadDriveAudioIntoElement(effectiveInitialUrl, 'stenoshala-dictation-audio');
@@ -4319,9 +4321,6 @@ export function confirmExamAndStartTranscription() {
         return;
       }
       closeTranscribeExamSelector();
-      if (typeof window.requestExamNativeFullscreen === 'function') {
-        window.requestExamNativeFullscreen();
-      }
 
       stopTtsDictationSpeech();
       const dictAudio = document.getElementById('stenoshala-dictation-audio');

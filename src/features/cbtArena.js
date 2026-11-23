@@ -574,13 +574,6 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
         }
       }
 
-      // Immediately request native browser fullscreen (F11 mode) synchronously inside the user click gesture
-      if (typeof window.requestExamNativeFullscreen === 'function') {
-        window.requestExamNativeFullscreen();
-      } else if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      }
-
       // If this CBT exam stores a remote JSON URL instead of inline questions, fetch & parse it on demand
       if ((!Array.isArray(found.questions) || found.questions.length === 0) && found.remoteQuestionsUrl) {
         try {
@@ -629,9 +622,13 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
         return;
       }
 
-      if (typeof navigateTo === 'function' && portalState.activeTab !== 'cbttest') {
-        navigateTo('cbttest', false, true);
-      }
+      try {
+        // Set active exam flag BEFORE navigateTo so renderCbtTestCatalog() never hides #cbt-active-interface
+        window.isCbtExamActive = true;
+        window.cbtExamStartedAtMs = Date.now();
+        if (typeof navigateTo === 'function' && portalState.activeTab !== 'cbttest') {
+          navigateTo('cbttest', false, true);
+        }
 
       window.lastOriginTabBeforeTest = 'cbttest';
       const cbtHallChk = document.getElementById('cbt-header-hall-sound-chk');
@@ -707,15 +704,25 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
       window.toggleCbtPaletteDrawer = function(forceOpen) {
         const aside = document.getElementById('cbt-palette-aside');
         const btn = document.getElementById('cbt-palette-toggle-btn');
+        const cbtIface = document.getElementById('cbt-active-interface');
         if (!aside) return;
         const currentlyHidden = aside.classList.contains('is-collapsed') || aside.classList.contains('rp-mobile-palette-collapsed');
         const nextOpen = typeof forceOpen === 'boolean' ? forceOpen : currentlyHidden;
         aside.classList.toggle('is-collapsed', !nextOpen);
         aside.classList.toggle('rp-mobile-palette-collapsed', !nextOpen);
-        if (btn) btn.style.background = nextOpen ? '#2563eb' : '#1e293b';
+        if (cbtIface) cbtIface.classList.toggle('rp-cbt-palette-hidden', !nextOpen);
+        if (btn) {
+          btn.style.background = nextOpen ? '#2563eb' : '#1e293b';
+          btn.style.color = nextOpen ? '#ffffff' : '#93c5fd';
+          btn.innerHTML = nextOpen
+            ? '<i class="fa-solid fa-eye-slash"></i> <span id="cbt-palette-toggle-label">Hide Palette</span>'
+            : '<i class="fa-solid fa-table-cells"></i> <span id="cbt-palette-toggle-label">Show Palette</span>';
+        }
       };
+      const legacyCbtComfortBar = document.getElementById('rp-mobile-cbt-comfort-bar');
+      if (legacyCbtComfortBar) legacyCbtComfortBar.remove();
       window.toggleCbtHeaderToolsBar(false);
-      // Give maximum space to question & options on smaller screens by collapsing palette until requested
+      // Give maximum space to question & options on smaller screens; laptop users can toggle Hide/Show Palette anytime
       window.toggleCbtPaletteDrawer(window.innerWidth >= 1024);
       document.body.classList.add('cbt-exam-fullscreen-lock');
       if (typeof window.enterImmersiveFullscreenLock === 'function') {
@@ -724,39 +731,54 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
       const cbtToastEl = document.getElementById('center-toast');
       if (cbtToastEl) cbtToastEl.style.display = 'none';
       window.scrollTo(0, 0);
-      if (titleEl) titleEl.innerText = found.title;
+      if (titleEl) titleEl.innerText = found.title || 'Active CBT Examination';
       if (candEl && portalState.currentUser) candEl.innerText = portalState.currentUser.name || 'Candidate';
 
-      window.isCbtExamActive = true;
-      window.cbtExamStartedAtMs = Date.now();
       logPortalAction('START_CBT_EXAM', `Started CBT Exam: ${found.title} (${found.id})`);
 
       // 👉 Requirement #9: Support both Full Exam Timer and Sectional Timer (including Combined 2-in-1 Sections)
-      const sections = [...new Set(found.questions.map(q => q.section))];
+      const sections = [...new Set(found.questions.map(q => q.section || 'General'))];
       activeCbtSectionName = sections[0] || 'General';
       cbtSectionTimersMap = {};
+
+      const resolveSafeFullMinutes = () => {
+        const raw = Number(overrideLiveMinutes || found.durationMinutes || getCbtDurationFromEvaluationRules(found.examCategory, found.cbtEvalRuleKey) || 0);
+        return (isFinite(raw) && raw > 0) ? Math.max(1, raw) : 30;
+      };
 
       if (found.cbtTimerMode === 'sectional' && !overrideLiveMinutes) {
         const fallbackPerSec = Number(found.cbtPerSectionTiming || found.cbtDefaultSectionTime || 0);
         sections.forEach(sec => {
-          const sampleQ = found.questions.find(q => q.section === sec);
-          const secMins = (sampleQ && sampleQ._groupTimeMinutes > 0) ? sampleQ._groupTimeMinutes : fallbackPerSec;
-          cbtSectionTimersMap[sec] = Math.max(0, secMins) * 60;
+          const sampleQ = found.questions.find(q => (q.section || 'General') === sec);
+          const secMins = (sampleQ && Number(sampleQ._groupTimeMinutes) > 0) ? Number(sampleQ._groupTimeMinutes) : fallbackPerSec;
+          cbtSectionTimersMap[sec] = Math.max(0, Math.round(secMins * 60));
         });
-        const totalSecMins = Object.values(cbtSectionTimersMap).reduce((a, b) => a + b, 0) / 60;
-        if (totalSecMins <= 0) {
-          const evalMinutes = Number(found.durationMinutes || getCbtDurationFromEvaluationRules(found.examCategory) || 0);
+        const totalSecSeconds = Object.values(cbtSectionTimersMap).reduce((a, b) => a + b, 0);
+        const firstSecSeconds = cbtSectionTimersMap[activeCbtSectionName] || 0;
+        if (totalSecSeconds <= 0 || firstSecSeconds <= 0) {
+          const safeMins = resolveSafeFullMinutes();
           portalState.activeCbtTest.cbtTimerMode = 'full';
-          portalState.activeCbtTest.durationMinutes = Math.max(1, Math.round(evalMinutes));
-          cbtSecondsLeft = Math.round(evalMinutes * 60);
+          portalState.activeCbtTest.durationMinutes = Math.round(safeMins);
+          cbtSecondsLeft = Math.max(60, Math.round(safeMins * 60));
         } else {
-          cbtSecondsLeft = cbtSectionTimersMap[activeCbtSectionName] || 0;
-          portalState.activeCbtTest.durationMinutes = Math.max(1, Math.round(totalSecMins));
+          cbtSecondsLeft = firstSecSeconds;
+          portalState.activeCbtTest.durationMinutes = Math.max(1, Math.round(totalSecSeconds / 60));
         }
       } else {
-        const evalMinutes = overrideLiveMinutes || found.durationMinutes || getCbtDurationFromEvaluationRules(found.examCategory);
-        portalState.activeCbtTest.durationMinutes = Math.max(1, Math.round(evalMinutes));
-        cbtSecondsLeft = Math.round(evalMinutes * 60);
+        const safeMins = resolveSafeFullMinutes();
+        portalState.activeCbtTest.durationMinutes = Math.round(safeMins);
+        cbtSecondsLeft = Math.max(60, Math.round(safeMins * 60));
+      }
+
+      // Immediately paint initial timer before first 1-second interval tick
+      const initTimerEl = document.getElementById('cbt-timer-display');
+      if (initTimerEl) {
+        const ih = Math.floor(cbtSecondsLeft / 3600);
+        const im = Math.floor((cbtSecondsLeft % 3600) / 60);
+        const is = cbtSecondsLeft % 60;
+        initTimerEl.innerText = portalState.activeCbtTest.cbtTimerMode === 'sectional'
+          ? `Sec: ${String(Math.floor(cbtSecondsLeft / 60)).padStart(2, '0')}:${String(is).padStart(2, '0')}`
+          : `${String(ih).padStart(2, '0')}:${String(im).padStart(2, '0')}:${String(is).padStart(2, '0')}`;
       }
 
       if (portalState.cbtTimerInterval) clearInterval(portalState.cbtTimerInterval);
@@ -816,7 +838,20 @@ export async function startCbtMockTest(testId, overrideLiveMinutes = null) {
 
       renderCbtSectionsBar();
       renderCbtQuestion();
-    
+      } catch (cbtStartErr) {
+        console.error('CBT start error:', cbtStartErr);
+        window.isCbtExamActive = false;
+        if (portalState.cbtTimerInterval) clearInterval(portalState.cbtTimerInterval);
+        document.body.classList.remove('cbt-exam-fullscreen-lock');
+        if (typeof window.exitImmersiveFullscreenLock === 'function') window.exitImmersiveFullscreenLock('cbt-exam');
+        const examSecEl = document.getElementById('cbt-active-interface');
+        const catSecEl = document.getElementById('cbt-catalog-container');
+        if (examSecEl) examSecEl.style.display = 'none';
+        if (catSecEl) catSecEl.style.display = 'block';
+        showToast('⚠️ Could not launch this CBT exam. Please check the test questions or evaluation rule.');
+        return;
+      }
+
   try { portalHooks.emit('afterCbtTestStart', ...arguments); } catch (_hk) {}
 }
 
@@ -859,31 +894,35 @@ export function renderCbtQuestion() {
       const qTimeBadge = document.getElementById('cbt-q-time-spent-badge');
       if (qTimeBadge) qTimeBadge.innerText = `${spentSoFar}s`;
       if (conceptBadge && typeof window.classifyCbtQuestionSubTopic === 'function') {
-        conceptBadge.innerHTML = `<i class="fa-solid fa-tag"></i> ${window.classifyCbtQuestionSubTopic(q)}`;
+        try {
+          conceptBadge.innerHTML = `<i class="fa-solid fa-tag"></i> ${escapeHtml(String(window.classifyCbtQuestionSubTopic(q) || q.section || 'General'))}`;
+        } catch (_cErr) {}
       }
-      if (qTextEl) qTextEl.innerText = effectiveQLang === 'HI' ? (q.qHi || q.qEn || q.q) : (q.qEn || q.q);
+      if (qTextEl) qTextEl.innerText = String(effectiveQLang === 'HI' ? (q.qHi || q.qEn || q.q || '') : (q.qEn || q.q || ''));
       if (posBadge) posBadge.innerText = `+${portalState.activeCbtTest.positiveMarks ?? 1.0}`;
       if (negBadge) negBadge.innerText = `-${portalState.activeCbtTest.negativeMarks ?? 0.25}`;
 
-      const options = effectiveQLang === 'HI' ? (q.optionsHi || q.optionsEn || q.options || []) : (q.optionsEn || q.options || []);
+      const rawOptions = effectiveQLang === 'HI' ? (q.optionsHi || q.optionsEn || q.options || []) : (q.optionsEn || q.options || []);
+      const options = Array.isArray(rawOptions) ? rawOptions : [];
       const selectedOpt = cbtUserResponses[activeCbtQIndex];
 
       const optContainer = document.getElementById('cbt-options-list') || document.getElementById('cbt-options-container');
       if (optContainer) {
         optContainer.innerHTML = options.map((optText, optIdx) => {
           const isChecked = selectedOpt === optIdx;
+          const safeOptText = escapeHtml(String(optText ?? ''));
           return `
             <label onclick="selectCbtOption(${optIdx})" style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; border: 1.5px solid ${isChecked ? 'var(--primary)' : 'var(--border)'}; background: ${isChecked ? 'rgba(79,70,229,0.08)' : 'var(--background)'}; cursor: pointer; font-weight: ${isChecked ? '700' : '500'}; font-size: 14px; line-height: 1.45; transition: all 0.15s;">
               <input type="radio" name="cbt_opt" ${isChecked ? 'checked' : ''} style="width: 16px; height: 16px; flex-shrink: 0; pointer-events: none;">
-              <span><strong>(${String.fromCharCode(65 + optIdx)})</strong> ${optText}</span>
+              <span><strong>(${String.fromCharCode(65 + optIdx)})</strong> ${safeOptText}</span>
             </label>
           `;
         }).join('');
       }
 
-      updateCbtConfidenceButtonsUI();
-      renderCbtSectionsBar();
-      renderCbtPalette();
+      try { updateCbtConfidenceButtonsUI(); } catch (_uErr) {}
+      try { renderCbtSectionsBar(); } catch (_sErr) {}
+      try { renderCbtPalette(); } catch (_pErr) {}
     }
 
 export function selectCbtOption(optIdx) {

@@ -1300,17 +1300,22 @@ window._activeImmersiveLocks = new Set();
 const MEDIA_VIEWER_LOCK_KEYS = new Set(['pdf-modal', 'image-modal', 'reference-video', 'universal-media', 'reader-modal']);
 const EXAM_FULLSCREEN_LOCK_KEYS = new Set(['active-test-modal', 'cbt-exam', 'learning-practice', 'live-exam']);
 
-window.requestExamNativeFullscreen = function() {
+window.requestExamNativeFullscreen = function(forceUserClick = false) {
     try {
       const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
       if (fsEl) return;
+      // On touch/mobile browsers (Android Chrome, etc.), programmatic requestFullscreen triggers the OS
+      // "Drag from top / swipe to exit full screen" toast banner and can clip bottom exam action buttons.
+      // Our CSS edge-to-edge fullscreen already covers 100% of the viewport cleanly, so only invoke native
+      // Fullscreen API on mobile when the user explicitly clicks a Full Screen button.
+      const isTouchMobile = (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+        || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+      if (isTouchMobile && !forceUserClick) return;
       const root = document.documentElement;
       if (root.requestFullscreen) {
-        const res = root.requestFullscreen({ navigationUI: 'hide' });
+        const res = root.requestFullscreen();
         if (res && typeof res.catch === 'function') {
-          res.catch(() => {
-            try { root.requestFullscreen().catch(() => {}); } catch (_e) {}
-          });
+          res.catch(() => {});
         }
       } else if (root.webkitRequestFullscreen) {
         root.webkitRequestFullscreen();
@@ -2113,45 +2118,27 @@ window.toggleMobileActiveTestPassageHeight = function() {
     showToast(isExpanded ? 'Balanced 32% Passage / 68% Typing Split Active' : 'Expanded Reference Passage Height (50% Screen)');
   };
 
-window.toggleMobileCbtPaletteDrawer = function() {
-    const aside = document.getElementById('cbt-palette-aside');
-    const btn = document.getElementById('rp-mobile-cbt-palette-toggle-btn');
-    if (!aside) return;
-    const collapsed = aside.classList.toggle('rp-mobile-palette-collapsed');
-    if (btn) {
-      btn.innerHTML = collapsed
-        ? '<i class="fa-solid fa-grip"></i> Show Question Palette'
-        : '<i class="fa-solid fa-eye-slash"></i> Hide Question Palette';
+window.toggleMobileCbtPaletteDrawer = function(forceOpen) {
+    if (typeof window.toggleCbtPaletteDrawer === 'function') {
+      window.toggleCbtPaletteDrawer(forceOpen);
+      return;
     }
+    const aside = document.getElementById('cbt-palette-aside');
+    const cbtIface = document.getElementById('cbt-active-interface');
+    if (!aside) return;
+    const currentlyHidden = aside.classList.contains('is-collapsed') || aside.classList.contains('rp-mobile-palette-collapsed');
+    const nextOpen = typeof forceOpen === 'boolean' ? forceOpen : currentlyHidden;
+    aside.classList.toggle('is-collapsed', !nextOpen);
+    aside.classList.toggle('rp-mobile-palette-collapsed', !nextOpen);
+    if (cbtIface) cbtIface.classList.toggle('rp-cbt-palette-hidden', !nextOpen);
   };
 
 export function injectMobileActiveTestComfortToolbars() {
-    // Do NOT inject duplicate zoom/passage-height bar into #active-test-modal (header already has unified A-/A+/Reset + Full Screen, and Typing has contextual Passage Height)
+    // Remove legacy duplicate comfort bars — both Active Test Modal and CBT now expose unified A-/A+ and Palette controls in their single slim top header
     const legacyBar = document.getElementById('rp-mobile-test-comfort-bar');
     if (legacyBar) legacyBar.remove();
-
-    const cbtInterface = document.getElementById('cbt-active-interface');
-    if (cbtInterface && !document.getElementById('rp-mobile-cbt-comfort-bar')) {
-      const cbtBar = document.createElement('div');
-      cbtBar.id = 'rp-mobile-cbt-comfort-bar';
-      cbtBar.style.cssText = 'display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; padding:6px 12px; background:linear-gradient(90deg,#0f172a,#1e3a8a); color:#fff; border-radius:8px; margin-bottom:8px; font-size:11px; font-weight:800;';
-      cbtBar.innerHTML = `
-        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-          <span style="color:#93c5fd;"><i class="fa-solid fa-magnifying-glass-plus"></i> Question Size: <strong class="rp-mobile-test-font-badge">17px</strong></span>
-          <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 8px; font-size:11px; min-height:24px; background:#1e293b; color:#fff; border:1px solid #475569;" onclick="window.adjustMobileActiveTestFontSize(-1.5)">A-</button>
-          <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 8px; font-size:11px; min-height:24px; background:#1e293b; color:#fff; border:1px solid #475569;" onclick="window.adjustMobileActiveTestFontSize(1.5)">A+</button>
-          <button type="button" class="btn btn-sm btn-secondary" style="padding:2px 7px; font-size:10.5px; min-height:24px; background:#1e293b; color:#93c5fd; border:1px solid #475569;" onclick="window.adjustMobileActiveTestFontSize(0)">Reset</button>
-        </div>
-        <button type="button" id="rp-mobile-cbt-palette-toggle-btn" class="btn btn-sm btn-primary" style="padding:3px 10px; font-size:11px; min-height:26px; background:#0284c7; border:none;" onclick="window.toggleMobileCbtPaletteDrawer()">
-          <i class="fa-solid fa-grip"></i> Toggle Question Palette
-        </button>
-      `;
-      cbtInterface.insertBefore(cbtBar, cbtInterface.firstChild);
-      if (window.innerWidth <= 768) {
-        const aside = document.getElementById('cbt-palette-aside');
-        if (aside) aside.classList.add('rp-mobile-palette-collapsed');
-      }
-    }
+    const legacyCbtBar = document.getElementById('rp-mobile-cbt-comfort-bar');
+    if (legacyCbtBar) legacyCbtBar.remove();
   }
 
 window._activeAttendanceHeatmapMode = 'all';

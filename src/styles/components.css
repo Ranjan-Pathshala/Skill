@@ -575,8 +575,8 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
         -webkit-overflow-scrolling: touch;
       }
 
-      /* Maximize vertical space and readability for the mobile transcription & typing input area */
-      #active-test-modal #test-main-body-container {
+      /* Maximize vertical space and readability for non-typing active tests; typing uses strict 50/50 equal split */
+      #active-test-modal #test-main-body-container:not(.rp-typing-exam-body) {
         padding: 8px 10px !important;
         gap: 8px !important;
         flex: 1 1 auto !important;
@@ -585,8 +585,8 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
         overflow-y: auto !important;
         min-height: 0 !important;
       }
-      #active-test-modal #test-reference-display,
-      #active-test-modal #test-material-passage-text {
+      #active-test-modal #test-main-body-container:not(.rp-typing-exam-body) #test-reference-display,
+      #active-test-modal #test-main-body-container:not(.rp-typing-exam-body) #test-material-passage-text {
         min-height: 26vh !important;
         max-height: var(--mobile-test-ref-max-h, 35vh) !important;
         padding: 12px 14px !important;
@@ -601,7 +601,7 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
         min-height: 24vh !important;
         flex-shrink: 0 !important;
       }
-      #active-test-modal #test-user-input {
+      #active-test-modal #test-main-body-container:not(.rp-typing-exam-body) #test-user-input {
         flex: 1 1 auto !important;
         min-height: 44vh !important;
         max-height: 75vh !important;
@@ -683,7 +683,7 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
 .alpha-btn.active, .alpha-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 
 @media (max-width: 640px) {
-      .grid-cards,
+      .grid-cards:not([style*="grid-template-columns"]),
       .video-grid-cards,
       #pdf-grid,
       #videocourse-grid,
@@ -693,8 +693,8 @@ code, pre, .mono-num { font-family: 'JetBrains Mono', monospace; font-variant-nu
       #words-grid,
       #pitman-grid,
       #video-grid {
-        grid-template-columns: repeat(auto-fill, minmax(154px, 1fr)) !important;
-        gap: 9px !important;
+        grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)) !important;
+        gap: 8px !important;
       }
     }
 
@@ -812,8 +812,8 @@ table tbody tr:hover { background-color: rgba(37, 99, 235, 0.04); }
       .btn { min-height: 40px; }
       .btn-sm { min-height: 36px; padding: 6px 12px; }
       .form-control { min-height: 42px; font-size: 14px; }
-      .grid-cards { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important; gap: 12px; }
-      .video-grid-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+      .grid-cards:not([style*="grid-template-columns"]) { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important; gap: 8px; }
+      .video-grid-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
       .brand-title { font-size: 14px; }
       .dashboard-welcome { flex-direction: column; align-items: flex-start !important; gap: 10px; padding: 16px !important; }
       .auth-container { grid-template-columns: 1fr !important; margin: 12px auto !important; }
@@ -1005,22 +1005,22 @@ img { max-width: 100%; height: auto; }
       line-height: 1.2 !important;
     }
 
-.grid-cards {
-      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)) !important;
-      gap: 8px !important;
+.grid-cards:not([style*="grid-template-columns"]) {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 192px)) !important;
+      gap: 9px !important;
     }
 
 .video-grid-cards {
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
-      gap: 8px !important;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 192px)) !important;
+      gap: 9px !important;
     }
 
 .card-thumb {
-      height: 58px !important;
+      height: 54px !important;
     }
 
 .video-card .card-thumb {
-      height: 58px !important;
+      height: 54px !important;
     }
 
 /* Interactive Morphing Icon Menu Button */

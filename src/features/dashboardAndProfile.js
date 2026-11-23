@@ -1338,10 +1338,10 @@ export function renderDashboardCustomBanner() {
           `;
         }
         return `
-          <div class="rp-dash-carousel-slide" style="background:linear-gradient(135deg, rgba(37,99,235,0.10), rgba(99,102,241,0.10)); padding:24px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; min-height:130px;">
-            <div style="flex:1; min-width:220px;">
-              ${s.title ? `<div style="font-size:17px; font-weight:800; color:var(--secondary); margin-bottom:4px;">${escapeHtml(s.title)}</div>` : ''}
-              ${s.text ? `<div style="font-size:13.5px; color:var(--text-muted); line-height:1.55;">${escapeHtml(s.text)}</div>` : ''}
+          <div class="rp-dash-carousel-slide" style="background:linear-gradient(135deg, rgba(37,99,235,0.10), rgba(99,102,241,0.10)); padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; min-height:88px;">
+            <div style="flex:1; min-width:200px;">
+              ${s.title ? `<div style="font-size:15px; font-weight:800; color:var(--secondary); margin-bottom:2px;">${escapeHtml(s.title)}</div>` : ''}
+              ${s.text ? `<div style="font-size:12.5px; color:var(--text-muted); line-height:1.45;">${escapeHtml(s.text)}</div>` : ''}
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               ${scheduleType === 'specific_date' && cfg.targetDate ? `<span style="font-size:11px; font-weight:800; color:var(--primary);">📅 ${escapeHtml(cfg.targetDate)}</span>` : ''}

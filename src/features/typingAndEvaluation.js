@@ -303,16 +303,7 @@ export function onTypingPassageSelected() {
         : (rules.punctRuleMode === 'ignore_all' ? 'Ignored (0 Deduction)' : 'Fullstop (.) & Question Mark (?)');
 
       const previewBox = document.getElementById('typing-passage-preview-box');
-      const previewSnippet = document.getElementById('typing-passage-preview-text') || document.getElementById('typing-passage-preview-snippet');
-      const previewStats = document.getElementById('typing-passage-preview-stats');
-      if (previewBox && previewSnippet) {
-        const wordsPreview = text.trim().split(/\s+/).slice(0, 35).join(' ');
-        previewSnippet.innerText = wordsPreview ? `${wordsPreview}${totalWords > 35 ? ' ...' : ''}` : '(Empty passage)';
-        if (previewStats) {
-          previewStats.innerText = `📝 ${totalWords} Words • ⌨️ ${text.length} Total Strokes • 🎯 ${portalState.selectedTypingPassage.Difficulty || 'Medium'}`;
-        }
-        previewBox.style.display = 'block';
-      }
+      if (previewBox) previewBox.style.display = 'none';
 
       // Requirement #6: Show COMPLETE Evaluation Rule set by Admin
       const summaryDiv = document.getElementById('typing-rules-summary');
@@ -519,9 +510,7 @@ export function startTypingExam(item) {
       const rawFullPassage = item.ContentOrUrl || '';
       const totalFullWords = rawFullPassage.trim().split(/\s+/).filter(Boolean).length;
       const totalFullStrokes = rawFullPassage.trim().length;
-      const is5Stroke = rules.wordCountRule === '5stroke';
       portalState.currentReferenceText = preparePassageForInitialWordsRule(rawFullPassage, rules);
-      const hasInitialWordsSlice = (rules.initialWordsMode === 'custom' && parseInt(rules.initialWords) > 0 && (is5Stroke ? totalFullStrokes > parseInt(rules.initialWords) : totalFullWords > parseInt(rules.initialWords)));
       
       portalState.activeTestSubtabKey = evaluationKey;
       portalState.isTestPaused = false;
@@ -533,42 +522,30 @@ export function startTypingExam(item) {
       if (titleElem) titleElem.innerText = `${portalState.currentExamName}${cleanExamDate ? ' (' + cleanExamDate + ')' : ''}`;
       const timerEl = document.getElementById('test-timer');
       if (timerEl) timerEl.innerText = `${String(portalState.testDurationMinutes).padStart(2, '0')}:00`;
-      const statusBar = document.getElementById('live-typing-status-bar');
-      if (statusBar) statusBar.style.display = 'flex';
       const footerBar = document.getElementById('active-test-footer-bar');
       if (footerBar) footerBar.style.display = 'flex';
       updateTestSubmitMinTimeLockUI(0);
-      
+
       const mainBody = document.getElementById('test-main-body-container');
       const layoutPos = rules.layoutPosition || 'top';
-
-      let layoutFlexDir = 'flex-direction: column;';
-      if (layoutPos === 'left') {
-        layoutFlexDir = 'flex-direction: row; flex-wrap: wrap;';
-      }
+      const splitClass = layoutPos === 'left' ? 'rp-typing-equal-split rp-typing-split-side' : 'rp-typing-equal-split';
 
       if (mainBody) {
+        mainBody.classList.add('rp-typing-exam-body');
         mainBody.innerHTML = `
-          <div style="display: flex; ${layoutFlexDir} gap: 12px; width: 100%; max-width: 1200px; flex: 1; min-height: 0; align-items: stretch;">
-            <div id="test-reference-display" style="flex: 1; min-width: 0; background: var(--surface); padding: 14px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 2px 8px var(--shadow); display: flex; flex-direction: column; gap: 8px; max-height: 230px; overflow-y: auto;">
-              <div style="font-weight: 700; font-size: 13px; color: var(--secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
-                <span><i class="fa-solid fa-file-lines"></i> Master Passage: ${item.Title} (${cleanExamDate}) · <span class="test-non-essential-mobile" style="color:var(--primary); font-weight:700;">${totalFullWords} Words · ${totalFullStrokes} Strokes</span></span>
-                <div style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
-                  ${hasInitialWordsSlice ? `<button type="button" id="btn-toggle-complete-passage" class="btn btn-sm btn-primary" style="padding: 2px 8px; font-size: 11px;" onclick="toggleCompletePassageInActiveTest()">Show Complete Passage</button>` : ''}
-                  <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="if(typeof toggleMobileActiveTestPassageHeight==='function') toggleMobileActiveTestPassageHeight()" title="Toggle Reference Passage Height">↕️ Passage Height</button>
-                </div>
+          <div class="${splitClass}">
+            <div id="test-reference-display">
+              <div style="font-weight: 700; font-size: 12px; color: var(--secondary); border-bottom: 1px solid var(--border); padding-bottom: 5px; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-shrink: 0;">
+                <span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><i class="fa-solid fa-file-lines" style="color: var(--primary);"></i> Master Passage: ${escapeHtml(item.Title || '')} (${escapeHtml(cleanExamDate)})</span>
+                <span style="color: var(--primary); font-weight: 700; font-size: 11px; white-space: nowrap; flex-shrink: 0;">${totalFullWords} Words · ${totalFullStrokes} Strokes</span>
               </div>
-
-              <div id="test-material-passage-text" style="font-size: ${portalState.currentPassageFontSize}px; line-height: 1.6; white-space: pre-wrap; font-family: 'Segoe UI', monospace;">${portalState.currentReferenceText}</div>
+              <div id="test-material-passage-text" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; font-size: ${portalState.currentPassageFontSize}px; line-height: 1.65; white-space: pre-wrap; font-family: 'Segoe UI', monospace; padding-right: 4px;">${portalState.currentReferenceText}</div>
             </div>
 
-            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; min-height: 0;">
-              <div class="test-non-essential-mobile" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
-                <div style="display: flex; align-items: center; gap: 8px; background: var(--surface); padding: 5px 11px; border-radius: 20px; border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
-                  <i class="fa-solid fa-volume-high" style="color: var(--primary);"></i> Exam Hall Sound 
-                  <input type="checkbox" id="exam-hall-sound-toggle" style="cursor: pointer; width: 15px; height: 15px;">
-                </div>
-                <div style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Timer starts upon typing first key</div>
+            <div class="rp-typing-input-pane">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11.5px; color: var(--text-muted); font-weight: 700; flex-shrink: 0; padding: 0 2px;">
+                <span><i class="fa-solid fa-keyboard" style="color: var(--primary);"></i> Your Typing Area</span>
+                <span style="font-size: 11px;">Timer starts on first keypress</span>
               </div>
               <textarea id="test-user-input" 
                         class="form-control" 
@@ -576,8 +553,8 @@ export function startTypingExam(item) {
                         autocorrect="off" 
                         autocapitalize="off" 
                         autocomplete="off" 
-                        style="width: 100%; flex: 1; min-height: 260px; resize: vertical; font-family: 'Segoe UI', monospace; padding: 14px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
-                        placeholder="Start typing passage here (Timer starts on first keypress)..." 
+                        style="width: 100%; font-family: 'Segoe UI', monospace; padding: 12px 14px; border-radius: var(--radius); box-shadow: inset 0 1px 3px var(--shadow);" 
+                        placeholder="Start typing the master passage here (Timer starts on first keypress)..." 
                         oninput="handleTypingInputProgress()" 
                         onkeydown="handleTestKeyDown(event)" 
                         onpaste="handleTestPaste(event)" 
@@ -605,7 +582,6 @@ export function startTypingExam(item) {
       const testModal = document.getElementById('active-test-modal');
       if (testModal) testModal.style.display = 'flex';
       if (typeof enterImmersiveFullscreenLock === 'function') enterImmersiveFullscreenLock('active-test-modal');
-      if (typeof window.requestExamNativeFullscreen === 'function') window.requestExamNativeFullscreen();
       updateLiveTypingStatusBar('Ready - Press any key');
     }
 
@@ -1004,9 +980,6 @@ export function startPitmanTest(item, overrideRuleKey) {
       }
       if (typeof logPortalAction === 'function') {
         logPortalAction('START_PITMAN_TEST', `Started Pitman Test: ${item.Title} [Rule: ${portalState.activeTestSubtabKey}]`);
-      }
-      if (typeof window.requestExamNativeFullscreen === 'function') {
-        window.requestExamNativeFullscreen();
       }
 
       window.currentExamRules = rules;
