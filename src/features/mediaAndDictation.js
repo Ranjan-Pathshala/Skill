@@ -13,7 +13,7 @@ import { PAD_ANNOTATIONS_KEY, getInstituteBatchesList, getUserAssignedBatch, pop
 import { escapeHtml, getLocalDateString } from '../utils/formatting.ts';
 import { checkMaterialAccessPermissions, getUniversalUrl, handleTypingInputProgress, isElementVisibleInDom, preparePassageForInitialWordsRule, renderMaterialsList, renderPitmanList, renderWords, startPitmanTest, startPitmanTestById, startTestTimer, startTypingExam, toggleMobileExamFocusMode, updateLiveTypingStatusBar, updateTestSubmitMinTimeLockUI } from './typingAndEvaluation.js';
 import { loadLearningLesson, purgeFakeInjectedRules, renderLearningKeyboard, renderVideoCourseList, updateLearningDisplayAndKeyHighlight, updateLearningStudioCompleteRules } from './videoAndTutor.js';
-import { countMasterPassageStrokes, countMasterPassageWords, getWatermarkText, renderDailyPracticeGoalUI } from './dashboardAndProfile.js';
+import { countMasterPassageWords, getWatermarkText, renderDailyPracticeGoalUI } from './dashboardAndProfile.js';
 import { formatSecMMSS, getActiveDictationAudioElement } from './weakVaultAndPlanner.js';
 import { extractHardWordsFromPassage } from '../utils/pitman.ts';
 import { buildProtectedMediaProxyUrl, extractGoogleDriveFileId, isGoogleDriveOrDocsUrl } from '../utils/mediaProxy.ts';
@@ -678,8 +678,6 @@ export function renderLiveTestsEverywhere() {
         const cardsHtml = items.map(lt => {
           const sMs = new Date(lt.startTime).getTime();
           const eMs = new Date(lt.endTime).getTime();
-          const disMins = Number(lt.disappearAfterMinutes || 60);
-          const disMs = eMs + (disMins * 60000);
           const isUpcoming = nowMs < sMs;
           const isLiveNow = nowMs >= sMs && nowMs < eMs;
 
@@ -2957,7 +2955,6 @@ export function playCustomUserVoiceUrlInTab(tabType = 'audio') {
           </div>
         `;
       } else {
-        const driveFallbackId = `tab-custom-drive-fb-${tabType}`;
         mount.innerHTML = `
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:6px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
@@ -4405,7 +4402,6 @@ export function confirmExamAndStartTranscription() {
       }
 
       const refWordsTotal = countMasterPassageWords(window.fullMasterPassageText || portalState.currentReferenceText);
-      const refStrokesTotal = countMasterPassageStrokes(window.fullMasterPassageText || portalState.currentReferenceText);
       const bsRuleBadge = rules.backspaceMode === 'until_space'
         ? 'UNTIL SPACEBAR ONLY'
         : (rules.backspaceMode === 'limited' ? `LIMITED (${rules.backspaceLimit || 15})` : (rules.backspaceMode || 'on').toUpperCase());

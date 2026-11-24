@@ -1,0 +1,124 @@
+<section id="view-planner-goals" class="app-view" style="display: none;">
+  <div class="card" style="margin-bottom: 16px; padding: 16px 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <div style="font-size: 11.5px; font-weight: 700; color: var(--primary); margin-bottom: 2px;">Study Discipline &amp; Target Velocity</div>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-calendar-week" style="color: var(--primary);"></i> 7-Day Study Planner &amp; Daily Goals
+        </h3>
+        <p style="margin: 3px 0 0 0; font-size: 12.5px; color: var(--text-muted);">Set your daily word target, track live practice progress, and follow exam-specific 7-day study checklists synced with your account.</p>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        <button type="button" class="btn btn-secondary btn-sm" style="min-height: 36px;" onclick="if(typeof window.refreshPlannerAndGoalsTab==='function') window.refreshPlannerAndGoalsTab()">
+          <i class="fa-solid fa-rotate"></i> Refresh
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; align-items: start;">
+    <!-- Card 1: Personal Daily Practice Goal & Streak -->
+    <div class="card" id="daily-practice-goal-card" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <div>
+          <h4 style="margin: 0; font-size: 15.5px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-bullseye" style="color: var(--primary);"></i> Personal Daily Practice Goal
+          </h4>
+          <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">Tracks every word &amp; stroke typed today across all tests and drills.</p>
+        </div>
+        <div style="display: flex; gap: 10px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;">
+          <span style="color: #ea580c;"><i class="fa-solid fa-fire"></i> Streak: <strong id="daily-streak-current-count">0</strong>d</span>
+          <span style="color: var(--text-muted);">Best: <strong id="daily-streak-best-count" style="color: var(--secondary);">1</strong>d</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 18px; flex-wrap: wrap;">
+        <div style="position: relative; width: 110px; height: 110px; flex-shrink: 0;">
+          <svg width="110" height="110" viewBox="0 0 110 110" style="transform: rotate(-90deg);">
+            <circle cx="55" cy="55" r="46" fill="none" stroke="var(--border)" stroke-width="9"></circle>
+            <circle id="daily-goal-progress-circle" cx="55" cy="55" r="46" fill="none" stroke="var(--primary)" stroke-width="9" stroke-linecap="round" stroke-dasharray="289.02" stroke-dashoffset="289.02" style="transition: stroke-dashoffset 0.35s ease, stroke 0.25s ease;"></circle>
+          </svg>
+          <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+            <strong id="daily-goal-pct-text" style="font-size: 20px; font-weight: 800; color: var(--secondary); font-variant-numeric: tabular-nums;">0%</strong>
+            <span style="font-size: 10px; font-weight: 700; color: var(--text-muted);">TODAY</span>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-width: 190px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <div style="padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--background);">
+            <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted);">Words Typed</div>
+            <div style="font-size: 15px; font-weight: 800; color: var(--secondary); font-variant-numeric: tabular-nums;"><span id="daily-goal-typed-words">0</span> / <span id="daily-goal-target-words">1,000</span></div>
+          </div>
+          <div style="padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--background);">
+            <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted);">Remaining</div>
+            <div id="daily-goal-remaining-words" style="font-size: 14px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums;">1,000 words</div>
+          </div>
+          <div style="padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--background);">
+            <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted);">Tests Today</div>
+            <div id="daily-goal-tests-today" style="font-size: 15px; font-weight: 800; color: var(--secondary); font-variant-numeric: tabular-nums;">0</div>
+          </div>
+          <div style="padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: var(--background);">
+            <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted);">Strokes Today</div>
+            <div id="daily-goal-strokes-today" style="font-size: 15px; font-weight: 800; color: var(--secondary); font-variant-numeric: tabular-nums;">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--background); font-size: 12px;">
+        <span id="daily-goal-status-subtext" style="color: var(--text-muted); font-weight: 600;">Complete any typing test, audio dictation, or Pitman drill today to fill your ring.</span>
+        <span style="white-space: nowrap; font-weight: 700; color: var(--secondary); font-variant-numeric: tabular-nums;">Peak: <strong id="daily-goal-peak-wpm" style="color: var(--primary);">0 WPM</strong></span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 12px;">
+        <label for="daily-goal-custom-input" style="font-size: 12px; font-weight: 700; color: var(--secondary); margin: 0;">Set Daily Word Goal (50 – 25,000 words)</label>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <input type="number" id="daily-goal-custom-input" class="form-control" min="50" max="25000" step="50" value="1000" style="flex: 1; min-width: 130px; margin: 0; min-height: 36px; font-weight: 700;">
+          <button type="button" class="btn btn-primary btn-sm" style="min-height: 36px; font-weight: 700;" onclick="saveUserDailyPracticeGoal()">
+            <i class="fa-solid fa-check"></i> Save Goal
+          </button>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;" onclick="saveUserDailyPracticeGoal(500)">500 words</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;" onclick="saveUserDailyPracticeGoal(1000)">1,000 words</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;" onclick="saveUserDailyPracticeGoal(2000)">2,000 words</button>
+          <button type="button" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 10px;" onclick="saveUserDailyPracticeGoal(3000)">3,000 words</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: 7-Day Exam Study Planner & Interactive Checklist -->
+    <div class="card" id="weekly-study-planner-card" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <h4 style="margin: 0; font-size: 15.5px; font-weight: 800; color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-list-check" style="color: #4f46e5;"></i> 7-Day Study Planner
+            </h4>
+            <span id="study-planner-benchmark-badge" style="font-size: 11px; font-weight: 700; color: var(--primary);">Custom Empty Plan</span>
+          </div>
+          <p style="margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted);">Choose an exam track preset or add your own custom daily tasks for Sun–Sat.</p>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+          <select id="study-planner-track-select" class="form-control" style="width: auto; min-width: 175px; min-height: 34px; font-size: 12px; font-weight: 700; margin: 0;" onchange="updateWeeklyStudyPlannerTrack(this.value)">
+            <option value="ssc_80">SSC 80 WPM Track</option>
+            <option value="ssc_100">SSC Grade C 100 WPM</option>
+            <option value="highcourt_100">High Court 100-110 WPM</option>
+            <option value="typing_35">SSC Typing 35 WPM</option>
+          </select>
+          <button type="button" class="btn btn-secondary btn-sm" style="min-height: 34px; font-size: 11.5px;" onclick="applyWeeklyStudyPlannerPreset()" title="Load recommended tasks for the selected track">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Load Preset
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" style="min-height: 34px; font-size: 11.5px;" onclick="regenerateWeeklyStudyPlanner(false)" title="Jump to Today">
+            <i class="fa-solid fa-calendar-day"></i> Today
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" style="min-height: 34px; font-size: 11.5px; color: var(--danger);" onclick="regenerateWeeklyStudyPlanner(true)" title="Clear tasks and checks">
+            <i class="fa-solid fa-trash-can"></i> Reset
+          </button>
+        </div>
+      </div>
+
+      <div id="weekly-study-planner-days-bar" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px;"></div>
+      <div id="weekly-study-planner-checklist" style="display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+  </div>
+</section>

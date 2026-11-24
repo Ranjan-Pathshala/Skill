@@ -5,7 +5,7 @@
  */
 
 import { portalState } from '../core/state.ts';
-import { DEFAULT_LOGO_URL, defaultEvaluationRule, getEvaluationRulesForTab, isMaterialTypeMatch, showToast, syncUserCloudStateToBackend } from './apiAndCore.js';
+import { DEFAULT_LOGO_URL, getEvaluationRulesForTab, isMaterialTypeMatch, showToast, syncUserCloudStateToBackend } from './apiAndCore.js';
 import { navigateTo, sortMaterialsLatestFirst } from './authAndNavigation.js';
 import { countMasterPassageStrokes, countMasterPassageWords, createInlineDataLoadStatusEl, getThumbnailUrl, streamRenderCardsToContainer } from './dashboardAndProfile.js';
 import { cancelStenoTest, configureActiveTestModalChrome, extractYouTubeVideoId, openLearningStudioSetupScreen, triggerExamHallKeyClick } from './mediaAndDictation.js';
@@ -1027,7 +1027,6 @@ export function handleLearningTypingInput() {
       // 👉 REQUIREMENT #6: Trigger Studio Voice Speech for Words, Strokes, or Both
       const speechMode = (document.getElementById('learning-studio-speech-mode-select') || document.getElementById('learning-speech-mode-select'))?.value || 'off';
       if (speechMode !== 'off') {
-        const target = window.currentLearningTargetText || '';
         const inputEl = document.getElementById('learning-user-input') || document.getElementById('learning-typing-input');
         const typed = inputEl ? inputEl.value : '';
         const lastTypedChar = typed[typed.length - 1] || '';
@@ -1400,7 +1399,6 @@ export function generateAdaptiveLatencyDrillText() {
 
 export function launchAdaptiveLatencyDrill(source = 'learning') {
       const generated = generateAdaptiveLatencyDrillText();
-      const drillLabel = `⚡ 2-Min Slowest Keys Drill [${generated.keys.join(', ')}]`;
 
       if (source === 'modal' && document.getElementById('active-test-modal')?.style.display === 'flex') {
         cancelStenoTest();
@@ -1622,28 +1620,6 @@ export function purgeFakeInjectedRules() {
       }
     }
   }
-
-
-
-
-
-window.seedSampleWeakWordsIfEmpty = function() {
-    try {
-      if (typeof window.getWeakOutlinesVault === 'function') {
-        // getWeakOutlinesVault now automatically purges any legacy seeded entries
-        window.getWeakOutlinesVault();
-      }
-      // Also purge any legacy demo polls or demo batch group messages
-      const rawPolls = localStorage.getItem('rp_batch_polls_v1');
-      if (rawPolls) {
-        const arr = JSON.parse(rawPolls);
-        if (Array.isArray(arr)) {
-          const cleanPolls = arr.filter(p => p && !String(p.id || '').startsWith('POLL-DEFAULT') && !String(p.id || '').startsWith('seed-') && !String(p.id || '').startsWith('demo-'));
-          if (cleanPolls.length !== arr.length) localStorage.setItem('rp_batch_polls_v1', JSON.stringify(cleanPolls));
-        }
-      }
-    } catch (e) {}
-  };
 
 window.addCustomWordToWeakVault = async function() {
     const tabInput = document.getElementById('weak-vault-custom-word-input');

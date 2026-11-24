@@ -10,17 +10,14 @@ import { escapeHtml, formatLocalDate, getLocalDateString } from '../utils/format
 import { getBatchGroupMessagesMap, getInstituteBatchesList, getUserAssignedBatchesList, getUserMonitorBatchesList, isUserMonitorForBatch, loadAdminData, renderAdminUsers, renderDashboardBatchMonitoringHub, saveBatchGroupMessagesMap, userHasBatchAssigned } from './adminPanel.js';
 import { apiCall, showToast } from './apiAndCore.js';
 import { makeCommandDeckShowAllData, renderD3WeeklyProgressHeatmap, renderDailyPracticeGoalUI, renderDashboardUI, renderUserPerformanceChart, setupDedicatedTabsAndMoveSections, switchAdminInnerSubtab } from './dashboardAndProfile.js';
-import { getScheduledLiveTestsList, injectMasterPassageFontToolbars, setupInteractiveTouchTypingStudio } from './mediaAndDictation.js';
+import { getScheduledLiveTestsList } from './mediaAndDictation.js';
 import { removeUselessPreTranscribeToolbars, renderCbtQuestion, updateCbtRevisionCountsUI } from './cbtArena.js';
-import { renderTypingStep2RuleCards, renderWords } from './typingAndEvaluation.js';
-import { closeAllDeviceNavMenu, ensureHelpDeskFeedbackFormVisible, isUserAuthenticated, switchAuthTab, syncAuthHeaderAndMenuVisibility } from './authAndNavigation.js';
+import { renderWords } from './typingAndEvaluation.js';
+import { closeAllDeviceNavMenu, syncAuthHeaderAndMenuVisibility } from './authAndNavigation.js';
 import { purgeFakeInjectedRules } from './videoAndTutor.js';
 
 const currentActiveViewName = (...args) => (typeof window.currentActiveViewName === 'function' ? window.currentActiveViewName(...args) : undefined);
 const renderWeeklyStudyPlanner = (...args) => (typeof window.renderWeeklyStudyPlanner === 'function' ? window.renderWeeklyStudyPlanner(...args) : undefined);
-const renderDashboardWeakOutlinesVault = (...args) => (typeof window.renderDashboardWeakOutlinesVault === 'function' ? window.renderDashboardWeakOutlinesVault(...args) : undefined);
-const renderBatchShorthandDoubtWall = (...args) => (typeof window.renderBatchShorthandDoubtWall === 'function' ? window.renderBatchShorthandDoubtWall(...args) : undefined);
-const loadShorthandPadsFromServer = (...args) => (typeof window.loadShorthandPadsFromServer === 'function' ? window.loadShorthandPadsFromServer(...args) : undefined);
 
 export const PARENT_SUMMARY_PREFS_KEY = 'rp_parent_weekly_summary_prefs_v1';
 
@@ -2167,23 +2164,6 @@ window.switchAttendanceHeatmapMode = function() {
     }
   };
 
-window.switchPlannerGoalsSubtab = function(mode) {
-    const plannerGrid = document.getElementById('planner-goals-top-grid') || document.querySelector('#view-planner-goals > div > div:nth-of-type(2)');
-    const heatmapMount = document.getElementById('planner-goals-heatmap-mount');
-    const compMount = document.getElementById('planner-goals-competency-mount');
-    const compCard = document.getElementById('user-engagement-session-card') || document.getElementById('planner-competency-analytics-card');
-    if (plannerGrid) plannerGrid.style.display = (mode === 'all' || mode === 'planner') ? 'grid' : 'none';
-    if (heatmapMount) heatmapMount.style.display = (mode === 'all' || mode === 'heatmap') ? 'flex' : 'none';
-    if (mode === 'all' || mode === 'heatmap') {
-      window.switchAttendanceHeatmapMode(window._activeAttendanceHeatmapMode || 'all');
-    }
-    if (compMount) compMount.style.display = (mode === 'all' || mode === 'analytics') ? 'flex' : 'none';
-    if (compCard) compCard.style.display = (mode === 'all' || mode === 'analytics') ? 'block' : 'none';
-    document.querySelectorAll('#rp-planner-subtab-bar .subtab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-psub') === mode);
-    });
-  };
-
 window.switchBatchHubSubtab = function() {
     window._activeBatchHubSubtab = 'all';
     const oldBar = document.getElementById('rp-batchhub-subtab-bar');
@@ -2226,13 +2206,6 @@ window.switchBatchHubSubtab = function() {
     if (typeof window.renderBatchShorthandDoubtWall === 'function') {
       window.renderBatchShorthandDoubtWall();
     }
-  };
-
-window.switchWeakVaultSubtab = function(mode) {
-    const vaultMount = document.getElementById('weak-vault-dedicated-mount');
-    if (vaultMount) vaultMount.style.display = 'block';
-    const oldWeakSubBar = document.getElementById('rp-weakvault-subtab-bar');
-    if (oldWeakSubBar) oldWeakSubBar.remove();
   };
 
 export function injectSubtabBarsIntoDedicatedViews() {

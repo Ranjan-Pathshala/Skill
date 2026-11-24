@@ -97,11 +97,6 @@ export function onTypingMediumSelected() {
         hindiBar.style.display = portalState.selectedTypingMedium.toLowerCase() === 'hindi' ? 'block' : 'none';
       }
 
-      const typingItems = portalState.materialsData.filter(m => 
-        (m.Type || '').toLowerCase() === 'typingtest' && 
-        ((m.Medium || 'English').toLowerCase() === portalState.selectedTypingMedium.toLowerCase())
-      );
-
       // 👉 Requirement #1 & #2: Only show saved Admin Typing Evaluation Rules; if none exist, show "No evaluation rule is there"
       const examSelect = document.getElementById('typing-select-exam');
       const uniqueNamesSet = new Set();
@@ -900,8 +895,6 @@ export function renderPitmanList(filterSubtab = 'ALL') {
         const subtabStr = (item.Subtab !== undefined && item.Subtab !== null && String(item.Subtab).trim() !== '' && String(item.Subtab).trim() !== '-')
           ? String(item.Subtab).trim()
           : 'General';
-        const cleanPitmanSubtab = subtabStr.replace(/[^a-zA-Z0-9_]/g, '_');
-        const pitmanRules = getEvaluationRulesForTab(`pitman_${cleanPitmanSubtab}`) || getEvaluationRulesForTab('pitman');
         const displayTitle = String(item.Title ?? item.Name ?? item.Word ?? '-');
         const safeTitle = displayTitle.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const pitmanWordsCount = countMasterPassageWords(item.ContentOrUrl);
@@ -1451,7 +1444,6 @@ export async function downloadItem(url, title, accessLevel = 'public', targetBat
     logPortalAction('DOWNLOAD_MATERIAL', `Downloaded material: ${title} [Access: ${accessLevel}${targetBatch ? ' | Batch: ' + targetBatch : ''}]`);
 
     const rawUrl = String(url || '').trim();
-    const fileUrl = getUniversalUrl(rawUrl, 'download');
     const cleanFileName = `${(title || 'Document').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
     showLoader(true);
     try {
@@ -2169,17 +2161,6 @@ export async function submitStenoTest(event) {
     else if (chosen.type === 'punct_wrong') punctuationWrongCount++;
   };
 
-  const sectionWiseMistakeDetails = {
-    wrongWords: [],
-    verbErrors: [],
-    singularPlural: [],
-    omittedWords: [],
-    extraWords: [],
-    capitalErrors: [],
-    punctErrors: [],
-    correctWords: []
-  };
-
   while (i > 0 || j > 0) {
     const rTok = i > 0 ? refTokens[i - 1] : null;
     const uTok = j > 0 ? userTokens[j - 1] : null;
@@ -2285,7 +2266,6 @@ export async function submitStenoTest(event) {
 
   const unifiedPassingPct = parseFloat(rules.passingAccuracy ?? rules.passingMarks ?? 85);
   const passingAccuracy = unifiedPassingPct;
-  const passingMarks = Number(((unifiedPassingPct / 100) * totalMarks).toFixed(2));
   const isPassed = (parseFloat(accuracyPercentage) >= passingAccuracy) && meetsMinGrossStroke;
 
   const isLearningCountUp = Boolean(window.isCountUpTimerMode) ||

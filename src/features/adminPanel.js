@@ -6,7 +6,7 @@
 
 import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
-import { onDomReady, scheduleFrameTasks } from '../core/domReady.ts';
+import { onDomReady } from '../core/domReady.ts';
 import { ADMIN_LEADERBOARD_PER_PAGE, ADMIN_USERS_PER_PAGE, DEFAULT_LOGO_URL, apiCall, forceSingleDeviceLogout, getEvaluationRulesForTab, loadSelectedEvaluationRulesIntoForm, logPortalAction, normalizeMaterialRecord, normalizeSubtabRecord, normalizeUserRecord, populateEvalCategoryDropdown, saveFastPortalCache, showToast, singleSessionChannel } from './apiAndCore.js';
 import { ALL_STUDENT_PORTAL_TABS, TAB_DISPLAY_META, evaluateMaintenanceWindowClient, getMaintenanceConfig, getWorkingTabsUnderMaintenance, isTabUnderMaintenance, isUserEmailAlreadyVerified, isUserMobileAlreadyVerified, pushPortalNotification, saveMaintenanceConfigToStorage, sortMaterialsLatestFirst } from './authAndNavigation.js';
 import { getDashboardCustomBannerConfig, getDateSpecificBannersMap, renderDailyPracticeGoalUI, renderDashboardCustomBanner, renderHelpAdminContacts, renderPromoBanner, saveDashboardCustomBannerConfig, saveDateSpecificBannersMap, setupAuthenticatedUI, syncProfileTabUI } from './dashboardAndProfile.js';
@@ -382,27 +382,6 @@ if (document.readyState === 'loading') {
 } else {
   window.initAdminSubtabsHorizontalScroll();
 }
-
-window.filterAdminMainSubtabs = function(query) {
-  const bar = document.getElementById('admin-main-subtab-bar');
-  if (!bar) return;
-  const q = String(query || '').trim().toLowerCase();
-  let visibleCount = 0;
-  bar.querySelectorAll('.subtab-btn').forEach(btn => {
-    const label = (btn.textContent || '').toLowerCase();
-    const key = (btn.getAttribute('data-admin-subtab') || '').toLowerCase();
-    const matches = !q || label.includes(q) || key.includes(q);
-    btn.classList.toggle('rp-admin-tab-filtered-out', !matches);
-    if (matches && btn.style.display !== 'none') visibleCount++;
-  });
-  const countBadge = document.getElementById('admin-main-subtab-count');
-  if (countBadge) {
-    countBadge.innerText = `${visibleCount} Module${visibleCount === 1 ? '' : 's'}`;
-  }
-  if (typeof window.updateAdminSubtabsScrollButtons === 'function') {
-    requestAnimationFrame(window.updateAdminSubtabsScrollButtons);
-  }
-};
 
 export function openAdminBatchDiscussionBoard(btn) {
   const bdiscBtn = btn || document.querySelector('#admin-main-subtab-bar .subtab-btn[data-admin-subtab="batch-discussion"]');
@@ -2332,7 +2311,6 @@ export function renderDashboardBatchMonitoringHub() {
 
       const activeMonitorsList = getBatchMonitorsList(activeBatch, monitorsMap);
       const myMonitorEntry = activeMonitorsList.find(m => String(m.userId || '').trim().toLowerCase() === uid.toLowerCase()) || activeMonitorsList[0] || null;
-      const monitorEntry = myMonitorEntry;
       const monitorDisplayName = activeMonitorsList.length > 0
         ? activeMonitorsList.map(m => m.userName || m.userId).join(', ')
         : 'Appointed Batch Monitor';

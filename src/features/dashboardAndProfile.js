@@ -8,7 +8,7 @@ import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
 import { onDomReady, scheduleFrameTasks } from '../core/domReady.ts';
 import { ALL_STUDENT_PORTAL_TABS, TAB_DISPLAY_META, applyStudentPortalTabPermissions, closeAllDeviceNavMenu, ensureHelpDeskFeedbackFormVisible, getMaintenanceConfig, getUserCustomPreferences, getWorkingTabsUnderMaintenance, isUserEmailAlreadyVerified, markUserEmailVerified, markUserMobileVerified, navigateTo, openAllDeviceNavMenu, renderAuthView, renderNotificationCenterUI, sortMaterialsLatestFirst, startUserEngagementSessionTracker, switchAuthTab, syncUnverifiedEmailPortalLockUI, syncVerifiedBadgesAcrossPortal, toggleNotificationCenterDrawer, updateActiveTabHeaderBadge } from './authAndNavigation.js';
-import { applyAdminTabPermissions, getBatchMonitorsList, getBatchMonitorsMap, getInstituteBatchesList, getUserAssignedBatch, getUserAssignedBatchesList, getUserMonitorBatchesList, isUserMonitorForBatch, parseBatchListValue, populateAllBatchSelectDropdowns, renderAdminBatchDiscussionBoard, renderAdminFeedback, renderAdminLeaderboard, renderAdminLogs, renderAdminMaterialsTable, renderAdminSubtabsTable, renderAdminUsers, renderDashboardBatchMonitoringHub, userHasBatchAssigned } from './adminPanel.js';
+import { applyAdminTabPermissions, getBatchMonitorsList, getBatchMonitorsMap, getInstituteBatchesList, getUserAssignedBatch, getUserAssignedBatchesList, getUserMonitorBatchesList, parseBatchListValue, populateAllBatchSelectDropdowns, renderAdminBatchDiscussionBoard, renderAdminFeedback, renderAdminLeaderboard, renderAdminLogs, renderAdminMaterialsTable, renderAdminSubtabsTable, renderAdminUsers, renderDashboardBatchMonitoringHub, userHasBatchAssigned } from './adminPanel.js';
 import { DEFAULT_LOGO_URL, SITE_NAME, apiCall, applyAppTheme, cleanupAllAuthAndSessionResources, clearAllPortalCacheOnLogout, fetchPublicFooterStats, logPortalAction, mergeMaterialsByType, normalizeMaterialRecord, renderGlobalWatermark, showToast, syncPortalDataInBackground } from './apiAndCore.js';
 import { escapeHtml, formatLocalDate, getLocalDateString } from '../utils/formatting.ts';
 import { initLearningTypingTutor, renderLearningUploadedExercisesGrid, renderVideoCourseView, seedRichDemoDataIfNeeded } from './videoAndTutor.js';
@@ -4047,10 +4047,10 @@ export function setupDedicatedTabsAndMoveSections() {
     if (!mainContainer) return;
 
     if (typeof ALL_STUDENT_PORTAL_TABS !== 'undefined' && Array.isArray(ALL_STUDENT_PORTAL_TABS)) {
-      ['weak-vault', 'batchhub', 'cbt-revision'].forEach(t => {
+      ['weak-vault', 'batchhub', 'cbt-revision', 'planner-goals'].forEach(t => {
         if (!ALL_STUDENT_PORTAL_TABS.includes(t)) ALL_STUDENT_PORTAL_TABS.push(t);
       });
-      ['official-contacts', 'planner-goals'].forEach(rem => {
+      ['official-contacts'].forEach(rem => {
         const idx = ALL_STUDENT_PORTAL_TABS.indexOf(rem);
         if (idx !== -1) ALL_STUDENT_PORTAL_TABS.splice(idx, 1);
       });
@@ -4059,8 +4059,8 @@ export function setupDedicatedTabsAndMoveSections() {
       TAB_DISPLAY_META['weak-vault'] = { icon: 'fa-solid fa-vault', label: 'My Weak Outlines Vault' };
       TAB_DISPLAY_META['batchhub'] = { icon: 'fa-solid fa-people-group', label: 'Batch Monitor & Comms' };
       TAB_DISPLAY_META['cbt-revision'] = { icon: 'fa-solid fa-bookmark', label: 'Saved MCQs & Logbook' };
+      TAB_DISPLAY_META['planner-goals'] = { icon: 'fa-solid fa-calendar-week', label: '7-Day Planner & Goals' };
       delete TAB_DISPLAY_META['official-contacts'];
-      delete TAB_DISPLAY_META['planner-goals'];
     }
 
     if (authTabsList) {
@@ -4081,7 +4081,7 @@ export function setupDedicatedTabsAndMoveSections() {
       insertNavLiAfter('weak-vault', 'fa-solid fa-vault', 'My Weak Outlines Vault', 'words');
       insertNavLiAfter('cbt-revision', 'fa-solid fa-bookmark', 'Saved MCQs &amp; Logbook', 'cbttest');
 
-      ['official-contacts', 'planner-goals'].forEach(rem => {
+      ['official-contacts'].forEach(rem => {
         const obsoleteBtn = authTabsList.querySelector(`[data-tab="${rem}"]`);
         if (obsoleteBtn) obsoleteBtn.closest('li')?.remove();
       });
@@ -4091,7 +4091,7 @@ export function setupDedicatedTabsAndMoveSections() {
       }
     }
 
-    ['view-official-contacts', 'view-planner-goals'].forEach(secId => {
+    ['view-official-contacts'].forEach(secId => {
       const obsoleteSec = document.getElementById(secId);
       if (obsoleteSec) obsoleteSec.remove();
     });
@@ -4302,8 +4302,8 @@ export function setupDedicatedTabsAndMoveSections() {
       mainContainer.appendChild(batchSec);
     }
 
-    // Planner & Analytics sections removed per user request
-    ['student-engagement-suite-row', 'dashboard-planner-source-wrapper', 'daily-practice-goal-card', 'd3-weekly-heatmap-card', 'user-engagement-session-card'].forEach(remId => {
+    // Legacy analytics sections remain hidden
+    ['student-engagement-suite-row', 'dashboard-planner-source-wrapper', 'd3-weekly-heatmap-card', 'user-engagement-session-card'].forEach(remId => {
       const remEl = document.getElementById(remId);
       if (remEl) remEl.style.display = 'none';
     });

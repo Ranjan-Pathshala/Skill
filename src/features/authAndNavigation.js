@@ -6,12 +6,12 @@
 
 import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
-import { onDomReady, scheduleFrameTasks } from '../core/domReady.ts';
-import { adjustAdminUploadForm, applyAdminTabPermissions, loadAdminData, loadDashboardBannerIntoAdminForm, loadMaintenanceSettingsIntoAdminForm, pushAdminRealtimeNotification, renderAdminBannersTable, renderAdminDateBannersTable, renderAdminFeedback, renderAdminLeaderboard, renderAdminLogs, renderAdminMaterialsTable, renderAdminPerformanceDashboard, renderAdminRealtimeNotifications, renderAdminSubtabsTable, renderAdminUsers, safeNotify, switchAdminTab } from './adminPanel.js';
+import { onDomReady } from '../core/domReady.ts';
+import { adjustAdminUploadForm, applyAdminTabPermissions, loadAdminData, pushAdminRealtimeNotification, renderAdminMaterialsTable, renderAdminUsers, safeNotify, switchAdminTab } from './adminPanel.js';
 import { autoResetAdminFiltersOnSearch, loadMaterials, loadUserFeedback, renderDashboardUI, renderHelpAdminContacts, renderPitmanSubtabs, renderPromoBanner, renderSubtabs, setupAuthenticatedUI, syncProfileTabUI } from './dashboardAndProfile.js';
 import { escapeHtml } from '../utils/formatting.ts';
-import { CLIENT_DEVICE_ID, NOTIFICATION_TTL_24H_MS, apiCall, applyUserCloudStateFromBackend, ensureSessionVerifyLoopRunning, loadSelectedEvaluationRulesIntoForm, logPortalAction, populateEvalCategoryDropdown, populateSavedRulesQuickDropdown, registerSingleDeviceSession, renderUnsyncedTestRetryBanner, showLoader, showToast, syncPortalDataInBackground, syncUserCloudStateToBackend } from './apiAndCore.js';
-import { populateAdminLiveTestRankSelector, populateLiveTestMaterialOptions, renderAdminLiveTestsTable, renderDedicatedLiveTestsTab, renderLiveTestsEverywhere } from './mediaAndDictation.js';
+import { CLIENT_DEVICE_ID, NOTIFICATION_TTL_24H_MS, apiCall, applyUserCloudStateFromBackend, ensureSessionVerifyLoopRunning, logPortalAction, registerSingleDeviceSession, renderUnsyncedTestRetryBanner, showLoader, showToast, syncPortalDataInBackground, syncUserCloudStateToBackend } from './apiAndCore.js';
+import { renderDedicatedLiveTestsTab, renderLiveTestsEverywhere } from './mediaAndDictation.js';
 import { FAKE_INJECTED_RULE_KEYS, initLearningTypingTutor, purgeFakeInjectedRules, renderVideoCourseView, seedRichDemoDataIfNeeded, switchLearningTypingSection } from './videoAndTutor.js';
 import { buildAlphabetBar, initTypingTestWizard, loadTestHistory, populateWordsCategoryDropdown, renderTestHistoryTable, renderWords } from './typingAndEvaluation.js';
 import { renderCbtTestCatalog } from './cbtArena.js';
@@ -26,6 +26,7 @@ export const TAB_DISPLAY_META = {
   'buy-plans': { icon: 'fa-solid fa-cart-shopping', label: 'Buy Batches & Plans' },
   'batch-leaderboard': { icon: 'fa-solid fa-trophy', label: 'Batch Leaderboard' },
   'attendance-matrix': { icon: 'fa-solid fa-calendar-check', label: 'Attendance & Streak' },
+  'planner-goals': { icon: 'fa-solid fa-calendar-week', label: '7-Day Planner & Goals' },
   'batchhub': { icon: 'fa-solid fa-people-group', label: 'Batch Monitor & Polls' },
   'weak-vault': { icon: 'fa-solid fa-vault', label: 'My Weak Outlines Vault' },
   'cbt-revision': { icon: 'fa-solid fa-bookmark', label: 'Saved MCQs & Error Logbook' },
@@ -228,7 +229,7 @@ window.currentActiveViewName = 'dashboard';
 export const MAINTENANCE_STORAGE_KEY = 'rp_skill_maintenance_config_v1';
 
 export const ALL_STUDENT_PORTAL_TABS = [
-  'auth', 'dashboard', 'profile', 'buy-plans', 'batch-leaderboard', 'attendance-matrix',
+  'auth', 'dashboard', 'profile', 'buy-plans', 'batch-leaderboard', 'attendance-matrix', 'planner-goals',
   'batchhub', 'weak-vault', 'cbt-revision',
   'livetests', 'videocourse', 'words', 'pdf', 'audio',
   'pitman', 'learningtyping', 'typingtest', 'cbttest', 'test', 'feedback'
@@ -577,9 +578,14 @@ export function navigateTo(tabName, pushHistory = true, fromMenu = false) {
     if (typeof window.switchProfileSubtab === 'function') window.switchProfileSubtab('buy-plans');
     return;
   }
-  if (tabName === 'planner-goals' || tabName === 'analytics') {
+  if (tabName === 'analytics') {
     navigateTo('dashboard', pushHistory, fromMenu);
     return;
+  }
+  if (tabName === 'planner-goals') {
+    setTimeout(() => {
+      if (typeof window.refreshPlannerAndGoalsTab === 'function') window.refreshPlannerAndGoalsTab();
+    }, 30);
   }
   if (tabName === 'attendance-matrix') {
     setTimeout(() => {
@@ -1695,7 +1701,6 @@ export function syncUnverifiedEmailPortalLockUI(scrollIntoViewIfLocked = false) 
       }
       const emailVer = isUserEmailAlreadyVerified(portalState.currentUser);
       const mobileVer = isUserMobileAlreadyVerified(portalState.currentUser);
-      const bothVerified = emailVer && mobileVer;
       syncVerifiedBadgesAcrossPortal(emailVer);
 
       setBadgeVerifiedState(document.getElementById('banner-email-verify-status-pill') || document.getElementById('banner-email-verify-pill'), emailVer, '📧 Email');

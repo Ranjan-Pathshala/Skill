@@ -1368,9 +1368,9 @@ export async function initApp() {
         let initialRestoreTab = "dashboard";
         const hashMatch = window.location.hash ? window.location.hash.replace("#", "").trim().toLowerCase() : "";
         const savedTab = localStorage.getItem("rp_skill_last_active_tab");
-        if (hashMatch && hashMatch !== 'planner-goals' && document.getElementById(`view-${hashMatch}`)) {
+        if (hashMatch && document.getElementById(`view-${hashMatch}`)) {
           initialRestoreTab = hashMatch;
-        } else if (savedTab && savedTab !== 'planner-goals' && document.getElementById(`view-${savedTab}`)) {
+        } else if (savedTab && document.getElementById(`view-${savedTab}`)) {
           initialRestoreTab = savedTab;
         }
         // Yield a frame before rendering heavy views so the shell & header paint immediately with zero freeze

@@ -7,7 +7,7 @@
 import { portalState } from '../core/state.ts';
 import { portalHooks } from '../core/hooks.ts';
 import { DEFAULT_LOGO_URL, apiCall, getEvaluationRulesForTab, isMaterialTypeMatch, logPortalAction, showToast, syncUserCloudStateToBackend } from './apiAndCore.js';
-import { closeAllDeviceNavMenu, isActionBlockedByUnverifiedEmail, isStudentPortalTabAllowedForCurrentUser, navigateTo, sortMaterialsLatestFirst } from './authAndNavigation.js';
+import { closeAllDeviceNavMenu, isActionBlockedByUnverifiedEmail, navigateTo, sortMaterialsLatestFirst } from './authAndNavigation.js';
 import { createInlineDataLoadStatusEl, getThumbnailUrl, isCbtSectionAutoLockActive, streamRenderCardsToContainer } from './dashboardAndProfile.js';
 import { checkMaterialAccessPermissions, renderTestHistoryTable } from './typingAndEvaluation.js';
 import { escapeHtml, getLocalDateString } from '../utils/formatting.ts';
@@ -18,7 +18,6 @@ import { CBT_BOOKMARKS_STORAGE_KEY, CBT_MISTAKES_STORAGE_KEY } from './weakVault
 const renderCbtSectionsBar = (...args) => (typeof window.renderCbtSectionsBar === 'function' ? window.renderCbtSectionsBar(...args) : undefined);
 const renderCbtPalette = (...args) => (typeof window.renderCbtPalette === 'function' ? window.renderCbtPalette(...args) : undefined);
 const jumpToCbtQuestion = (...args) => (typeof window.jumpToCbtQuestion === 'function' ? window.jumpToCbtQuestion(...args) : undefined);
-const currentActiveViewName = (...args) => (typeof window.currentActiveViewName === 'function' ? window.currentActiveViewName(...args) : undefined);
 
 portalState.activeCbtTest = null;
 
@@ -2127,62 +2126,6 @@ window.launchCustomCbtMistakeMiniQuiz = function(limitCount, sourceType) {
         }
     };
 
-window.filterSidebarMenuTabs = function(rawQuery) {
-        const q = String(rawQuery || '').trim().toLowerCase();
-        const list = document.getElementById('menu-authenticated-tabs-list');
-        if (!list) return;
-
-        // Enforce role & per-user tab visibility rules so searching "admin" NEVER reveals hidden or restricted items
-        const roleStr = String((typeof portalState.currentUser !== 'undefined' && portalState.currentUser && portalState.currentUser.role) ? portalState.currentUser.role : 'user').toLowerCase().trim();
-        const isAdminOrSuper = (roleStr === 'admin' || roleStr === 'superadmin');
-
-        const items = Array.from(list.children);
-        let currentDivider = null;
-        let currentSectionHasMatch = false;
-
-        items.forEach(li => {
-            if (li.classList.contains('nav-category-divider')) {
-                if (currentDivider) {
-                    const isPrevAdminDiv = currentDivider.id === 'admin-nav-category-divider' || (currentDivider.textContent || '').toLowerCase().includes('administration');
-                    currentDivider.style.display = (isPrevAdminDiv && !isAdminOrSuper)
-                        ? 'none'
-                        : ((currentSectionHasMatch) ? '' : 'none');
-                }
-                currentDivider = li;
-                currentSectionHasMatch = false;
-                return;
-            }
-
-            const btn = li.querySelector('button[data-tab]');
-            if (!btn) return;
-            const tabKey = (btn.getAttribute('data-tab') || '').toLowerCase().trim();
-
-            // Strictly hide Admin / Analytics tabs from non-admin accounts even when searching
-            const isAdminItem = (li.id === 'admin-nav-item' || tabKey === 'admin' || tabKey === 'analytics');
-            if (isAdminItem && !isAdminOrSuper) {
-                li.style.display = 'none';
-                return;
-            }
-            // Strictly respect per-user tab access restrictions
-            if (typeof isStudentPortalTabAllowedForCurrentUser === 'function' && !isStudentPortalTabAllowedForCurrentUser(tabKey)) {
-                li.style.display = 'none';
-                return;
-            }
-
-            const label = (btn.textContent || '').toLowerCase();
-            const matches = !q || label.includes(q) || tabKey.includes(q);
-            li.style.display = matches ? '' : 'none';
-            if (matches) currentSectionHasMatch = true;
-        });
-
-        if (currentDivider) {
-            const isLastAdminDiv = currentDivider.id === 'admin-nav-category-divider' || (currentDivider.textContent || '').toLowerCase().includes('administration');
-            currentDivider.style.display = (isLastAdminDiv && !isAdminOrSuper)
-                ? 'none'
-                : (currentSectionHasMatch ? '' : 'none');
-        }
-    };
-
 window.parseBulkMcqImport = function() {
     const raw = ((document.getElementById('suite-bulk-mcq-input') || {}).value || '').trim();
     if (!raw) {
@@ -2374,13 +2317,6 @@ export function buildCompleteRuleDetailsGridHtml(key, r) {
       <div><strong>12. Min Gross Stroke &amp; View:</strong> ${r.minGrossStrokePct ?? 0}% • ${minInitialLabel}</div>
     `;
   }
-
-window.seedSampleSavedMcqsIfEmpty = function() {
-    try {
-      if (typeof window.getCbtBookmarkedMcqs === 'function') window.getCbtBookmarkedMcqs();
-      if (typeof window.getCbtMistakeHistoryBank === 'function') window.getCbtMistakeHistoryBank();
-    } catch (e) {}
-  };
 
 window.addCustomMcqToRevisionNotebook = function() {
     const q = (document.getElementById('custom-mcq-q')?.value || '').trim();

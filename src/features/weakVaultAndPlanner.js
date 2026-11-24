@@ -5,7 +5,7 @@
  */
 
 import { portalState } from '../core/state.ts';
-import { defaultEvaluationRule, showToast, syncUserCloudStateToBackend } from './apiAndCore.js';
+import { showToast, syncUserCloudStateToBackend } from './apiAndCore.js';
 import { configureActiveTestModalChrome } from './mediaAndDictation.js';
 import { isElementVisibleInDom, startTestTimer, updateLiveTypingStatusBar } from './typingAndEvaluation.js';
 
@@ -887,16 +887,6 @@ window.renderDashboardWeakOutlinesVault = function(skipAutoInspect = false) {
         }
     };
 
-window.openWeakOutlinesVaultModal = function() {
-        const modal = document.getElementById('weak-outlines-vault-modal');
-        if (!modal) return;
-        const vault = window.seedWeakVaultFromHistoryOrMaterials();
-        modal.classList.remove('hidden');
-        modal.style.display = 'flex';
-        window.renderWeakOutlinesVaultModalList();
-        if (vault.length > 0) window.inspectPitmanWordInVault(vault[0].word);
-    };
-
 window.renderWeakOutlinesVaultModalList = function() {
         const container = document.getElementById('weak-outlines-vault-modal-list');
         if (!container) return;
@@ -1028,7 +1018,7 @@ export const STUDY_PLAN_TEMPLATES = {
             tasks: [
                 { id: 't1', icon: 'fa-headphones-alt', color: 'indigo', title: '2x Progressive Pyramid Dictations (90 → 110 WPM)', actionView: 'audio' },
                 { id: 't2', icon: 'fa-book-open', color: 'rose', title: '2-Min Mandatory Read-Back + Full 40-Min Transcription', actionView: 'audio' },
-                { id: 't3', icon: 'fa-vault', color: 'purple', title: 'Master 10 Words in Personal Weak Outlines Vault', actionView: 'dashboard' },
+                { id: 't3', icon: 'fa-vault', color: 'purple', title: 'Master 10 Words in Personal Weak Outlines Vault', actionView: 'weak-vault' },
                 { id: 't4', icon: 'fa-laptop-code', color: 'amber', title: '1x CBT Full Mock + 15-Q Mistake Mini-Quiz', actionView: 'cbttest' }
             ]
         },
@@ -1232,7 +1222,7 @@ window.renderWeeklyStudyPlanner = function() {
                         <span class="text-xs font-bold ${checked ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'} truncate">${safeTitle}</span>
                     </label>
                     <div class="flex items-center gap-1.5 shrink-0">
-                        <button type="button" onclick="(function(v){var map={audiodictation:'audio',learning:'learningtyping',typing:'typingtest'};var target=map[v]||v;if(typeof navigateTo==='function'){navigateTo(target,true,true);}else if(typeof switchView==='function'){switchView(target);}})('${t.actionView}')" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-slate-700 text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 shrink-0">
+                        <button type="button" onclick="(function(v){var map={audiodictation:'audio',learning:'learningtyping',typing:'typingtest'};var target=map[v]||v;if(typeof navigateTo==='function'){navigateTo(target,true,true);}})('${t.actionView}')" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-50 border border-slate-200 dark:border-slate-700 text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 shrink-0">
                             Go <i class="fas fa-arrow-right ml-0.5"></i>
                         </button>
                         ${t.isCustom ? `<button type="button" onclick="removeCustomStudyPlannerTask(${st.selectedDayIdx}, '${t.id}')" title="Remove task" class="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] text-rose-500 hover:bg-rose-50">✕</button>` : ''}

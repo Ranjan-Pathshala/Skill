@@ -9,7 +9,7 @@ import { onDomReady } from '../core/domReady.ts';
 import { escapeHtml } from '../utils/formatting.ts';
 import { getInstituteBatchesList, getUserAssignedBatchesList, loadAdminData, safeNotify, userHasBatchAssigned } from './adminPanel.js';
 import { closeAllDeviceNavMenu, navigateTo } from './authAndNavigation.js';
-import { apiCall, mountServerPaginationToolbar, showToast, syncPublicHeaderThemeToggle } from './apiAndCore.js';
+import { apiCall, mountServerPaginationToolbar, syncPublicHeaderThemeToggle } from './apiAndCore.js';
 
 
 export let _selectedStudentFeePlan = null;
@@ -1442,13 +1442,11 @@ window.renderProfileFeesSection = async function (forceRefresh = false) {
       }
     }
 
-    const cfg = getResolvedFeeConfig();
     const myReceipts = (portalState.globalData && Array.isArray(portalState.globalData.userFeeReceipts)) ? portalState.globalData.userFeeReceipts : [];
     const userBatches = typeof getUserAssignedBatchesList === 'function'
       ? getUserAssignedBatchesList(cu.userId, cu.batch || cu.Batch || '')
       : ['RP-Trail'];
     const isActiveMember = String(cu.role || '').toLowerCase() === 'member' || Boolean(cu.isMemberAllAccess);
-    const scopeSummary = isActiveMember ? formatScopeSummary(cu.memberAccessScope, cu.memberIncludedBatches, cu.memberIncludeUpcoming) : '';
     const installmentMap = typeof computeStudentBatchInstallmentLedger === 'function'
       ? computeStudentBatchInstallmentLedger(cu.userId)
       : {};

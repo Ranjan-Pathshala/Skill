@@ -75,7 +75,6 @@ export function registerPortalHooks() {
   portalHooks.on('afterNavigate', (rawTab) => {
     let tabName = rawTab;
     if (tabName === 'official-contacts') tabName = 'feedback';
-    else if (tabName === 'planner-goals') tabName = 'dashboard';
 
     ['view-weak-vault', 'view-batchhub', 'view-cbt-revision'].forEach((secId) => {
       const sec = document.getElementById(secId);
@@ -86,22 +85,12 @@ export function registerPortalHooks() {
       }
     });
 
-    const quickBar = document.getElementById('rp-student-quick-jump-bar');
-    if (quickBar) {
-      const isAdmin =
-        portalState.currentUser &&
-        ['admin', 'superadmin'].includes(String(portalState.currentUser.role || '').toLowerCase());
-      const qAdminBtn = document.getElementById('rp-quick-jump-admin-btn');
-      if (qAdminBtn) qAdminBtn.style.display = isAdmin ? 'inline-flex' : 'none';
-      quickBar.querySelectorAll('.rp-quick-jump-pill').forEach((btn) => {
-        btn.classList.toggle('active', btn.getAttribute('data-qtab') === tabName);
-      });
-    }
-
     setTimeout(() => {
       if (tabName === 'dashboard') {
         if (typeof makeCommandDeckShowAllData === 'function') makeCommandDeckShowAllData();
         if (typeof window.renderDashboardPinnedDirectivesOnly === 'function') window.renderDashboardPinnedDirectivesOnly();
+      } else if (tabName === 'planner-goals') {
+        if (typeof window.refreshPlannerAndGoalsTab === 'function') window.refreshPlannerAndGoalsTab();
       } else if (tabName === 'words') {
         if (typeof window.switchWordsSubtab === 'function') window.switchWordsSubtab('dictionary');
         if (typeof window.loadAndRenderOutlineRequestsTracker === 'function') {
@@ -447,7 +436,6 @@ export function registerPortalHooks() {
   });
 
   // 9. CBT Exam Lifecycle Hooks (Proctoring + Autosave Clear + Mistake Bank Capture)
-  let _cbtPreSubmitSnapshot = null;
   portalHooks.on('afterCbtTestStart', () => {
     if (typeof window.startExamProctoringMonitor === 'function') {
       window.startExamProctoringMonitor('CBT Mock Exam');
@@ -458,15 +446,6 @@ export function registerPortalHooks() {
     if (typeof window.clearExamCrashRecoveryDraft === 'function') {
       window.clearExamCrashRecoveryDraft('cbt');
     }
-    try {
-      const testObj = portalState.activeCbtTest || window.activeCbtTest;
-      _cbtPreSubmitSnapshot = testObj
-        ? {
-            testObj,
-            responses: { ...(portalState.cbtUserResponses || window.cbtUserResponses || {}) },
-          }
-        : null;
-    } catch (_e) {}
   });
 
   portalHooks.on('afterCbtSubmit', () => {
@@ -476,7 +455,6 @@ export function registerPortalHooks() {
       }
       if (typeof updateCbtRevisionCountsUI === 'function') updateCbtRevisionCountsUI();
       if (typeof window.renderDedicatedCbtRevisionTab === 'function') window.renderDedicatedCbtRevisionTab();
-      _cbtPreSubmitSnapshot = null;
     } catch (_e) {}
   });
 

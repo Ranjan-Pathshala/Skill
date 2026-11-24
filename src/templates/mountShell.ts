@@ -13,6 +13,7 @@ import authViewHtml from './views/auth.html?raw';
 import dashboardViewHtml from './views/dashboard.html?raw';
 import batchLeaderboardViewHtml from './views/batch-leaderboard.html?raw';
 import attendanceMatrixViewHtml from './views/attendance-matrix.html?raw';
+import plannerGoalsViewHtml from './views/planner-goals.html?raw';
 import livetestsViewHtml from './views/livetests.html?raw';
 import videocourseViewHtml from './views/videocourse.html?raw';
 import wordsViewHtml from './views/words.html?raw';
@@ -33,6 +34,7 @@ export const PORTAL_VIEWS: ReadonlyArray<{ id: string; html: string }> = [
   { id: 'dashboard', html: dashboardViewHtml },
   { id: 'batch-leaderboard', html: batchLeaderboardViewHtml },
   { id: 'attendance-matrix', html: attendanceMatrixViewHtml },
+  { id: 'planner-goals', html: plannerGoalsViewHtml },
   { id: 'livetests', html: livetestsViewHtml },
   { id: 'videocourse', html: videocourseViewHtml },
   { id: 'words', html: wordsViewHtml },
