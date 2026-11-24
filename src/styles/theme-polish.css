@@ -85,6 +85,7 @@
   /* Crisp Header + Scroll Elevation (avoid backdrop-filter on header directly so fixed #main-nav-tabs keeps viewport height) */
   header {
     background: var(--surface) !important;
+    padding: 0 !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 90%, transparent) !important;
@@ -343,7 +344,7 @@
     opacity: 1;
   }
 
-  /* Tactile Primary Button Sheen & Micro-Press */
+  /* Tactile Primary Button Polish & Micro-Press (overflow: visible prevents half-clipped labels) */
   .btn {
     transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
   }
@@ -352,28 +353,14 @@
   }
   .btn-primary {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
     box-shadow: 0 4px 14px -4px rgba(29, 78, 216, 0.48) !important;
   }
   .btn-primary:hover:not(:disabled) {
     transform: translateY(-1px);
+    filter: brightness(1.06);
     box-shadow: 0 8px 20px -4px rgba(29, 78, 216, 0.56) !important;
-  }
-  .btn-primary::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -120%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.24) 50%, transparent 100%);
-    transform: skewX(-18deg);
-    transition: left 0.55s cubic-bezier(0.22, 1, 0.36, 1);
-    pointer-events: none;
-  }
-  .btn-primary:hover::after {
-    left: 140%;
   }
 
   /* View Entrance Animation & Live Dot Pulse */
@@ -1293,8 +1280,7 @@
 
   @media (max-width: 640px) {
     header {
-      padding-left: 12px !important;
-      padding-right: 12px !important;
+      padding: 0 !important;
     }
 
     #app-viewport {
@@ -1315,12 +1301,12 @@
       padding: 8px 10px;
     }
 
-    .btn,
+    .btn:not(.btn-sm),
     .subtab-btn,
     .nav-tab-btn,
     .rp-menu-theme-btn,
     .rp-auth-theme-btn {
-      min-height: 40px;
+      min-height: 38px;
     }
 
     .rp-dash-quick-launch-grid {
@@ -1328,14 +1314,14 @@
     }
 
     .grid-cards:not([style*="grid-template-columns"]) {
-      grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)) !important;
+      grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)) !important;
     }
 
     .modal-backdrop:not(#active-test-modal):not(#reader-modal):not(#embedded-image-modal):not(#reference-video-modal) > .modal-content {
       width: calc(100vw - 20px) !important;
       max-width: 100% !important;
       max-height: 92vh !important;
-      padding: 16px !important;
+      padding: 0 !important;
     }
 
     .dashboard-welcome.rp-saas-dash-hero {

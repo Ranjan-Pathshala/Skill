@@ -125,14 +125,23 @@ body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-palette-aside {
         max-width: 100% !important;
         box-sizing: border-box !important;
         min-height: 40px !important;
-        overflow: hidden !important;
+        overflow: visible !important;
+        flex-wrap: wrap !important;
+        row-gap: 4px !important;
       }
 
 .rp-cbt-top-header .rp-cbt-header-actions {
         flex-shrink: 0 !important;
         display: flex !important;
         align-items: center !important;
+        flex-wrap: wrap !important;
         gap: 5px !important;
+      }
+
+.rp-cbt-top-header .btn {
+        min-height: 28px !important;
+        line-height: 1.2 !important;
+        white-space: nowrap;
       }
 
 .rp-exam-tools-drawer {
@@ -149,8 +158,9 @@ body.cbt-exam-fullscreen-lock #cbt-active-interface .cbt-palette-aside {
           font-size: 11.5px !important;
         }
         .rp-cbt-top-header .btn {
-          padding: 3px 6px !important;
+          padding: 4px 7px !important;
           font-size: 10.5px !important;
+          min-height: 28px !important;
         }
       }
 
@@ -285,7 +295,7 @@ body.mobile-exam-focus-mode #active-test-modal #active-test-footer-bar .btn {
       min-width: 85px !important;
     }
 
-/* Compact, Narrow-Width Catalog Grid & Fitted Thumbnail System Everywhere */
+/* Responsive Catalog Grid & Fitted Thumbnail System Everywhere (wide enough so buttons never clip) */
     .grid-cards:not([style*="grid-template-columns"]),
     .video-grid-cards,
     #pdf-grid,
@@ -298,8 +308,8 @@ body.mobile-exam-focus-mode #active-test-modal #active-test-footer-bar .btn {
     #video-grid,
     #typing-step-4-passage-cards {
       display: grid !important;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 192px)) !important;
-      gap: 9px !important;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+      gap: 12px !important;
       align-items: stretch !important;
       justify-content: start !important;
     }
@@ -316,8 +326,24 @@ body.mobile-exam-focus-mode #active-test-modal #active-test-footer-bar .btn {
       #pitman-grid,
       #video-grid,
       #typing-step-4-passage-cards {
-        grid-template-columns: repeat(auto-fill, minmax(136px, 1fr)) !important;
-        gap: 8px !important;
+        grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)) !important;
+        gap: 10px !important;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .grid-cards:not([style*="grid-template-columns"]),
+      .video-grid-cards,
+      #pdf-grid,
+      #videocourse-grid,
+      #audio-grid,
+      #cbttest-grid,
+      #learning-uploaded-exercises-grid,
+      #words-grid,
+      #pitman-grid,
+      #video-grid,
+      #typing-step-4-passage-cards {
+        grid-template-columns: 1fr !important;
       }
     }
 
@@ -332,11 +358,12 @@ body.mobile-exam-focus-mode #active-test-modal #active-test-footer-bar .btn {
     #pitman-grid > .card,
     #video-grid > .card,
     #typing-step-4-passage-cards > .card {
-      padding: 8px 9px !important;
-      border-radius: 9px !important;
+      padding: 10px 11px !important;
+      border-radius: 10px !important;
       justify-content: space-between !important;
-      gap: 5px !important;
+      gap: 6px !important;
       margin-bottom: 0 !important;
+      min-width: 0 !important;
     }
 
 /* Fullscreen Exclusive Animated Reading Time Lock (Requirement #3: Nothing else shown) */
@@ -448,18 +475,20 @@ body.reading-time-fullscreen-lock header,
       #active-test-modal #active-test-footer-bar {
         padding: 6px 8px !important;
         gap: 6px !important;
-        flex-wrap: nowrap !important;
+        flex-wrap: wrap !important;
         box-shadow: 0 -2px 8px rgba(0,0,0,0.08) !important;
       }
       #active-test-modal #active-test-footer-bar .btn {
-        padding: 8px 8px !important;
+        padding: 8px 10px !important;
         font-size: 12px !important;
-        min-height: 40px !important;
-        min-width: 0 !important;
-        flex: 1 1 0 !important;
+        min-height: 36px !important;
+        height: auto !important;
+        line-height: 1.25 !important;
+        min-width: fit-content !important;
+        flex: 1 1 auto !important;
         width: auto !important;
         border-radius: 10px !important;
-        white-space: nowrap !important;
+        white-space: normal !important;
       }
       #active-test-modal #test-cancel-bottom-btn {
         display: inline-flex !important;

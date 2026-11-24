@@ -111,7 +111,7 @@ function doGet(e) {
       } catch (htmlNotFoundErr) {}
     }
   }
-  return ContentService.createTextOutput("Ranjan Pathshala Skill Backend Running API Version 3.6 (Pooled DB Connection Handles & High-Speed Cache Enabled)");
+  return ContentService.createTextOutput("Ranjan Pathshala Skill Backend Running API Version 3.9 (Pooled DB Connection Handles & High-Speed Cache Enabled)");
 }
 
 // Direct server bridge for Google Apps Script HtmlService Preview / Web App deployments (google.script.run)
@@ -122,9 +122,11 @@ function rpClientApiBridge(action, payload) {
 // Write mutations acquire a script lock; read requests run lock-free in parallel!
 var WRITE_ACTIONS = {
   'signup': true,
+  'login': true,
   'logout': true,
   'forgetPassword': true,
   'verifyMfaOtp': true,
+  'verifyWhatsAppOtp': true,
   'updateProfile': true,
   'uploadMaterial': true,
   'deleteMaterial': true,
@@ -2196,7 +2198,6 @@ function handleSignup(payload) {
     email: email,
     mobile: mobile,
     passwordHash: passwordHash,
-    plainPassword: password,
     role: role,
     status: status,
     createdDate: createdDate,
@@ -2300,19 +2301,13 @@ function handleSignup(payload) {
 // Explicit Session Revocation & Cache Purge on Logout to prevent orphaned session tokens & stale cache
 function handleLogout(payload) {
   var userId = String(payload.userId || '').trim();
-  var cache = DbConnectionManager.getCache();
-  if (cache) {
-    try {
-      if (userId) {
-        cache.remove('ACTIVE_SESS_' + userId);
-        cache.remove('MFA_OTP_' + userId);
-        cache.remove('PROFILE_OTP_' + userId);
-        cache.remove('FORGET_OTP_' + userId);
-      }
-
-    } catch (e) {}
-  }
+  var incomingToken = String(payload.sessionToken || payload.authSessionToken || '').trim();
   if (!userId) return { success: true, cacheCleared: true, message: 'Logged out and cache cleared.' };
+  var cache = DbConnectionManager.getCache();
+  var cachedToken = '';
+  if (cache) {
+    try { cachedToken = String(cache.get('ACTIVE_SESS_' + userId) || '').trim(); } catch (e) {}
+  }
   var users = getSheetData('USERS');
   var userSheet = getOrCreateSheet('USERS');
   var sessColIdx = 8;
@@ -2321,14 +2316,32 @@ function handleLogout(payload) {
     var foundSessIdx = logoutHeaders.indexOf('SessionToken');
     if (foundSessIdx !== -1) sessColIdx = foundSessIdx + 1;
   }
+  var targetIdx = -1;
+  var storedSheetToken = '';
   for (var i = 0; i < users.length; i++) {
     if (String(users[i].UserID) === userId) {
-      if (userSheet) {
-        userSheet.getRange(i + 2, sessColIdx).setValue('-');
-        invalidateSheetCache('USERS');
-      }
+      targetIdx = i;
+      storedSheetToken = String(users[i].SessionToken || '').trim();
       break;
     }
+  }
+  var hasActiveSession = Boolean((cachedToken && cachedToken !== '-') || (storedSheetToken && storedSheetToken !== '-' && storedSheetToken.indexOf('BLOCKED-') !== 0 && storedSheetToken.indexOf('LOCKED-') !== 0));
+  var tokenMatches = Boolean(incomingToken && ((cachedToken && cachedToken === incomingToken) || (storedSheetToken && storedSheetToken === incomingToken)));
+  // Only revoke the active server-side session if the caller presents the matching sessionToken
+  if (hasActiveSession && !tokenMatches) {
+    return { success: true, cacheCleared: false, message: 'Local logout completed.' };
+  }
+  if (cache) {
+    try {
+      cache.remove('ACTIVE_SESS_' + userId);
+      cache.remove('MFA_OTP_' + userId);
+      cache.remove('PROFILE_OTP_' + userId);
+      cache.remove('FORGET_OTP_' + userId);
+    } catch (e2) {}
+  }
+  if (targetIdx !== -1 && userSheet) {
+    userSheet.getRange(targetIdx + 2, sessColIdx).setValue('-');
+    invalidateSheetCache('USERS');
   }
   return { success: true, cacheCleared: true, message: 'Session terminated, server cache cleared, and database handle released cleanly.' };
 }
@@ -2443,7 +2456,8 @@ function handleLogin(payload, isInternalTrustedCall) {
       var roleVal = String(user.Role || 'user').toLowerCase().trim();
       if (isPrimarySuperadminEmail(userEmail) && roleVal !== 'superadmin') {
         roleVal = 'superadmin';
-        userSheet.getRange(rowIndex, 6).setValue('superadmin');
+        var loginRoleCol = loginHeaders.indexOf('Role') + 1 || 6;
+        userSheet.getRange(rowIndex, loginRoleCol).setValue('superadmin');
         invalidateSheetCache('USERS');
       }
       var adminPerms = (user.AdminPermissions && user.AdminPermissions !== '-')
@@ -3153,10 +3167,17 @@ function handleGetDashboardData(payload) {
 
   var adminContacts = buildAdminContactsFromUsersList(usersList);
 
-  var requestUserId = payload.userId ? String(payload.userId) : '';
+  var verifiedRole = String(payload._verifiedRole || 'user').toLowerCase().trim();
+  var isStaffCaller = (verifiedRole === 'admin' || verifiedRole === 'superadmin');
+  var requestUserId = isStaffCaller
+    ? String(payload.userId || payload._verifiedUserId || '').trim()
+    : String(payload._verifiedUserId || '').trim();
+  if (!isStaffCaller) {
+    materials = materials.filter(function(m) { return isMaterialWithinScheduleWindow(m); });
+  }
   var userHistoryFull = requestUserId
     ? allHistory.filter(function(h) { return String(h.UserID) === requestUserId; })
-    : allHistory.slice(-30);
+    : (isStaffCaller ? allHistory.slice(-30) : []);
   // Keep payload compact so dashboard always loads fast even with hundreds of long passages
   var userHistory = userHistoryFull.slice(-80).map(function(h) {
     var clone = projectLightweightHistoryRow(h);
@@ -3244,6 +3265,36 @@ function handleGetDashboardData(payload) {
         emailVerified: isVer
       });
     }
+  }
+
+  // Filter batchGroupMessages for non-staff callers so private monitor threads & other batches are never exposed
+  if (!isStaffCaller) {
+    var callerBatchesLower = String((currentUserBatchStatus && currentUserBatchStatus.batch) || 'General Batch')
+      .split(',')
+      .map(function(b) { return b.trim().toLowerCase(); })
+      .filter(Boolean);
+    var callerMonitoredLower = [];
+    if (requestUserId) {
+      for (var bmKey in batchMonitors) {
+        if (!batchMonitors.hasOwnProperty(bmKey)) continue;
+        if (isUserInBatchMonitorsList(batchMonitors[bmKey], requestUserId)) {
+          var lowBm = String(bmKey).trim().toLowerCase();
+          callerMonitoredLower.push(lowBm);
+          if (callerBatchesLower.indexOf(lowBm) === -1) callerBatchesLower.push(lowBm);
+        }
+      }
+    }
+    batchGroupMessages = batchGroupMessages.filter(function(m) {
+      var msgBatch = String(m.batchName || m.batch || 'General Batch').trim().toLowerCase();
+      if (msgBatch !== 'all_batches' && callerBatchesLower.indexOf(msgBatch) === -1) return false;
+      if (String(m.visibility || '').toLowerCase() === 'private_monitor') {
+        if (!requestUserId) return false;
+        var isMonOfBatch = callerMonitoredLower.indexOf(msgBatch) !== -1;
+        var isStudentOwner = String(m.studentUserId || m.authorId || m.senderId || '') === requestUserId;
+        return isMonOfBatch || isStudentOwner;
+      }
+      return true;
+    });
   }
 
   var userFeeReceipts = requestUserId
@@ -3547,24 +3598,31 @@ function handleUpdateMaterial(payload) {
           if (payload.title !== undefined) sheet.getRange(rowIndex, 2).setValue(sanitizeInput(payload.title));
           if (payload.contentOrUrl !== undefined || payload.content !== undefined) sheet.getRange(rowIndex, 3).setValue(sanitizeInput(payload.contentOrUrl || payload.content));
         } else {
-          if (payload.materialType) sheet.getRange(rowIndex, 2).setValue(String(payload.materialType).trim());
-          if (payload.subtab !== undefined) sheet.getRange(rowIndex, 3).setValue(sanitizeInput(String(payload.subtab).trim()));
-          if (payload.category !== undefined) sheet.getRange(rowIndex, 4).setValue(sanitizeInput(payload.category));
-          if (payload.title !== undefined) sheet.getRange(rowIndex, 5).setValue(sanitizeInput(payload.title));
-          if (payload.contentOrUrl !== undefined) sheet.getRange(rowIndex, 6).setValue(sanitizeInput(formatDriveUrl(payload.contentOrUrl)));
-          if (payload.thumbnailUrl !== undefined) sheet.getRange(rowIndex, 7).setValue(sanitizeInput(formatDriveUrl(payload.thumbnailUrl)));
-          if (payload.logoUrl !== undefined) sheet.getRange(rowIndex, 8).setValue(sanitizeInput(formatDriveUrl(payload.logoUrl)));
-          if (payload.accessLevel !== undefined) sheet.getRange(rowIndex, 9).setValue(defaultDash(payload.accessLevel));
-          if (payload.medium !== undefined) sheet.getRange(rowIndex, 11).setValue(defaultDash(payload.medium));
-          if (payload.difficulty !== undefined) sheet.getRange(rowIndex, 12).setValue(defaultDash(payload.difficulty));
-          if (payload.examDate !== undefined) sheet.getRange(rowIndex, 13).setValue(defaultDash(payload.examDate));
-          if (payload.timeLimit !== undefined) sheet.getRange(rowIndex, 14).setValue(defaultDash(payload.timeLimit));
-          if (payload.extraMetaJson !== undefined || payload.targetBatch !== undefined || payload.cbtEvalRuleKey !== undefined || payload.publishAt !== undefined || payload.PublishAt !== undefined || payload.expireAt !== undefined || payload.ExpireAt !== undefined || payload.autoDeleteAt !== undefined || payload.AutoDeleteAt !== undefined || payload.autoDeleteDays !== undefined || payload.AutoDeleteDays !== undefined || payload.mediaStartTime !== undefined || payload.MediaStartTime !== undefined || payload.mediaEndTime !== undefined || payload.MediaEndTime !== undefined || payload.mergedAudioTracks !== undefined) {
-            var existingMeta = parseReadableSheetData(data[i][14], {});
+          var matHeaders = ensureSheetHeadersCached(sheet, 'MATERIALS');
+          var colPos = function(name, fallback) {
+            var idx = matHeaders.indexOf(name);
+            return idx !== -1 ? idx + 1 : fallback;
+          };
+          if (payload.materialType) sheet.getRange(rowIndex, colPos('Type', 2)).setValue(String(payload.materialType).trim());
+          if (payload.subtab !== undefined) sheet.getRange(rowIndex, colPos('Subtab', 3)).setValue(sanitizeInput(String(payload.subtab).trim()));
+          if (payload.category !== undefined) sheet.getRange(rowIndex, colPos('Category', 4)).setValue(sanitizeInput(payload.category));
+          if (payload.title !== undefined) sheet.getRange(rowIndex, colPos('Title', 5)).setValue(sanitizeInput(payload.title));
+          if (payload.contentOrUrl !== undefined) sheet.getRange(rowIndex, colPos('ContentOrURL', 6)).setValue(sanitizeInput(formatDriveUrl(payload.contentOrUrl)));
+          if (payload.thumbnailUrl !== undefined) sheet.getRange(rowIndex, colPos('ThumbnailURL', 7)).setValue(sanitizeInput(formatDriveUrl(payload.thumbnailUrl)));
+          if (payload.logoUrl !== undefined) sheet.getRange(rowIndex, colPos('LogoURL', 8)).setValue(sanitizeInput(formatDriveUrl(payload.logoUrl)));
+          if (payload.accessLevel !== undefined) sheet.getRange(rowIndex, colPos('AccessLevel', 9)).setValue(defaultDash(payload.accessLevel));
+          if (payload.medium !== undefined) sheet.getRange(rowIndex, colPos('Medium', 11)).setValue(defaultDash(payload.medium));
+          if (payload.difficulty !== undefined) sheet.getRange(rowIndex, colPos('Difficulty', 12)).setValue(defaultDash(payload.difficulty));
+          if (payload.examDate !== undefined) sheet.getRange(rowIndex, colPos('ExamDate', 13)).setValue(defaultDash(payload.examDate));
+          if (payload.timeLimit !== undefined) sheet.getRange(rowIndex, colPos('TimeLimit', 14)).setValue(defaultDash(payload.timeLimit));
+          if (payload.description !== undefined || payload.extraMetaJson !== undefined || payload.targetBatch !== undefined || payload.cbtEvalRuleKey !== undefined || payload.publishAt !== undefined || payload.PublishAt !== undefined || payload.expireAt !== undefined || payload.ExpireAt !== undefined || payload.autoDeleteAt !== undefined || payload.AutoDeleteAt !== undefined || payload.autoDeleteDays !== undefined || payload.AutoDeleteDays !== undefined || payload.mediaStartTime !== undefined || payload.MediaStartTime !== undefined || payload.mediaEndTime !== undefined || payload.MediaEndTime !== undefined || payload.mergedAudioTracks !== undefined) {
+            var metaColIdx = colPos('ExtraMetaJSON', 15);
+            var existingMeta = parseReadableSheetData(data[i][metaColIdx - 1], {});
             if (payload.extraMetaJson && payload.extraMetaJson !== '-') {
               var incomingMeta = parseReadableSheetData(payload.extraMetaJson, {});
               for (var mk in incomingMeta) existingMeta[mk] = incomingMeta[mk];
             }
+            if (payload.description !== undefined) existingMeta.Description = sanitizeInput(String(payload.description || '').trim());
             if (payload.targetBatch !== undefined) existingMeta.TargetBatch = String(payload.targetBatch).trim();
             if (payload.cbtEvalRuleKey !== undefined) existingMeta.CbtEvalRuleKey = String(payload.cbtEvalRuleKey).trim();
             if (payload.publishAt !== undefined || payload.PublishAt !== undefined) existingMeta.PublishAt = String(payload.publishAt || payload.PublishAt || '').trim();
@@ -3584,7 +3642,7 @@ function handleUpdateMaterial(payload) {
               });
             }
             var updatedMetaStr = Object.keys(existingMeta).length > 0 ? safeSheetCellValue(JSON.stringify(existingMeta), 48500) : '-';
-            sheet.getRange(rowIndex, 15).setValue(updatedMetaStr);
+            sheet.getRange(rowIndex, metaColIdx).setValue(updatedMetaStr);
             var updMergedReadable = Array.isArray(existingMeta.MergedAudioTracks) && existingMeta.MergedAudioTracks.length > 0
               ? existingMeta.MergedAudioTracks.map(function(t, idx) {
                   return (idx + 1) + '. ' + (t.title || ('Part ' + (idx + 1))) + (t.startTime || t.endTime ? (' [' + (t.startTime || '0') + 's-' + (t.endTime || 'end') + 's]') : '') + ' (' + t.url + ')';
@@ -3779,12 +3837,19 @@ function handlePurgeExpiredMaterials(payload) {
   var matSheet = DbConnectionManager.getSheet('MATERIALS');
   if (matSheet) {
     var mData = matSheet.getDataRange().getValues();
+    var mHdr = mData.length > 0 ? mData[0].map(function(h) { return String(h || '').trim(); }) : [];
+    var idxId = mHdr.indexOf('ID') !== -1 ? mHdr.indexOf('ID') : 0;
+    var idxType = mHdr.indexOf('Type') !== -1 ? mHdr.indexOf('Type') : 1;
+    var idxCreated = mHdr.indexOf('CreatedAt') !== -1 ? mHdr.indexOf('CreatedAt') : 9;
+    var idxMeta = mHdr.indexOf('ExtraMetaJSON') !== -1 ? mHdr.indexOf('ExtraMetaJSON') : 14;
+    var idxExpireCol = mHdr.indexOf('ExpireAt');
+    var idxAutoDelDaysCol = mHdr.indexOf('AutoDeleteDays');
     var matDeleted = 0;
     for (var i = mData.length - 1; i >= 1; i--) {
-      var rowId = String(mData[i][0] || '').trim();
-      var rowType = String(mData[i][1] || '').toLowerCase().trim();
-      var createdStr = String(mData[i][9] || '').trim();
-      var rawMeta = String(mData[i][14] || '').trim();
+      var rowId = String(mData[i][idxId] || '').trim();
+      var rowType = String(mData[i][idxType] || '').toLowerCase().trim();
+      var createdStr = String(mData[i][idxCreated] || '').trim();
+      var rawMeta = String(mData[i][idxMeta] || '').trim();
       var meta = parseReadableSheetData(rawMeta, {});
       var shouldDelete = false;
       var autoDelStr = String(meta.AutoDeleteAt || '').trim();
@@ -3793,17 +3858,24 @@ function handlePurgeExpiredMaterials(payload) {
         if (!isNaN(autoDelMs) && nowMs >= autoDelMs) shouldDelete = true;
       }
       if (!shouldDelete && includeExpired) {
-        var expStr = String(meta.ExpireAt || '').trim();
+        var expColVal = idxExpireCol !== -1 ? String(mData[i][idxExpireCol] || '').trim() : '';
+        var expStr = (expColVal && expColVal !== '-') ? expColVal : String(meta.ExpireAt || '').trim();
         if (expStr && expStr !== '-') {
           var expMs = new Date(expStr).getTime();
           if (!isNaN(expMs) && nowMs >= expMs) shouldDelete = true;
         }
       }
-      if (!shouldDelete && maxAgeMs > 0 && createdStr && createdStr !== '-') {
-        var typeOk = (targetTypes.length === 0 || targetTypes.indexOf('all') !== -1 || targetTypes.indexOf(rowType) !== -1);
-        if (typeOk) {
-          var createdMs = new Date(createdStr).getTime();
-          if (!isNaN(createdMs) && (nowMs - createdMs) >= maxAgeMs) shouldDelete = true;
+      if (!shouldDelete && createdStr && createdStr !== '-') {
+        var rowAutoDaysRaw = idxAutoDelDaysCol !== -1 ? String(mData[i][idxAutoDelDaysCol] || '').trim() : '';
+        var rowAutoDays = parseInt((rowAutoDaysRaw && rowAutoDaysRaw !== '-') ? rowAutoDaysRaw : (meta.AutoDeleteDays || ''), 10) || 0;
+        var createdMs = new Date(createdStr).getTime();
+        if (!isNaN(createdMs)) {
+          if (rowAutoDays > 0 && (nowMs - createdMs) >= (rowAutoDays * 24 * 60 * 60 * 1000)) {
+            shouldDelete = true;
+          } else if (maxAgeMs > 0) {
+            var typeOk = (targetTypes.length === 0 || targetTypes.indexOf('all') !== -1 || targetTypes.indexOf(rowType) !== -1);
+            if (typeOk && (nowMs - createdMs) >= maxAgeMs) shouldDelete = true;
+          }
         }
       }
       if (shouldDelete) {
@@ -4188,7 +4260,7 @@ function handleAdminUpdateUserDetails(payload) {
 
   var userSheet = getOrCreateSheet('USERS');
   var users = getSheetData('USERS');
-  var headers = SHEET_SCHEMAS['USERS'];
+  var headers = ensureSheetHeadersCached(userSheet, 'USERS');
   var targetIdx = -1;
   for (var i = 0; i < users.length; i++) {
     if (String(users[i].UserID) === targetUserId) {
@@ -4316,7 +4388,10 @@ function handleUpdateUserRoleStatus(payload) {
 
   var userSheet = getOrCreateSheet('USERS');
   var users = getSheetData('USERS');
-  var headers = SHEET_SCHEMAS['USERS'];
+  var headers = ensureSheetHeadersCached(userSheet, 'USERS');
+  var roleCol = headers.indexOf('Role') + 1 || 6;
+  var statusCol = headers.indexOf('Status') + 1 || 7;
+  var sessCol = headers.indexOf('SessionToken') + 1 || 8;
 
   for (var i = 0; i < users.length; i++) {
     if (String(users[i].UserID) === String(targetUserId)) {
@@ -4344,12 +4419,12 @@ function handleUpdateUserRoleStatus(payload) {
       if ((currentTargetRole === 'admin' || currentTargetRole === 'superadmin' || newRole === 'admin' || newRole === 'superadmin') && requesterRole !== 'superadmin' && !userBatch && studentTabPermissions === undefined) {
         return { success: false, message: 'Only a Superadmin can promote, demote, or modify Admin/Superadmin accounts.' };
       }
-      if (newRole) userSheet.getRange(rowIndex, 6).setValue(newRole);
+      if (newRole) userSheet.getRange(rowIndex, roleCol).setValue(newRole);
       if (newStatus) {
-        userSheet.getRange(rowIndex, 7).setValue(newStatus);
+        userSheet.getRange(rowIndex, statusCol).setValue(newStatus);
         var roleCache = DbConnectionManager.getCache();
         if (newStatus === 'blocked') {
-          userSheet.getRange(rowIndex, 8).setValue('BLOCKED-' + Date.now());
+          userSheet.getRange(rowIndex, sessCol).setValue('BLOCKED-' + Date.now());
           if (roleCache) {
             roleCache.put('BLOCKED_USER_' + targetUserId, 'true', 21600);
             roleCache.remove('ACTIVE_SESS_' + targetUserId);
@@ -4394,7 +4469,7 @@ function handleUpdateUserRoleStatus(payload) {
           existingPrefs.allDevicesLocked = Boolean(payload.allDevicesLocked);
           var lockCache = DbConnectionManager.getCache();
           if (existingPrefs.allDevicesLocked) {
-            userSheet.getRange(rowIndex, 8).setValue('LOCKED-' + Date.now());
+            userSheet.getRange(rowIndex, sessCol).setValue('LOCKED-' + Date.now());
             if (lockCache) {
               lockCache.put('LOCKED_USER_' + targetUserId, 'true', 21600);
               lockCache.remove('ACTIVE_SESS_' + targetUserId);
@@ -4443,7 +4518,9 @@ function handleLockUserDevices(payload) {
 
   var userSheet = getOrCreateSheet('USERS');
   var users = getSheetData('USERS');
-  var headers = SHEET_SCHEMAS['USERS'];
+  var headers = ensureSheetHeadersCached(userSheet, 'USERS');
+  var lockStatusCol = headers.indexOf('Status') + 1 || 7;
+  var lockSessCol = headers.indexOf('SessionToken') + 1 || 8;
   var cache = DbConnectionManager.getCache();
 
   for (var i = 0; i < users.length; i++) {
@@ -4461,9 +4538,9 @@ function handleLockUserDevices(payload) {
         prefs.activeDeviceId = '';
       }
       if (lockAll || forceLogoutAll) {
-        userSheet.getRange(rowIndex, 8).setValue('LOCKED-' + Date.now());
+        userSheet.getRange(rowIndex, lockSessCol).setValue('LOCKED-' + Date.now());
         if (lockAll) {
-          userSheet.getRange(rowIndex, 7).setValue('locked');
+          userSheet.getRange(rowIndex, lockStatusCol).setValue('locked');
         }
         if (cache) {
           if (lockAll) cache.put('LOCKED_USER_' + targetUserId, 'true', 21600);
@@ -4472,10 +4549,10 @@ function handleLockUserDevices(payload) {
         }
       } else if (hasExplicitLockAll && !lockAll) {
         if (String(users[i].SessionToken || '').indexOf('LOCKED-') === 0) {
-          userSheet.getRange(rowIndex, 8).setValue('-');
+          userSheet.getRange(rowIndex, lockSessCol).setValue('-');
         }
         if (String(users[i].Status || '').toLowerCase().trim() === 'locked') {
-          userSheet.getRange(rowIndex, 7).setValue('active');
+          userSheet.getRange(rowIndex, lockStatusCol).setValue('active');
         }
         if (cache) {
           cache.remove('LOCKED_USER_' + targetUserId);
@@ -4901,7 +4978,7 @@ function handleSaveTestHistory(payload) {
     safeSheetCellValue(sanitizeInput(payload.referenceText || '-'), 45000),
     timestamp,
     payload.correctWords !== undefined ? payload.correctWords : 0,
-    formatReadableSheetData(extraHistMeta, 45000),
+    safeSheetCellValue(JSON.stringify(extraHistMeta), 45000),
     examBatchLabel,
     examRuleLabel,
     examCategoryLabel,
@@ -5296,7 +5373,11 @@ function handleSubmitOutlineRequest(payload) {
     }
   }
 
-  var userId = String(payload.userId || payload.authUserId || 'STUDENT').trim();
+  var verifiedRole = String(payload._verifiedRole || 'user').toLowerCase().trim();
+  var isStaff = (verifiedRole === 'admin' || verifiedRole === 'superadmin');
+  var userId = isStaff
+    ? String(payload.userId || payload._verifiedUserId || payload.authUserId || 'STUDENT').trim()
+    : String(payload._verifiedUserId || payload.userId || payload.authUserId || 'STUDENT').trim();
   var userName = sanitizeInput(String(payload.userName || 'Batch Student').trim());
   var userBatch = sanitizeInput(String(payload.batch || payload.userBatch || 'General Batch').trim());
 
@@ -5526,6 +5607,9 @@ function handleGetDriveFileBase64(payload) {
   if (!fileId && rawUrl) {
     var match = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) || rawUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     if (match && match[1]) fileId = match[1];
+  }
+  if (fileId && !/^[a-zA-Z0-9_-]{10,120}$/.test(fileId)) {
+    return { success: false, message: 'Invalid Google Drive file identifier.' };
   }
 
   // 1. Try DriveApp first when a fileId is present
@@ -6081,7 +6165,7 @@ function handleVerifyMfaOtp(payload) {
   var users = getSheetData('USERS');
   for (var i = 0; i < users.length; i++) {
     var u = users[i];
-    if (String(u.UserID) === userId || String(u.Email).toLowerCase().trim() === identifier || String(u.Mobile).trim() === identifier) {
+    if ((userId && String(u.UserID) === userId) || (identifier && String(u.Email).toLowerCase().trim() === identifier) || (identifier && String(u.Mobile).trim() === identifier)) {
       var prefs = readUserSettingsFromRow(u, false);
       var cachedOtp = cache ? cache.get('MFA_OTP_' + u.UserID) : null;
       var cachedWaOtp = cache ? cache.get('WA_OTP_' + u.UserID) : null;
@@ -6444,10 +6528,16 @@ function handleAppointBatchMonitor(payload) {
 }
 
 function handleSaveBatchGroupMessage(payload) {
+  var verifiedActorId = String(payload._verifiedUserId || '').trim();
+  var verifiedActorRole = String(payload._verifiedRole || 'user').toLowerCase().trim();
+  var isVerifiedStaff = (verifiedActorRole === 'admin' || verifiedActorRole === 'superadmin');
+
   var batchName = sanitizeInput(String(payload.batchName || payload.batch || 'General Batch').trim());
-  var senderId = String(payload.authorId || payload.senderId || payload.userId || 'USER').trim();
+  var senderId = isVerifiedStaff
+    ? String(payload.authorId || payload.senderId || payload.userId || verifiedActorId || 'ADMIN').trim()
+    : (verifiedActorId || String(payload.authorId || payload.senderId || payload.userId || 'USER').trim());
   var senderName = sanitizeInput(String(payload.authorName || payload.senderName || payload.userName || 'Batch Member'));
-  var senderRole = sanitizeInput(String(payload.authorRole || payload.senderRole || 'Student'));
+  var requestedRole = sanitizeInput(String(payload.authorRole || payload.senderRole || 'Student'));
   var messageText = sanitizeInput(String(payload.message || payload.messageText || '').trim());
   var msgType = sanitizeInput(String(payload.tag || payload.msgType || 'discussion'));
   var visibility = String(payload.visibility || (msgType === 'private_query' ? 'private_monitor' : 'directive')).toLowerCase().trim();
@@ -6476,19 +6566,26 @@ function handleSaveBatchGroupMessage(payload) {
     }
   }
 
-  var roleLower = String(senderRole || '').toLowerCase();
-  var isSuperOrAdmin = (roleLower.indexOf('superadmin') !== -1 || roleLower === 'admin' || roleLower.indexOf('instructor') !== -1);
+  var isSuperOrAdmin = isVerifiedStaff;
   var appointedListForBatch = normalizeBatchMonitorsEntry(monitorsMap[batchName]);
   var primaryMonitorForBatch = appointedListForBatch.length > 0 ? appointedListForBatch[0] : null;
   var isMonitorOfTargetBatch = isUserInBatchMonitorsList(appointedListForBatch, senderId);
+  var senderRole = isSuperOrAdmin
+    ? (requestedRole || (verifiedActorRole === 'superadmin' ? 'Superadmin' : 'Admin'))
+    : (isMonitorOfTargetBatch ? 'Batch Monitor' : 'Student');
 
   // Verify non-admin sender is actually enrolled in or appointed as Batch Monitor for target batchName
   if (!isSuperOrAdmin && !isMonitorOfTargetBatch) {
     var allUsersForCheck = getSheetData('USERS');
-    var senderAllowedInBatch = true;
+    var senderAllowedInBatch = false;
     for (var uChk = 0; uChk < allUsersForCheck.length; uChk++) {
       if (String(allUsersForCheck[uChk].UserID) === String(senderId)) {
-        var uBatchesRaw = String(allUsersForCheck[uChk].Batch || 'General Batch').split(',').map(function(b) { return b.trim().toLowerCase(); });
+        if (!payload.authorName && !payload.senderName && allUsersForCheck[uChk].Name) {
+          senderName = sanitizeInput(String(allUsersForCheck[uChk].Name));
+        }
+        var uBatchesRaw = normalizeUserBatchesWithFreeTier(allUsersForCheck[uChk].Batch || 'General Batch')
+          .split(',')
+          .map(function(b) { return b.trim().toLowerCase(); });
         senderAllowedInBatch = uBatchesRaw.indexOf(String(batchName).toLowerCase()) !== -1;
         break;
       }
@@ -6535,8 +6632,12 @@ function handleSaveBatchGroupMessage(payload) {
 
   var recipientMonitorId = String(payload.recipientMonitorId || (primaryMonitorForBatch ? primaryMonitorForBatch.userId : 'MONITOR')).trim();
   var recipientMonitorName = sanitizeInput(String(payload.recipientMonitorName || (primaryMonitorForBatch ? primaryMonitorForBatch.userName : 'Appointed Batch Monitor')));
-  var studentUserId = String(payload.studentUserId || senderId).trim();
-  var studentUserName = sanitizeInput(String(payload.studentUserName || senderName));
+  var studentUserId = (isSuperOrAdmin || isMonitorOfTargetBatch)
+    ? String(payload.studentUserId || senderId).trim()
+    : senderId;
+  var studentUserName = (isSuperOrAdmin || isMonitorOfTargetBatch)
+    ? sanitizeInput(String(payload.studentUserName || senderName))
+    : senderName;
 
   var pollOptionsClean = [];
   if (Array.isArray(payload.pollOptions)) {
@@ -6638,7 +6739,7 @@ function handleSaveBatchGroupMessage(payload) {
   return {
     success: true,
     newMessage: newMsg,
-    batchGroupMessages: messagesList,
+    batchGroupMessages: isSuperOrAdmin ? messagesList : handleGetBatchGroupMessages({ _verifiedUserId: verifiedActorId, _verifiedRole: verifiedActorRole }).batchGroupMessages,
     message: visibility === 'private_monitor'
       ? ('Private query sent directly to Batch Monitor (' + recipientMonitorName + ')!')
       : 'Instructor directive posted to Main Announcement Feed!'
@@ -6646,11 +6747,17 @@ function handleSaveBatchGroupMessage(payload) {
 }
 
 function handleReplyBatchGroupMessage(payload) {
+  var verifiedActorId = String(payload._verifiedUserId || '').trim();
+  var verifiedActorRole = String(payload._verifiedRole || 'user').toLowerCase().trim();
+  var isStaff = (verifiedActorRole === 'admin' || verifiedActorRole === 'superadmin');
+
   var msgId = String(payload.messageId || payload.msgId || payload.id || '').trim();
   var replyText = sanitizeInput(String(payload.replyText || payload.message || '').trim());
-  var replierId = String(payload.replierId || payload.userId || 'MONITOR').trim();
-  var replierName = sanitizeInput(String(payload.replierName || payload.userName || 'Batch Monitor'));
-  var replierRole = sanitizeInput(String(payload.replierRole || payload.userRole || 'Batch Monitor'));
+  var replierId = isStaff
+    ? String(payload.replierId || payload.userId || verifiedActorId || 'ADMIN').trim()
+    : (verifiedActorId || String(payload.replierId || payload.userId || '').trim());
+  var replierName = sanitizeInput(String(payload.replierName || payload.userName || 'Batch Member'));
+  var requestedReplierRole = sanitizeInput(String(payload.replierRole || payload.userRole || 'Student'));
   var newStatus = String(payload.status || '').toLowerCase().trim();
 
   if (!msgId) return { success: false, message: 'Message ID is required.' };
@@ -6660,12 +6767,15 @@ function handleReplyBatchGroupMessage(payload) {
   var data = sheet.getDataRange().getValues();
   var rowIdx = 0;
   var messagesList = [];
+  var monitorsMap = {};
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0]).toUpperCase().trim() === 'BATCH_GROUP_MESSAGES_JSON') {
+    var k = String(data[i][0]).toUpperCase().trim();
+    if (k === 'BATCH_GROUP_MESSAGES_JSON') {
       rowIdx = i + 1;
       messagesList = parseReadableSheetData(data[i][1], []);
       if (!Array.isArray(messagesList)) messagesList = [];
-      break;
+    } else if (k === 'BATCH_MONITORS_JSON') {
+      monitorsMap = parseReadableSheetData(data[i][1], {}) || {};
     }
   }
 
@@ -6673,11 +6783,49 @@ function handleReplyBatchGroupMessage(payload) {
   var nowIso = new Date().toISOString();
   for (var m = 0; m < messagesList.length; m++) {
     if (String(messagesList[m].id) === msgId) {
-      if (!Array.isArray(messagesList[m].replies)) {
-        messagesList[m].replies = [];
+      var targetThread = messagesList[m];
+      var msgBatchName = String(targetThread.batchName || targetThread.batch || 'General Batch').trim();
+      var msgBatchLower = msgBatchName.toLowerCase();
+      var isMonitorOfMsgBatch = Boolean(replierId && isUserInBatchMonitorsList(monitorsMap[msgBatchName], replierId));
+      if (!isMonitorOfMsgBatch && replierId) {
+        var monList = getMonitoredBatchesForUserId(replierId).map(function(b) { return String(b || '').toLowerCase().trim(); });
+        isMonitorOfMsgBatch = monList.indexOf(msgBatchLower) !== -1;
+      }
+      var threadOwnerId = String(targetThread.studentUserId || targetThread.authorId || targetThread.senderId || '').trim();
+      var isThreadOwner = Boolean(replierId && threadOwnerId && threadOwnerId === replierId);
+
+      if (!isStaff && !isMonitorOfMsgBatch) {
+        if (String(targetThread.visibility || '').toLowerCase() === 'private_monitor') {
+          if (!isThreadOwner) {
+            return { success: false, unauthorized: true, message: 'Forbidden: Only the thread owner, assigned Batch Monitor, or Admin can reply to this private thread.' };
+          }
+        } else if (msgBatchLower !== 'all_batches') {
+          var usersCheck = getSheetData('USERS');
+          var inBatch = false;
+          for (var u = 0; u < usersCheck.length; u++) {
+            if (String(usersCheck[u].UserID) === replierId) {
+              var uBatches = normalizeUserBatchesWithFreeTier(usersCheck[u].Batch || 'General Batch')
+                .split(',')
+                .map(function(b) { return b.trim().toLowerCase(); });
+              inBatch = uBatches.indexOf(msgBatchLower) !== -1;
+              break;
+            }
+          }
+          if (!inBatch && !isThreadOwner) {
+            return { success: false, unauthorized: true, message: 'Forbidden: You can only reply inside batches you belong to.' };
+          }
+        }
+      }
+
+      var replierRole = isStaff
+        ? (requestedReplierRole || (verifiedActorRole === 'superadmin' ? 'Superadmin' : 'Admin'))
+        : (isMonitorOfMsgBatch ? 'Batch Monitor' : 'Student');
+
+      if (!Array.isArray(targetThread.replies)) {
+        targetThread.replies = [];
       }
       if (replyText && replyText !== '-') {
-        messagesList[m].replies.push({
+        targetThread.replies.push({
           replyId: 'RPL-' + Date.now() + '-' + Math.floor(100 + Math.random() * 899),
           authorId: replierId,
           authorName: replierName,
@@ -6687,13 +6835,13 @@ function handleReplyBatchGroupMessage(payload) {
         });
       }
       if (newStatus === 'resolved' || newStatus === 'open' || newStatus === 'replied') {
-        messagesList[m].status = newStatus;
+        targetThread.status = newStatus;
       } else if (replyText && replyText !== '-') {
         var rRoleLower = String(replierRole).toLowerCase();
-        messagesList[m].status = (rRoleLower.indexOf('monitor') !== -1 || rRoleLower.indexOf('instructor') !== -1 || rRoleLower.indexOf('admin') !== -1) ? 'replied' : 'open';
+        targetThread.status = (rRoleLower.indexOf('monitor') !== -1 || rRoleLower.indexOf('instructor') !== -1 || rRoleLower.indexOf('admin') !== -1) ? 'replied' : 'open';
       }
-      messagesList[m].updatedAt = nowIso;
-      updatedMsg = messagesList[m];
+      targetThread.updatedAt = nowIso;
+      updatedMsg = targetThread;
       break;
     }
   }
@@ -6710,15 +6858,18 @@ function handleReplyBatchGroupMessage(payload) {
   }
   invalidateSheetCache('SETTINGS');
 
-  // Update BATCH_MESSAGES sheet row if present
+  // Update BATCH_MESSAGES sheet row if present (using header-resolved columns)
   try {
     var bSheet = DbConnectionManager.getSheet('BATCH_MESSAGES');
     if (bSheet) {
+      var bHeaders = ensureSheetHeadersCached(bSheet, 'BATCH_MESSAGES');
+      var repliesCol = bHeaders.indexOf('RepliesJSON') + 1 || 16;
+      var statusCol = bHeaders.indexOf('Status') + 1 || 17;
       var bData = bSheet.getDataRange().getValues();
       for (var r = 1; r < bData.length; r++) {
         if (String(bData[r][0]) === msgId) {
-          bSheet.getRange(r + 1, 16).setValue(formatReadableSheetData(updatedMsg.replies || [], 45000));
-          bSheet.getRange(r + 1, 17).setValue(updatedMsg.status || 'replied');
+          bSheet.getRange(r + 1, repliesCol).setValue(formatReadableSheetData(updatedMsg.replies || [], 45000));
+          bSheet.getRange(r + 1, statusCol).setValue(updatedMsg.status || 'replied');
           invalidateSheetCache('BATCH_MESSAGES');
           break;
         }
@@ -6729,7 +6880,7 @@ function handleReplyBatchGroupMessage(payload) {
   return {
     success: true,
     updatedMessage: updatedMsg,
-    batchGroupMessages: messagesList,
+    batchGroupMessages: isStaff ? messagesList : handleGetBatchGroupMessages({ _verifiedUserId: verifiedActorId, _verifiedRole: verifiedActorRole }).batchGroupMessages,
     message: 'Reply synced in real time!'
   };
 }
@@ -6739,43 +6890,54 @@ function handleGetBatchGroupMessages(payload) {
   var settings = getSheetData('SETTINGS');
   var batchGroupMessages = parseBatchGroupMessagesSettings(settings);
   var batchMonitors = parseBatchMonitorsSettings(settings);
-  var reqUserId = String(payload.userId || '').trim();
-  if (reqUserId) {
-    var usersList = getSheetData('USERS');
-    var reqUser = null;
-    for (var i = 0; i < usersList.length; i++) {
-      if (String(usersList[i].UserID) === reqUserId) {
-        reqUser = usersList[i];
-        break;
-      }
-    }
-    if (reqUser) {
-      var roleLower = String(reqUser.Role || 'user').toLowerCase().trim();
-      var isStaff = (roleLower === 'admin' || roleLower === 'superadmin' || roleLower === 'instructor');
-      if (!isStaff) {
-        var allowedBatchesLower = String(reqUser.Batch || 'General Batch')
-          .split(',')
-          .map(function(b) { return b.trim().toLowerCase(); })
-          .filter(Boolean);
-        var monitoredBatchesLower = [];
-        for (var bKey in batchMonitors) {
-          if (!batchMonitors.hasOwnProperty(bKey)) continue;
-          if (isUserInBatchMonitorsList(batchMonitors[bKey], reqUserId)) {
-            var lowB = String(bKey).trim().toLowerCase();
-            monitoredBatchesLower.push(lowB);
-            if (allowedBatchesLower.indexOf(lowB) === -1) allowedBatchesLower.push(lowB);
-          }
+  var verifiedRole = String(payload._verifiedRole || 'user').toLowerCase().trim();
+  var isVerifiedStaff = (verifiedRole === 'admin' || verifiedRole === 'superadmin');
+  var reqUserId = isVerifiedStaff
+    ? String(payload.userId || payload._verifiedUserId || '').trim()
+    : String(payload._verifiedUserId || '').trim();
+
+  if (!isVerifiedStaff) {
+    if (!reqUserId) {
+      batchGroupMessages = [];
+    } else {
+      var usersList = getSheetData('USERS');
+      var reqUser = null;
+      for (var i = 0; i < usersList.length; i++) {
+        if (String(usersList[i].UserID) === reqUserId) {
+          reqUser = usersList[i];
+          break;
         }
-        batchGroupMessages = batchGroupMessages.filter(function(m) {
-          var msgBatch = String(m.batchName || 'General Batch').trim().toLowerCase();
-          if (allowedBatchesLower.indexOf(msgBatch) === -1) return false;
-          if (String(m.visibility || '').toLowerCase() === 'private_monitor') {
-            var isMonOfBatch = monitoredBatchesLower.indexOf(msgBatch) !== -1;
-            var isStudentOwner = String(m.studentUserId || m.authorId || '') === reqUserId;
-            return isMonOfBatch || isStudentOwner;
+      }
+      if (!reqUser) {
+        batchGroupMessages = [];
+      } else {
+        var roleLower = String(reqUser.Role || 'user').toLowerCase().trim();
+        var isStaff = (roleLower === 'admin' || roleLower === 'superadmin' || roleLower === 'instructor');
+        if (!isStaff) {
+          var allowedBatchesLower = normalizeUserBatchesWithFreeTier(reqUser.Batch || 'General Batch')
+            .split(',')
+            .map(function(b) { return b.trim().toLowerCase(); })
+            .filter(Boolean);
+          var monitoredBatchesLower = [];
+          for (var bKey in batchMonitors) {
+            if (!batchMonitors.hasOwnProperty(bKey)) continue;
+            if (isUserInBatchMonitorsList(batchMonitors[bKey], reqUserId)) {
+              var lowB = String(bKey).trim().toLowerCase();
+              monitoredBatchesLower.push(lowB);
+              if (allowedBatchesLower.indexOf(lowB) === -1) allowedBatchesLower.push(lowB);
+            }
           }
-          return true;
-        });
+          batchGroupMessages = batchGroupMessages.filter(function(m) {
+            var msgBatch = String(m.batchName || m.batch || 'General Batch').trim().toLowerCase();
+            if (msgBatch !== 'all_batches' && allowedBatchesLower.indexOf(msgBatch) === -1) return false;
+            if (String(m.visibility || '').toLowerCase() === 'private_monitor') {
+              var isMonOfBatch = monitoredBatchesLower.indexOf(msgBatch) !== -1;
+              var isStudentOwner = String(m.studentUserId || m.authorId || m.senderId || '') === reqUserId;
+              return isMonOfBatch || isStudentOwner;
+            }
+            return true;
+          });
+        }
       }
     }
   }
@@ -6793,7 +6955,7 @@ function handleSaveSettings(payload) {
   var updatedKeys = [];
   for (var k in payload) {
     if (!Object.prototype.hasOwnProperty.call(payload, k)) continue;
-    if (k === 'actorId' || k === 'actorName') continue;
+    if (k === 'actorId' || k === 'actorName' || k.indexOf('_verified') === 0) continue;
     upsertSettingsJsonKey(k, payload[k]);
     updatedKeys.push(k);
   }
@@ -6836,8 +6998,8 @@ function handleDeleteBatchGroupMessage(payload) {
     return { success: false, message: 'Message not found.' };
   }
 
-  var msgSenderId = String(targetMsg.senderId || targetMsg.userId || '').trim();
-  var msgBatchLower = String(targetMsg.batch || targetMsg.targetBatch || '').toLowerCase().trim();
+  var msgSenderId = String(targetMsg.authorId || targetMsg.senderId || targetMsg.userId || '').trim();
+  var msgBatchLower = String(targetMsg.batchName || targetMsg.batch || targetMsg.targetBatch || '').toLowerCase().trim();
   var isAuthor = Boolean(actorId && msgSenderId && msgSenderId === actorId);
   var isMonitorForBatch = false;
   if (!isStaff && !isAuthor && actorId && msgBatchLower && msgBatchLower !== 'all_batches') {
@@ -6858,7 +7020,11 @@ function handleDeleteBatchGroupMessage(payload) {
     sheet.getRange(rowIdx, 2).setValue(formatReadableSheetData(messagesList, 48500));
     invalidateSheetCache('SETTINGS');
   }
-  return { success: true, batchGroupMessages: messagesList, message: 'Message removed.' };
+  return {
+    success: true,
+    batchGroupMessages: isStaff ? messagesList : handleGetBatchGroupMessages({ _verifiedUserId: actorId, _verifiedRole: actorRole }).batchGroupMessages,
+    message: 'Message removed.'
+  };
 }
 
 function handleVoteBatchPoll(payload) {
@@ -7770,23 +7936,57 @@ function handleSetupMonthlyActivityArchivalTrigger(payload) {
 // 2. Batch Fee Installment Ledger & Automated Receipt Generator
 function handleSaveFeeInstallmentRecord(payload) {
   var sheet = getOrCreateSheet('FEE_LEDGER');
+  var ledgerHeaders = ensureSheetHeadersCached(sheet, 'FEE_LEDGER');
   var receiptNo = String(payload.receiptNo || ('RPS-RCPT-' + Date.now().toString().slice(-6))).trim();
   var userId = sanitizeInput(payload.userId || payload.studentId || '-');
   var studentName = sanitizeInput(payload.studentName || 'Student');
   var batch = sanitizeInput(payload.batch || payload.batchName || 'General Batch');
   var branch = sanitizeInput(payload.branch || 'Main Headquarter Branch');
   var installmentNo = sanitizeInput(String(payload.installmentNo || '1st Installment'));
-  var amountPaid = Number(payload.amountPaid || 0);
-  var dueAmount = Number(payload.dueAmount !== undefined ? payload.dueAmount : (payload.balanceDue || 0));
+  var amountPaid = Number(payload.amountPaid || 0) || 0;
+  var dueAmount = Number(payload.dueAmount !== undefined ? payload.dueAmount : (payload.balanceDue || 0)) || 0;
   var paymentMode = sanitizeInput(payload.paymentMode || 'UPI / Online');
   var validityUntil = sanitizeInput(payload.validityUntil || payload.validUntil || '-');
   var issuedBy = sanitizeInput(payload.issuedBy || 'Admin');
   var nowIso = new Date().toISOString();
+  var feeType = sanitizeInput(payload.feeType || 'Batch');
+  var planName = sanitizeInput(payload.planName || installmentNo);
+  var utrVal = sanitizeInput(String(payload.utr || payload.transactionId || ('ADMIN-' + receiptNo)).trim());
+  var totalPlanFee = Number(payload.totalPlanFee !== undefined ? payload.totalPlanFee : (amountPaid + dueAmount)) || (amountPaid + dueAmount);
 
-  sheet.appendRow([
-    receiptNo, userId, studentName, batch, branch, installmentNo,
-    amountPaid, dueAmount, paymentMode, validityUntil, issuedBy, nowIso
-  ]);
+  var rowMap = {
+    'ReceiptNo': receiptNo,
+    'UserID': userId,
+    'StudentName': studentName,
+    'Batch': batch,
+    'Branch': branch,
+    'InstallmentNo': installmentNo,
+    'AmountPaid': amountPaid,
+    'DueAmount': dueAmount,
+    'PaymentMode': paymentMode,
+    'ValidityUntil': validityUntil,
+    'IssuedBy': issuedBy,
+    'Timestamp': nowIso,
+    'FeeType': feeType,
+    'PlanName': planName,
+    'ValidityDays': Number(payload.validityDays || 0) || '-',
+    'UTR': utrVal,
+    'Status': 'Approved',
+    'Remarks': sanitizeInput(payload.remarks || 'Admin Recorded Installment'),
+    'ReviewedBy': issuedBy,
+    'ReviewedAt': nowIso,
+    'CouponCode': sanitizeInput(payload.couponCode || '-'),
+    'DiscountAmount': Number(payload.discountAmount || 0) || 0,
+    'TotalPlanFee': totalPlanFee,
+    'InstallmentLabel': installmentNo,
+    'RemainingBalance': dueAmount
+  };
+  var rowArr = [];
+  for (var h = 0; h < ledgerHeaders.length; h++) {
+    var col = String(ledgerHeaders[h] || '').trim();
+    rowArr.push(rowMap[col] !== undefined ? rowMap[col] : '-');
+  }
+  sheet.appendRow(rowArr);
   invalidateSheetCache('FEE_LEDGER');
 
   return {
@@ -8593,7 +8793,8 @@ function handleGetAdminLiveTestRanks(payload) {
         if (!startMs || isNaN(startMs)) {
           matched = true;
         } else {
-          var rowMs = new Date(row.Timestamp || '').getTime();
+          var tsNormalized = String(row.Timestamp || '').trim().replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})/, '$1T$2');
+          var rowMs = new Date(tsNormalized).getTime();
           if (!isNaN(rowMs) && rowMs >= (startMs - 600000) && (!endMs || rowMs <= endMs)) {
             matched = true;
           }
@@ -8717,11 +8918,16 @@ function handleSendMobileVerificationOtp(payload) {
   if (!actorId) return { success: false, message: 'User session required.' };
 
   var userSheet = getOrCreateSheet('USERS');
+  var uHeaders = ensureSheetHeadersCached(userSheet, 'USERS');
+  var uidColIdx = uHeaders.indexOf('UserID') !== -1 ? uHeaders.indexOf('UserID') : 0;
+  var nameColIdx = uHeaders.indexOf('Name') !== -1 ? uHeaders.indexOf('Name') : 1;
+  var emailColIdx = uHeaders.indexOf('Email') !== -1 ? uHeaders.indexOf('Email') : 2;
+  var mobColIdx = uHeaders.indexOf('Mobile') !== -1 ? uHeaders.indexOf('Mobile') : 3;
   var data = userSheet.getDataRange().getValues();
   var userRow = null;
   var rowIdx = -1;
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][0] || '').trim() === actorId) {
+    if (String(data[i][uidColIdx] || '').trim() === actorId) {
       userRow = data[i];
       rowIdx = i + 1;
       break;
@@ -8729,12 +8935,13 @@ function handleSendMobileVerificationOtp(payload) {
   }
   if (!userRow) return { success: false, message: 'Account not found.' };
 
-  var targetMobile = mobileInput.length === 10 ? mobileInput : String(userRow[3] || '').replace(/[^0-9]/g, '').slice(-10);
+  var existingMobile = String(userRow[mobColIdx] || '').replace(/[^0-9]/g, '').slice(-10);
+  var targetMobile = mobileInput.length === 10 ? mobileInput : existingMobile;
   if (targetMobile.length !== 10) {
     return { success: false, message: 'Please enter a valid 10-digit Mobile Number first.' };
   }
-  if (mobileInput.length === 10 && mobileInput !== String(userRow[3] || '').trim()) {
-    userSheet.getRange(rowIdx, 4).setValue(mobileInput);
+  if (mobileInput.length === 10 && mobileInput !== existingMobile) {
+    userSheet.getRange(rowIdx, mobColIdx + 1).setValue(mobileInput);
     invalidateSheetCache('USERS');
   }
 
@@ -8747,15 +8954,15 @@ function handleSendMobileVerificationOtp(payload) {
 
   var channel = 'email_fallback';
   if (isWhatsAppWebhookConfigured()) {
-    var waSent = sendFreeWhatsAppOtpMessage(targetMobile, String(userRow[1] || 'Student'), otp, 'Mobile Number Verification');
+    var waSent = sendFreeWhatsAppOtpMessage(targetMobile, String(userRow[nameColIdx] || 'Student'), otp, 'Mobile Number Verification');
     if (waSent && waSent.webhookDispatched === true) channel = 'whatsapp';
   }
   if (channel !== 'whatsapp') {
-    var userEmail = String(userRow[2] || '').toLowerCase().trim();
+    var userEmail = String(userRow[emailColIdx] || '').toLowerCase().trim();
     sendPortalEmailNotification(
       userEmail,
       'Mobile Number Verification OTP (+91-' + targetMobile + ') — RP Skill | Ranjan Pathshala',
-      'Hello ' + String(userRow[1] || 'Student') + ',\n\nYou requested Mobile Number verification for +91-' + targetMobile + '.\n\nYour 6-digit Mobile Verification OTP is: ' + otp + '\n\nEnter this OTP in the Mobile Verification box on the portal to confirm +91-' + targetMobile + '.\n\nValid for 10 minutes.\nRP Skill | Ranjan Pathshala'
+      'Hello ' + String(userRow[nameColIdx] || 'Student') + ',\n\nYou requested Mobile Number verification for +91-' + targetMobile + '.\n\nYour 6-digit Mobile Verification OTP is: ' + otp + '\n\nEnter this OTP in the Mobile Verification box on the portal to confirm +91-' + targetMobile + '.\n\nValid for 10 minutes.\nRP Skill | Ranjan Pathshala'
     );
   }
 
@@ -9131,11 +9338,22 @@ function handleGetBatchLeaderboard(payload) {
 
 function handleSaveShorthandPadAnnotation(payload) {
   payload = payload || {};
-  var actorId = String(payload._verifiedUserId || payload.userId || '').trim();
+  var actorId = String(payload._verifiedUserId || '').trim();
   var actorRole = String(payload._verifiedRole || 'user').toLowerCase().trim();
+  var isStaff = (actorRole === 'admin' || actorRole === 'superadmin');
   var padKey = String(payload.padKey || payload.testResultId || payload.padId || payload.testId || '').trim();
   if (!padKey) {
     return { success: false, message: 'Pad or Test ID is required to save annotations.' };
+  }
+  var targetStudentId = String(payload.studentId || '').trim();
+  var isOwner = Boolean(actorId && targetStudentId && actorId === targetStudentId);
+  var isMonitor = false;
+  if (!isStaff && !isOwner && actorId) {
+    var monitoredList = getMonitoredBatchesForUserId(actorId);
+    isMonitor = monitoredList.length > 0;
+  }
+  if (!isStaff && !isMonitor && !isOwner) {
+    return { success: false, unauthorized: true, message: 'Forbidden: Only Admins, Batch Monitors, or the pad owner can annotate this shorthand pad.' };
   }
   var settings = getSheetData('SETTINGS');
   var map = {};
@@ -9159,11 +9377,11 @@ function handleSaveShorthandPadAnnotation(payload) {
     padKey: padKey,
     padId: String(payload.padId || ''),
     testId: String(payload.testResultId || payload.testId || ''),
-    studentId: String(payload.studentId || ''),
+    studentId: targetStudentId || actorId,
     reviewerId: actorId,
     reviewerName: reviewerLabel,
     AnnotatedBy: reviewerLabel,
-    reviewerRole: actorRole,
+    reviewerRole: isStaff ? actorRole : (isMonitor ? 'monitor' : 'student'),
     overlayUrl: overlayUrl,
     remarks: cleanRemarks,
     FeedbackNote: cleanRemarks,
@@ -9183,6 +9401,10 @@ function handleSaveShorthandPadAnnotation(payload) {
 
 function handleGetShorthandPadAnnotations(payload) {
   payload = payload || {};
+  var actorId = String(payload._verifiedUserId || '').trim();
+  var actorRole = String(payload._verifiedRole || 'user').toLowerCase().trim();
+  var isStaff = (actorRole === 'admin' || actorRole === 'superadmin');
+  var isMonitor = !isStaff && actorId ? (getMonitoredBatchesForUserId(actorId).length > 0) : false;
   var lookupKeys = [
     String(payload.padKey || '').trim(),
     String(payload.testResultId || '').trim(),
@@ -9207,6 +9429,9 @@ function handleGetShorthandPadAnnotations(payload) {
       }
     }
     if (matched) {
+      if (!isStaff && !isMonitor && actorId && matched.studentId && String(matched.studentId) !== actorId && String(matched.reviewerId || '') !== actorId) {
+        return { success: true, annotation: null, annotations: [] };
+      }
       if (!matched.FeedbackNote) matched.FeedbackNote = matched.remarks || '';
       if (!matched.AnnotatedBy) matched.AnnotatedBy = matched.reviewerName || 'Faculty';
     }
@@ -9217,15 +9442,22 @@ function handleGetShorthandPadAnnotations(payload) {
     };
   }
   var allList = [];
+  var filteredMap = {};
   for (var mk in map) {
     if (map.hasOwnProperty(mk) && map[mk]) {
       var item = map[mk];
+      if (!isStaff && !isMonitor && actorId) {
+        if (String(item.studentId || '') !== actorId && String(item.reviewerId || '') !== actorId) {
+          continue;
+        }
+      }
       if (!item.FeedbackNote) item.FeedbackNote = item.remarks || '';
       if (!item.AnnotatedBy) item.AnnotatedBy = item.reviewerName || 'Faculty';
       allList.push(item);
+      filteredMap[mk] = item;
     }
   }
-  return { success: true, annotations: allList, annotationsMap: map };
+  return { success: true, annotations: allList, annotationsMap: (isStaff || isMonitor) ? map : filteredMap };
 }
 
 // =========================================================================
@@ -9771,8 +10003,9 @@ function handleSubmitStudentFeePayment(payload) {
 
   var payloadTotalFee = Number(payload.totalPlanFee !== undefined ? payload.totalPlanFee : (payload.originalAmount !== undefined ? payload.originalAmount : amountPaid));
   var rawTotalFee = (!isNaN(payloadTotalFee) && payloadTotalFee >= 0) ? payloadTotalFee : amountPaid;
-  if (configuredFee !== null && configuredFee === 0) {
-    rawTotalFee = 0;
+  // Always enforce the server-configured plan fee when available so clients cannot tamper with plan price
+  if (configuredFee !== null && !isNaN(configuredFee)) {
+    rawTotalFee = configuredFee;
   }
 
   var couponCode = sanitizeInput(String(payload.couponCode || '').trim().toUpperCase());
@@ -9783,8 +10016,6 @@ function handleSubmitStudentFeePayment(payload) {
       return { success: false, message: cpEval.message };
     }
     discountAmount = cpEval.discountAmount;
-  } else if (payload.discountAmount !== undefined && Number(payload.discountAmount) > 0) {
-    discountAmount = Math.min(rawTotalFee, Math.max(0, Number(payload.discountAmount) || 0));
   }
   var netPlanFee = Math.max(0, rawTotalFee - discountAmount);
   var isZeroFeeApprovedFlow = Boolean(netPlanFee <= 0 || (configuredFee === 0) || (hasZeroFeeFlag && amountPaid <= 1 && netPlanFee <= 0));
@@ -9795,7 +10026,7 @@ function handleSubmitStudentFeePayment(payload) {
   if (isZeroFeeApprovedFlow) {
     amountPaid = 0;
     if (!normUtr || normUtr.length < 4 || normUtr === '-') {
-      utr = 'FREE-0-' + Date.now().toString().slice(-6);
+      utr = 'FREE-0-' + Date.now().toString().slice(-6) + '-' + Math.floor(1000 + Math.random() * 9000);
       normUtr = utr.toUpperCase();
     }
   } else {

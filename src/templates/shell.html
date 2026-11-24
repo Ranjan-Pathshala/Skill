@@ -47,19 +47,19 @@
 <div class="nav-menu-backdrop" id="nav-menu-backdrop" onclick="closeAllDeviceNavMenu()"></div>
 <header>
     <div class="nav-container">
-      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; min-width: 0;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; width: 100%; justify-content: space-between; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; min-width: 0; flex: 1 1 auto;">
           <button type="button" id="all-device-menu-btn" onclick="toggleAllDeviceNavMenu(event)" title="Toggle Workspace Menu" aria-label="Toggle Workspace Menu" aria-expanded="false">
             <span class="rp-interactive-menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
             <span>Menu</span>
           </button>
-          <div class="brand" onclick="navigateTo('dashboard', true, true)" style="cursor: pointer;" title="Go to Dashboard">
+          <div class="brand" onclick="navigateTo('dashboard', true, true)" style="cursor: pointer; min-width: 0;" title="Go to Dashboard">
             <img id="app-logo" src="/api/media-proxy?driveId=1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_&kind=image" data-drive-id="1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_" referrerpolicy="no-referrer" alt="Ranjan Pathshala Skill Logo" fetchpriority="high" decoding="async" onerror="if(window.rpHandleImageError){window.rpHandleImageError(this);}else if(!this.dataset.fb){this.dataset.fb='1';this.src='https://lh3.googleusercontent.com/d/1NuRUWqMk9uP8FsUCYGsf5Qq9ersIigv_=s512';}">
             <span class="brand-title">Ranjan Pathshala Skill</span>
           </div>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
           <!-- Notification Bell Icon with 7-Day Upload & Live Alerts (Visible Only When Logged In) -->
           <button type="button" id="header-notification-bell-btn" class="rp-notif-bell-btn" style="display: none;" onclick="toggleNotificationCenterDrawer()" title="Upload & Live Alerts (Auto-removed after 7 days)" aria-label="Notifications">
             <svg class="rp-notif-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
